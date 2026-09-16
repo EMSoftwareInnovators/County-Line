@@ -127,6 +127,51 @@ check('and leaves settings alone',
 check('Final Rental storage is still untouched at the end',
   await page.evaluate(() => localStorage.getItem('finalrental.save') === '{"night":3}'));
 
+/* ---- a browser that refuses storage altogether ----
+   Firefox in a private window, Safari with site data blocked, and any
+   browser with third-party storage partitioned off all throw on the first
+   localStorage access. A game that dies on the options screen because it
+   could not remember a volume slider is worse than one that forgets it. */
+const refused = await page.evaluate(() => {
+  const st = window.__cl.storage;
+  const real = Object.getOwnPropertyDescriptor(Window.prototype, 'localStorage')
+    || Object.getOwnPropertyDescriptor(window, 'localStorage');
+  const thrower = new Proxy({}, {
+    get() { throw new DOMException('The operation is insecure.', 'SecurityError'); },
+    set() { throw new DOMException('The operation is insecure.', 'SecurityError'); },
+  });
+  Object.defineProperty(window, 'localStorage', { configurable: true, get: () => thrower });
+  st._reset();
+  const out = {};
+  try {
+    out.available = st.available();
+    const S = new window.__cl.settings.Settings();
+    out.loaded = S.load().volMaster;
+    out.saved = S.save();
+    S.set('volMaster', 0.5);
+    out.reloaded = new window.__cl.settings.Settings().load().volMaster;
+    const G = new window.__cl.save.SaveGame();
+    out.saveLoad = G.load({ campaigns: new Set(['test']), levels: new Set(['testbed']) }).ok;
+    out.threw = false;
+  } catch (e) {
+    out.threw = e.name + ': ' + e.message;
+  }
+  if (real) Object.defineProperty(window, 'localStorage', real);
+  st._reset();
+  return out;
+});
+check('a browser that refuses storage does not crash the game', refused.threw === false,
+  String(refused.threw));
+check('and settings still load as defaults', refused.loaded === 0.8, String(refused.loaded));
+check('and saving reports that it did not stick', refused.saved === false, String(refused.saved));
+check('and there is no save to continue from', refused.saveLoad === false, String(refused.saveLoad));
+
+/* and the game itself keeps running */
+await page.waitForTimeout(600);
+check('the game is still running afterwards',
+  await page.evaluate(() => window.__game.state === 'PLAY' || window.__game.state === 'TITLE'),
+  await page.evaluate(() => window.__game.state));
+
 check('no page errors', page.logs.filter((l) => l.startsWith('[pageerror]')).length === 0,
   page.logs.join(' | '));
 
