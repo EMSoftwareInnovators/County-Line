@@ -1,0 +1,180 @@
+/* ============================================================
+   COUNTY LINE -- front-end styling.
+
+   The layout technique is Final Rental's, because it is the right one: a
+   4:3 "cabinet" sized to the window, `container-type: size` on it, and
+   every dimension in `cqw`. The interface then scales with the window
+   exactly like a fixed-resolution console would, while the text itself
+   stays vector-crisp instead of being drawn into a 320-pixel framebuffer.
+
+   The LOOK is not Final Rental's. That game was amber-on-black 1996
+   video-store signage. County Line's palette here is deliberately plain --
+   bone on charcoal, one accent -- because Stage 1 branding should be
+   legible and forgettable, and the real thing comes later.
+
+   Browser note: `container-type: size` and `cqw` are container queries,
+   supported in Chrome 105+ and Firefox 110+. There is no fallback and
+   none is wanted: below those versions the game itself will not run.
+   ============================================================ */
+:root{
+  --bone:#d9d3c4;
+  --dim:#8b8578;
+  --accent:#c8b46a;
+  --warn:#c9603f;
+  --good:#79b06a;
+  --ink:#121110;
+  --shadow:0 0.4cqw 0 rgba(0,0,0,.85);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden}
+body{
+  display:grid;place-items:center;
+  font-family:"Courier New",Courier,ui-monospace,monospace;
+  color:var(--bone);
+  -webkit-font-smoothing:none;
+  cursor:default;
+}
+#cabinet{
+  position:relative;
+  width:min(100vw, calc(100vh * 4 / 3));
+  height:min(100vh, calc(100vw * 3 / 4));
+  container-type:size;
+  background:#000;
+  overflow:hidden;
+  user-select:none;
+}
+#screen{
+  position:absolute;inset:0;width:100%;height:100%;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  display:block;
+}
+.layer{position:absolute;inset:0;pointer-events:none;font-size:3.0cqw;line-height:1.35}
+.hidden{display:none !important}
+
+/* ---------------- HUD ---------------- */
+#clock{position:absolute;top:2cqw;left:2.4cqw;letter-spacing:.12cqw;text-shadow:var(--shadow)}
+#clock-time{display:block;font-size:4.2cqw;font-weight:bold}
+#clock-label{display:block;font-size:2.2cqw;color:var(--dim)}
+
+#reticle{
+  position:absolute;left:50%;top:50%;width:1.1cqw;height:1.1cqw;
+  transform:translate(-50%,-50%);
+  border:0.26cqw solid rgba(230,226,214,.5);
+  border-radius:50%;
+  transition:width .08s,height .08s,border-color .08s;
+}
+#reticle.hot{width:2.1cqw;height:2.1cqw;border-color:var(--accent)}
+#reticle.holding{
+  width:4.2cqw;height:4.2cqw;border-color:var(--dim);
+  background:conic-gradient(var(--accent) calc(var(--hold,0) * 360deg), transparent 0);
+}
+
+#prompt-wrap{position:absolute;left:50%;top:58%;transform:translateX(-50%);text-align:center;width:80cqw}
+#prompt{font-size:2.9cqw;text-shadow:var(--shadow);white-space:pre-line}
+#prompt-sub{font-size:2.2cqw;color:var(--dim);text-shadow:var(--shadow)}
+#prompt .hold{color:var(--accent);font-weight:bold}
+
+#objective{
+  position:absolute;top:2.2cqw;right:2.4cqw;max-width:44cqw;text-align:right;
+  font-size:2.3cqw;color:var(--accent);text-shadow:var(--shadow);
+}
+
+#toasts{position:absolute;left:2.4cqw;bottom:2.4cqw;max-width:56cqw}
+.toast{
+  font-size:2.3cqw;margin-top:.6cqw;text-shadow:var(--shadow);
+  background:rgba(10,10,10,.55);padding:.3cqw .8cqw;
+}
+.toast.good{color:var(--good)}
+.toast.warn{color:var(--warn)}
+
+#notice{
+  display:grid;place-items:center;align-content:end;
+  padding-bottom:12cqw;font-size:2.6cqw;color:var(--dim);text-shadow:var(--shadow);
+}
+
+/* ---------------- key glyphs ---------------- */
+.key{
+  display:inline-block;padding:0 .7cqw;margin-right:.6cqw;
+  border:0.24cqw solid var(--bone);color:var(--bone);
+  font-size:.86em;line-height:1.5;vertical-align:baseline;
+  border-radius:.3cqw;
+}
+.key.unbound{border-color:var(--warn);color:var(--warn)}
+.key.btn{border-radius:50%;padding:0 .55cqw;min-width:2.4cqw;text-align:center}
+.key.x-a{border-color:#5fb35a;color:#5fb35a}
+.key.x-b{border-color:#c9553f;color:#c9553f}
+.key.x-x{border-color:#4f7fc9;color:#4f7fc9}
+.key.x-y{border-color:#d2ab48;color:#d2ab48}
+.key.x-m,.key.x-d,.key.p-m,.key.p-d{border-radius:.3cqw}
+.key.p-x,.key.p-o,.key.p-s,.key.p-t{border-color:#b9b4c8;color:#b9b4c8}
+.key-or{opacity:.5;margin:0 .2cqw}
+
+/* ---------------- title ---------------- */
+#title{display:grid;place-items:center;background:rgba(6,6,8,.72)}
+.title-wrap{text-align:center;width:72cqw}
+.title-logo{line-height:1}
+.title-logo .l1,.title-logo .l2{
+  display:block;font-weight:bold;letter-spacing:1.6cqw;
+  text-shadow:0 0.6cqw 0 rgba(0,0,0,.9);
+}
+.title-logo .l1{font-size:9cqw;color:var(--bone)}
+.title-logo .l2{font-size:9cqw;color:var(--accent);margin-top:-.6cqw}
+.tag{margin-top:1.4cqw;font-size:2.2cqw;color:var(--dim);letter-spacing:.3cqw}
+#title-menu{list-style:none;margin-top:4cqw}
+#title-menu li{
+  font-size:3.2cqw;padding:.5cqw 0;color:var(--dim);
+}
+#title-menu li.sel{color:var(--bone)}
+#title-menu li.sel::before{content:"> ";color:var(--accent)}
+#title-menu li.off{opacity:.4}
+#title-menu .sub{display:block;font-size:2cqw;color:var(--dim);opacity:.8}
+.hint{margin-top:3cqw;font-size:2cqw;color:var(--dim)}
+.copyright{position:absolute;bottom:2cqw;width:100%;text-align:center;font-size:1.8cqw;color:var(--dim)}
+
+/* ---------------- panels ---------------- */
+#panel{display:grid;place-items:center;background:rgba(6,6,8,.8)}
+.pad{
+  width:82cqw;max-height:88cqw;overflow:hidden;
+  background:rgba(18,17,16,.94);
+  border:0.3cqw solid var(--dim);
+  padding:2.2cqw 3cqw;
+}
+.pad h2{font-size:3.4cqw;letter-spacing:.5cqw;color:var(--accent);margin-bottom:1.2cqw}
+.pad .blurb{font-size:2cqw;color:var(--dim);margin-bottom:1.2cqw}
+.pad ul.menu{list-style:none}
+.pad ul.menu li{font-size:2.4cqw;padding:.22cqw 0;display:flex;gap:1cqw;color:var(--dim)}
+.pad ul.menu li.note{
+  display:block;color:var(--accent);opacity:.75;
+  font-size:2cqw;margin-top:1cqw;letter-spacing:.3cqw;
+}
+.pad ul.menu li.note.quiet{color:var(--dim);letter-spacing:0;opacity:.7}
+.pad ul.menu li.opt.sel{color:var(--bone)}
+.pad ul.menu li.opt.sel .lbl::before{content:"> ";color:var(--accent)}
+.pad ul.menu li.opt.off{opacity:.4}
+.pad ul.menu li .lbl{flex:1 1 auto}
+.pad ul.menu li .val{flex:0 0 auto;color:var(--accent);white-space:pre}
+.pad .pad-foot{margin-top:1.6cqw;font-size:1.9cqw;color:var(--dim)}
+
+/* ---------------- debug ---------------- */
+#debug{
+  padding:1.2cqw;font-size:1.9cqw;line-height:1.25;color:#9fd07a;
+  text-shadow:0 0.2cqw 0 #000;
+}
+#debug .dbg-line{background:rgba(0,0,0,.5);display:inline-block;padding:.2cqw .6cqw}
+#debug table.dbg{background:rgba(0,0,0,.55);border-collapse:collapse}
+#debug table.dbg th{text-align:left;padding:0 1.2cqw 0 .6cqw;color:#6f8f56;font-weight:normal}
+#debug table.dbg td{padding:0 .6cqw 0 0;white-space:pre}
+#debug .dbg-keys{margin-top:.6cqw;color:#6f8f56;background:rgba(0,0,0,.5);display:inline-block;padding:.2cqw .6cqw}
+
+/* ---------------- fade ---------------- */
+#fade{background:#000;opacity:0;transition:opacity .12s linear}
+
+/* ---------------- too small / wrong shape ---------------- */
+#rotate{display:none}
+@media (max-width:480px) and (orientation:portrait){
+  #cabinet{display:none}
+  #rotate{
+    display:grid;place-items:center;height:100%;padding:2rem;
+    text-align:center;font-size:1rem;color:var(--dim);
+  }
+}

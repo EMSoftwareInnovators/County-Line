@@ -1,0 +1,61 @@
+{
+  "name": "county-line",
+  "version": "0.1.0",
+  "private": true,
+  "description": "COUNTY LINE - first-person horror. Stage 1: technical foundation.",
+  "type": "module",
+  "scripts": {
+    "start": "node serve.cjs",
+    "dev": "node serve.cjs",
+    "test": "node tools/check.mjs",
+    "check": "node tools/check.mjs",
+    "lint": "node tools/lint.mjs",
+    "icon": "node tools/icon.mjs",
+    "shots": "node tools/shots.mjs",
+    "build": "node tools/build.mjs",
+    "app": "electron .",
+    "dist": "electron-builder --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
+    "check:app": "node tools/electron.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "main": "electron/main.cjs",
+  "productName": "County Line",
+  "author": "EM Software Innovators",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "playwright-core": "^1.62.1"
+  },
+  "build": {
+    "appId": "com.emsoftwareinnovators.countyline",
+    "productName": "County Line",
+    "copyright": "(c) 2026 EM Software Innovators",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": [
+      "index.html",
+      "src/**/*",
+      "electron/**/*",
+      "package.json",
+      "!**/{.DS_Store,.git,.github,node_modules}"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [{ "target": "zip", "arch": ["arm64", "x64"] }],
+      "category": "public.app-category.games",
+      "artifactName": "county-line-${version}-macos-${arch}.${ext}"
+    },
+    "win": {
+      "target": [{ "target": "zip", "arch": ["x64"] }],
+      "artifactName": "county-line-${version}-windows-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "category": "Game",
+      "artifactName": "county-line-${version}-linux-${arch}.${ext}"
+    }
+  }
+}
