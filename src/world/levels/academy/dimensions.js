@@ -177,62 +177,224 @@ export const X_E_HALL_E = X_WING_E_IN + REAR_HALL_W;   // east rear hall's east 
 /* ============================================================
    HEIGHTS
 
-   No story height is printed on any of the supplied references, so these
-   are chosen rather than measured, and they are chosen ONCE and applied
-   consistently rather than varied room by room.
+   ------------------------------------------------------------
+   STAGE 2.1: THIS WHOLE SECTION WAS RE-DERIVED
+   ------------------------------------------------------------
+   Stage 2 put the first-floor ceiling at 14'6" and the second floor at
+   16'0". Photographs of the interior show that was too low by a wide
+   margin: the rooms are very tall, the sash windows run from a low sill
+   to near the ceiling, the doors are tall, and there is a great deal of
+   plain wall above both.
 
-   14'6" on the first floor sits in the middle of the brief's 14-16 ft
-   band and is unremarkable for an 1850s institutional building of this
-   size. 18 inches of floor structure over it puts the second floor at
-   exactly 16'0" -- which is 24 risers of 8 inches, an integer flight, and
-   that is why the number was chosen. The staircase governs the story
-   height, not the other way round.
+   NONE OF THESE NUMBERS IS A DOCUMENTED HISTORICAL MEASUREMENT. No
+   supplied reference gives a story height. They are a photographic
+   estimate, chosen once and applied through a small number of classes
+   rather than varied room by room, and they are the first thing to
+   replace if a measured section ever turns up.
+
+   The estimate starts from the main central first-floor room at
+   approximately 4.8 m clear -- call it 15'9" -- and the rest follows from
+   that and from the staircase.
    ============================================================ */
 
-export const FLOOR1_CEIL = ftin(14, 6);        // 4.420 m
-export const FLOOR_STRUCTURE = ftin(1, 6);     // 0.457 m
-export const FLOOR2 = FLOOR1_CEIL + FLOOR_STRUCTURE;   // 16'0" = 4.877 m
-export const FLOOR2_CEIL = FLOOR2 + ft(13);    // 29'0"
+/** The principal first-floor rooms: the central room. Photographic
+    estimate, ~4.8 m. */
+export const CEIL_PRINCIPAL = ftin(15, 9);     // 4.801 m
 
-export const STAIR_RISERS = 24;
+/** The major exhibit and office rooms in the wings. Nine inches of
+    plaster below the same structural floor, which is how a secondary room
+    in a building like this is usually finished. ~4.57 m. */
+export const CEIL_SECONDARY = ftin(15, 0);     // 4.572 m
+
+/** Closets, the restroom, the store rooms. A fifteen-foot ceiling over a
+    four-foot-deep restroom is a joke, and a furred-down service ceiling
+    is what is actually there. */
+export const CEIL_SERVICE = ftin(11, 0);
+
+/** The structural depth between the principal ceiling and the floor
+    above: joists, the boarding on them and the finish floor. */
+export const FLOOR_STRUCTURE = ftin(1, 7);
+
+/** Second floor finish level. 15'9" + 1'7" = 17'4", which is 26 risers of
+    exactly 8 inches -- see the staircase below, which is what fixes it. */
+export const FLOOR2 = CEIL_PRINCIPAL + FLOOR_STRUCTURE;   // 17'4" = 5.283 m
+
+/** Second-floor ceilings. Upper stories in a building of this date sit
+    lower than the principal floor, and the photographs of the front show
+    the upper windows shorter than the lower. */
+export const CEIL_UPPER = ftin(13, 6);
+export const FLOOR2_CEIL = FLOOR2 + CEIL_UPPER;           // 30'10"
+
+/** Kept under its old name because a great deal refers to it: the
+    structural soffit over the first floor, which the principal rooms
+    reach and the secondary rooms stop short of. */
+export const FLOOR1_CEIL = CEIL_PRINCIPAL;
+
+/* ------------------------------------------------------------
+   THE STAIRCASE
+
+   The story height and the staircase are one problem, and the staircase
+   is the harder constraint: the whole switchback -- a half-landing plus
+   one flight's run -- has to live inside the 13'5" the middle band leaves
+   between the outer wall and the rear hall, and the plan's horizontal
+   geometry is not up for revision.
+
+   26 risers of exactly 8 inches reach 17'4". Thirteen to a flight at a
+   9¼" run is 10'0¼", and with a 3'4" half-landing the switchback is
+   13'4¼" in 13'5". 2R+T works out at 25¼", which is an ordinary figure
+   for an institutional stair of this date -- steeper than a modern code
+   stair and not steeper than the building.
+   ------------------------------------------------------------ */
+export const STAIR_RISERS = 26;
 export const STAIR_RISE = FLOOR2 / STAIR_RISERS;   // exactly 8"
-export const STAIR_RUN = inch(10);
+export const STAIR_RUN = inch(9.25);
 export const STAIR_WIDTH = ftin(3, 8);
-/** Half-landing depth, at the turn of each switchback. 3'4" rather than a
-    more generous figure because the whole switchback -- landing plus a
-    ten-foot run -- has to live inside the 13'5" the middle band leaves
-    between the outer wall and the rear hall. It does, with an inch over. */
 export const STAIR_LANDING = ftin(3, 4);
+/** Handrail height above the nosing line, and the guard round a well. */
+export const RAIL_H = ftin(2, 10);
 
-/* ---- roof ---- */
-export const ROOF = ftin(30, 6);               // deck / parapet base
-export const PARAPET_TOP = ft(34);             // top of the merlons
-export const MERLON = ftin(2, 6);              // merlon width
-export const CRENEL = ft(2);                   // gap width
-export const MERLON_RISE = ftin(1, 9);         // how far a merlon stands proud
+/* ------------------------------------------------------------
+   THE ROOF LINE
 
-/* ---- porch roofs ---- */
-export const PORCH_CEIL = ftin(13, 0);         // underside of the front gallery
+   The historic photograph shows the CENTRAL BLOCK STANDING ABOVE THE TWO
+   FRONT BLOCKS, with its own lettered band and its own crenellated
+   parapet over that. Stage 2 ran one parapet height round the whole
+   building, which is the single thing that made the front read as squat.
+   ------------------------------------------------------------ */
+export const ROOF = ftin(32, 4);               // wing deck / parapet base
+export const PARAPET_CAP = ftin(34, 6);        // top of the plain parapet
+export const PARAPET_TOP = ftin(36, 6);        // top of the merlons
+
+/** The central block, which stands clear of the wings. */
+export const ROOF_CENTER = ftin(37, 6);
+export const PARAPET_CAP_CENTER = ftin(39, 6);
+export const PARAPET_TOP_CENTER = ftin(41, 6);
+
+/** Merlon rhythm. Counted off the historic front elevation: roughly eight
+    merlons across a 34'3" block, which puts the pitch near 4'3". */
+export const MERLON = ftin(2, 6);
+export const CRENEL = ftin(1, 9);
+export const MERLON_RISE = PARAPET_TOP - PARAPET_CAP;
+
+/** The corbel table under the parapet: the row of small brackets that
+    runs round the building and along the portico, picked out in a
+    contrasting color on the real elevation. */
+export const CORBEL_PITCH = ftin(2, 2);
+export const CORBEL_W = inch(9);
+export const CORBEL_H = inch(11);
+export const CORBEL_PROJ = inch(7);
+
+/* ------------------------------------------------------------
+   THE PORTICO AND ITS TERRACE
+
+   ONE story of columns, a terrace over it at second-floor level with a
+   crenellated parapet, and the central block's own upper wall standing
+   behind that with its tall windows. It is not a two-story open loggia,
+   which is what Stage 2 built.
+   ------------------------------------------------------------ */
+/** The terrace deck: the same level as the second floor, because that is
+    the floor its door opens off. */
+export const TERRACE = FLOOR2;
+/** Underside of the portico entablature. The columns run to here. */
+export const PORTICO_SOFFIT = TERRACE - ftin(1, 6);
+/** The entablature band the terrace sits on. */
+export const PORTICO_BAND = ftin(1, 6);
+/** The terrace's crenellated parapet. */
+export const TERRACE_PARAPET = TERRACE + ftin(2, 2);
+export const TERRACE_MERLON_TOP = TERRACE + ftin(3, 4);
+
+export const COLUMN_COUNT = 6;
+export const COLUMN_DIA = ftin(1, 2);
+export const COLUMN_BASE_H = ftin(1, 2);
+export const COLUMN_CAP_H = ftin(1, 0);
+
+/** The rear porch is a lean-to and has no terrace over it. */
 export const REAR_PORCH_CEIL = ftin(13, 6);
+/** Kept for the few places that still ask for "the porch ceiling". */
+export const PORCH_CEIL = PORTICO_SOFFIT;
 
 /* ============================================================
    OPENINGS
+
+   Tall and narrow, deeply recessed, multi-pane sash. The interior
+   photographs are the evidence for how tall: the windows run from a low
+   sill almost to the ceiling and are the dominant vertical element of
+   every room.
    ============================================================ */
-
-/** Tall and narrow, with a drip mold over each: the Tudor-Gothic rhythm
-    that is most of what makes the elevations recognisable. */
-export const WIN_W = ft(4);
+export const WIN_W = ftin(3, 10);
 export const WIN1_SILL = ftin(2, 9);
-export const WIN1_HEAD = ftin(11, 6);
+export const WIN1_HEAD = ftin(13, 0);          // 10'3" of window
 export const WIN2_SILL = ftin(2, 6);
-export const WIN2_HEAD = ftin(10, 6);
+export const WIN2_HEAD = ftin(11, 0);          // 8'6" of window
+/** How far the opening is recessed from the outer face of the masonry. */
+export const WIN_REVEAL = inch(11);
+/** Panes per sash, across and up. Three by four is about the finest grid
+    that still reads as a window rather than as static at 320x240. */
+export const PANES_X = 3;
+export const PANES_Y1 = 4;
+export const PANES_Y2 = 3;
 
-export const DOOR_H = ftin(7, 6);              // interior single leaf
-export const DOOR_W = ftin(3, 4);
-export const DBL_W = ft(6);                    // the central double doors
-export const DBL_H = ftin(9, 0);
-export const EXT_DOOR_W = ftin(3, 8);
-export const EXT_DOOR_H = ft(8);
+/* ---- doors ----
+   THE ACADEMY'S DOORS ARE NOT THE ENGINE'S DOORS. SCALE.doorHeight is
+   6'8", which is a modern domestic leaf and is what a later terminal
+   fit-out will want; nothing in this building is that size. These are
+   separate on purpose, and both exist. */
+export const DOOR_H = ftin(8, 6);              // interior single leaf
+export const DOOR_W = ftin(3, 8);
+export const SERVICE_DOOR_H = ftin(7, 6);      // closets and the restroom
+export const SERVICE_DOOR_W = ftin(2, 10);
+export const EXT_DOOR_W = ftin(3, 10);
+export const EXT_DOOR_H = ftin(9, 0);
+/** The central double doors, which have the arched head the interior
+    photograph shows. */
+export const DBL_W = ftin(6, 6);
+export const DBL_H = ftin(11, 6);
+export const DBL_ARCH = ftin(1, 8);            // rise of the arched head
+
+/* ============================================================
+   INTERIOR TRIM
+
+   From the interior photographs: painted vertical beadboard wainscot with
+   a capping rail, a substantial baseboard under it, and a great deal of
+   plain plaster above.
+   ============================================================ */
+export const BASE_H = ftin(1, 0);              // baseboard
+export const WAINSCOT_H = ftin(3, 4);          // top of the cap rail
+export const WAINSCOT_CAP = inch(3);           // depth of the cap itself
+export const PICTURE_RAIL = ftin(11, 6);       // where the plaster stops
+
+/* ============================================================
+   THE CENTRAL ROOM'S COLUMNS
+
+   The interior photograph of the large central first-floor room shows
+   slender white painted structural columns running floor to ceiling, with
+   a stepped base and a simple molded capital. They are certainly there
+   and they are certainly slender.
+
+   WHAT IS NOT ESTABLISHED IS HOW MANY, OR EXACTLY WHERE. One oblique
+   photograph shows four of them, in what reads as two receding lines, but
+   it does not show the room's corners and it cannot be counted from.
+
+   So the positions live HERE, in one table, in room-local coordinates --
+   which is the whole point: when a better photograph or a measured plan
+   turns up, this array changes and nothing else does. Two rows of three,
+   dividing the 44'3" width into a wide center bay with an aisle each
+   side, is the most restrained arrangement consistent with the view.
+   ============================================================ */
+export const COLUMN_ROW_X = ftin(11, 0);
+export const CENTRAL_ROOM_COLUMNS = [
+  { x: -COLUMN_ROW_X, z: -ftin(10, 6) },
+  { x: -COLUMN_ROW_X, z: 0 },
+  { x: -COLUMN_ROW_X, z: +ftin(10, 6) },
+  { x: +COLUMN_ROW_X, z: -ftin(10, 6) },
+  { x: +COLUMN_ROW_X, z: 0 },
+  { x: +COLUMN_ROW_X, z: +ftin(10, 6) },
+];
+/** Slender: the photograph's columns are structural posts, not classical
+    orders. Roughly a foot through, with a stepped base and a molded cap. */
+export const INT_COLUMN_DIA = inch(11);
+export const INT_COLUMN_BASE_H = ftin(1, 4);
+export const INT_COLUMN_CAP_H = ftin(1, 2);
 
 /* ============================================================
    GROUNDS
@@ -246,6 +408,66 @@ export const REAR_GROUND = ft(50);             // ground north of the wings
 
 /** The garden floor is a step below the porch, not down at street grade. */
 export const GARDEN_LEVEL = -ftin(1, 6);
+
+/* ============================================================
+   THE STAIR HALL ZONE -- REBUILT IN STAGE 2.1
+
+   Stage 2 dropped a staircase into the middle band and then wedged a
+   restroom into whatever was left, which produced a four-foot closet
+   overlapping the upper flight and two doors opening into the side of a
+   stair. This is that zone set out as rectangles first, from which the
+   geometry is built -- nothing here is nudged afterwards.
+
+   The west wing's middle band, looking down on it (the east wing is the
+   mirror image, X negated):
+
+     X_W_IN                            X_W_HALL_W       X_WING_W_IN
+     -54'9"                              -41'4"            -23'9"
+        |                                    |                 |
+        +------------------------------------+-----------------+  Z_MID_N
+        |                                    |                 |   22'1"
+        |          R E S T R O O M           |                 |
+        |          13'5" x 5'2"              |                 |
+        |                                    |   W E S T       |
+        +------------------------------------+   R E A R       |  Z_STAIR_N
+        |  landing |  flight B  ->  (up)     |   H A L L       |   16'11"
+        |  3'4"    |  13 x 9¼" to 17'4"      |                 |
+        |  wide    |- - - - - - - - - - - - -| ) restroom door |
+        |  8'8"    |  flight A  <-  (up)     |   17'7" x 13'0" |
+        |  high    |  13 x 9¼" from 0        | ) stair door    |
+        +------------------------------------+-----------------+  Z_MID_S
+                   ^                         ^                      9'1"
+                   X_STAIR_TURN              X_W_HALL_W
+                   -51'4½"
+
+   You come in from the rear hall at the FOOT of flight A, climb west,
+   turn on the half-landing against the outer wall, and climb back east,
+   arriving over the doorway you came in by. The restroom is its own
+   enclosed room across the north end of the band, entered from the rear
+   hall, and it touches the staircase nowhere.
+   ============================================================ */
+
+/** Between the two flights of a switchback: enough to get a hand round
+    the newel and no more. */
+export const STAIR_GAP = inch(6);
+export const STAIR_WELL_D = 2 * STAIR_WIDTH + STAIR_GAP;      // 7'10"
+
+export const Z_STAIR_S = Z_MID_S;
+export const Z_STAIR_N = Z_MID_S + STAIR_WELL_D;              // 16'11"
+/** Center lines of the two flights. A is the one you step on. */
+export const Z_FLIGHT_A = Z_STAIR_S + STAIR_WIDTH / 2;
+export const Z_FLIGHT_B = Z_STAIR_N - STAIR_WIDTH / 2;
+
+/** The service band across the north end of the stair hall. */
+export const Z_SERVICE_S = Z_STAIR_N;
+export const Z_SERVICE_N = Z_MID_N;
+
+/** Where each switchback turns: the inner edge of its half-landing. */
+export const X_STAIR_TURN_W = X_W_IN + STAIR_LANDING;
+export const X_STAIR_TURN_E = X_E_IN - STAIR_LANDING;
+/** And where you step on, which is the stair hall's inner wall. */
+export const X_STAIR_FOOT_W = X_STAIR_TURN_W + (STAIR_RISERS / 2) * STAIR_RUN;
+export const X_STAIR_FOOT_E = X_STAIR_TURN_E - (STAIR_RISERS / 2) * STAIR_RUN;
 
 /* ============================================================
    A convenience bundle, for the debug overlay and the tests.

@@ -19,7 +19,7 @@
    ============================================================ */
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
-import { dripMold, stringCourse, trimBox } from './parts.js';
+import { sashWindow, stringCourse, trimBox, windowSurround } from './parts.js';
 
 /* Every window in the building, as (station along the run) -> opening.
    Stations are absolute world coordinates; the run converts them. */
@@ -42,16 +42,26 @@ const DOOR = (at, opt = {}) => ({ at, kind: 'door', ...opt });
 function story(b, seg, level, openings) {
   const alongX = seg.axis === 'x';
   const y0 = level === 1 ? D.GRADE - ft(2) : D.FLOOR2;
-  const y1 = level === 1 ? D.FLOOR2 : D.ROOF;
+  const y1 = level === 1 ? D.FLOOR2 : (seg.top || D.ROOF);
   const holes = openings.map((o) => ({
-    at: (alongX ? o.at - seg.from : o.at - seg.from),
+    at: o.at - seg.from,
     width: o.width,
     y0: o.sill,
     y1: o.head,
     kind: o.kind,
+    door: o.door && {
+      material: b.M.doorLeaf, frameMaterial: b.M.trimDark, ...o.door,
+    },
   }));
 
-  b.wall({
+  /* `wallWith`, not `wall` plus a door loop: the leaf is hung in the hole
+     the same call cut, at the height that call cut it. This used to place
+     every door at y = 0 regardless of its sill, which put the second
+     story's terrace door down in the ground-floor doorway. `facing` is how
+     the wall's outward side becomes the door's yaw. */
+  const facing = (seg.face === 'south' || seg.face === 'west') ? -1 : 1;
+  for (const h of holes) if (h.door) h.facing = facing;
+  b.wallWith({
     x0: alongX ? seg.from : seg.line,
     z0: alongX ? seg.line : seg.from,
     x1: alongX ? seg.to : seg.line,
@@ -80,37 +90,23 @@ function story(b, seg, level, openings) {
     const z1 = alongX ? seg.line + D.EXT / 2 : o.at + half;
 
     if (o.kind === 'window') {
-      b.window({
-        x0, x1, z0, z1, y0: o.sill, y1: o.head,
-        material: b.M.windowGlass,
-        sillMaterial: b.M.granite,
+      /* A real multi-pane sash, set well back in the thickness of the
+         wall so the reveal is deep, with the terracotta surround the
+         photographs show at every opening. Stage 2 put a flat pane of
+         glass in the hole and a pale bar over it, which is neither of
+         those things. */
+      sashWindow(b, {
+        axis: seg.axis, line: seg.line, at: o.at,
+        width: o.width, sill: o.sill, head: o.head,
+        thickness: D.EXT, face: seg.face, reveal: D.WIN_REVEAL,
       });
-      dripMold(b, {
-        face: seg.face,
-        x: alongX ? o.at : seg.line + (seg.face === 'west' ? -D.EXT / 2 : D.EXT / 2),
-        z: alongX ? seg.line + (seg.face === 'south' ? -D.EXT / 2 : D.EXT / 2) : o.at,
-        /* Stucco, not granite: the whole exterior is rendered brick and
-           the label molds are formed in the render. Granite is for the
-           sills, the plinth course and the steps, which are the pieces
-           that are actually stone. Using it here made every window head
-           a pale bar across the elevation. */
-        width: o.width, head: o.head, material: b.M.stuccoWorn,
-      });
-    } else if (o.door) {
-      b.door({
-        y: 0,
-        x: alongX ? o.at : seg.line,
-        z: alongX ? seg.line : o.at,
-        yaw: alongX ? (seg.face === 'south' ? Math.PI : 0)
-          : (seg.face === 'west' ? -Math.PI / 2 : Math.PI / 2),
-        width: o.width,
-        height: o.head - o.sill,
-        depth: D.EXT,
-        material: b.M.doorLeaf,
-        frameMaterial: b.M.trimDark,
-        ...o.door,
+      windowSurround(b, {
+        axis: seg.axis, line: seg.line, at: o.at,
+        width: o.width, sill: o.sill, head: o.head,
+        thickness: D.EXT, face: seg.face, material: b.M.terracotta,
       });
     }
+    void x0; void x1; void z0; void z1;
   }
 }
 
@@ -302,6 +298,9 @@ export function buildShell(b) {
     elevation(b, {
       chunk: north ? 'ext.central.north' : 'ext.central.south',
       axis: 'x',
+      /* The central block stands clear of the wings, so its walls run up
+         past their parapet to its own. */
+      top: D.ROOF_CENTER,
       line: north ? D.Z_CENTRAL_N + D.EXT / 2 : D.Z_CENTRAL_S - D.EXT / 2,
       from: D.X_BAY_W, to: D.X_BAY_E,
       face: north ? 'north' : 'south',
@@ -320,12 +319,13 @@ export function buildShell(b) {
       ],
       upper: [
         w2(ft(-14)),
-        /* The upper central room opens onto the gallery over the front
-           porch; at the rear it is a window, because there is no upper
-           gallery over the rear porch. */
+        /* Three tall openings across the upper center, which is what the
+           historic photograph shows standing above the terrace. The
+           middle one is the door out onto it; at the rear it is a window,
+           because there is no terrace over the rear porch. */
         north ? w2(0) : DOOR(0, {
           width: D.EXT_DOOR_W, sill: D.FLOOR2, head: D.FLOOR2 + D.EXT_DOOR_H,
-          door: { id: 'gallery-door', name: 'gallery door', hinge: 'x0', swing: -1 },
+          door: { id: 'gallery-door', name: 'terrace door', hinge: 'x0', swing: -1 },
         }),
         w2(ft(14)),
       ],

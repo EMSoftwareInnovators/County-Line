@@ -109,19 +109,40 @@ export function buildGrounds(b) {
   g('academy.grounds.rear', 'Rear Grounds',
     D.X_W_OUT, D.X_E_OUT, D.Z_N_OUT, SITE.z1, M.lawn);
 
-  /* The formal walk from Telfair Street to the front steps. */
+  /* ---- THE FRONT APPROACH ----
+     The historic photograph shows a narrow formal walk up the middle of a
+     planted forecourt, with a low wall along the street. Stage 2 laid a
+     twelve-foot slab of concrete instead, which reads as a parking lot.
+
+     This is deliberately restrained. The 1998 forecourt is Stage 3's
+     problem and a coach stand will go over most of it; what is here is
+     enough that the building has a setting instead of standing on a lawn. */
   b.chunk('academy.grounds.front');
   b.detail(3.0);
   b.floor({
-    x0: -ftin(6, 0), x1: ftin(6, 0), z0: SITE.z0, z1: D.Z_FACADE,
+    x0: -ftin(3, 6), x1: ftin(3, 6), z0: SITE.z0 + ft(6), z1: D.Z_FACADE,
     y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
   /* and a cross walk along the front of the building */
   b.floor({
     x0: D.X_W_OUT - ft(8), x1: D.X_E_OUT + ft(8),
-    z0: D.Z_FACADE - ftin(10, 0), z1: D.Z_FACADE - ftin(5, 0),
+    z0: D.Z_FACADE - ftin(9, 0), z1: D.Z_FACADE - ftin(5, 6),
     y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
+  /* Planting either side of the walk, kept well clear of it. */
+  for (const s of [-1, 1]) {
+    bed(b, s * ftin(7, 0), D.Z_FACADE - ft(30), s * ftin(22, 0), D.Z_FACADE - ftin(25, 0), D.GRADE);
+    bed(b, s * ftin(7, 0), D.Z_FACADE - ft(52), s * ftin(22, 0), D.Z_FACADE - ftin(47, 0), D.GRADE);
+  }
+  /* The low wall along the street, with the walk through it. */
+  for (const [x0, x1] of [[SITE.x0 + ft(20), -ftin(5, 0)], [ftin(5, 0), SITE.x1 - ft(20)]]) {
+    trimBox(b, Math.min(x0, x1), D.GRADE, SITE.z0 + ft(5),
+      Math.max(x0, x1), D.GRADE + ftin(2, 8), SITE.z0 + ftin(6, 4), M.ashlarWorn);
+    b.col.addSolid({
+      x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: SITE.z0 + ft(5), z1: SITE.z0 + ftin(6, 4),
+      y0: D.GRADE, y1: D.GRADE + ftin(2, 8), tag: 'front-wall', walkable: false, noOcclude: true,
+    });
+  }
 
   /* Side paths to the two side doors, so the historic entrances are
      actually reachable from the grounds. */
@@ -203,6 +224,42 @@ export function buildGrounds(b) {
   b.chunk('academy.grounds.east');
   stoop(D.X_E_OUT, ft(43), 1);
   stoop(D.X_E_OUT, ft(15.58), 1);
+
+  /* ============================================================
+     EXTERIOR DETAILS
+
+     From the oblique photograph of the side: a downspout at each corner
+     of each mass, and small grated foundation vents low in the wall.
+     Simplified versions of both, and nothing else -- one photograph is
+     not a license to decorate the whole building.
+     ============================================================ */
+  const spout = (x, z, chunk) => {
+    b.chunk(chunk);
+    b.detail(4.0);
+    trimBox(b, x - inch(2.5), D.GRADE, z - inch(2.5), x + inch(2.5), D.ROOF - ftin(1, 6),
+      z + inch(2.5), M.ironwork);
+    /* the shoe at the bottom, turning it away from the wall */
+    trimBox(b, x - inch(3), D.GRADE, z - inch(3), x + inch(3), D.GRADE + ftin(1, 4),
+      z + inch(3), M.ironwork);
+  };
+  const o = inch(5);
+  spout(D.X_W_OUT - o, D.Z_FACADE + ft(2), 'academy.grounds.west');
+  spout(D.X_W_OUT - o, D.Z_N_OUT - ft(2), 'academy.grounds.west');
+  spout(D.X_E_OUT + o, D.Z_FACADE + ft(2), 'academy.grounds.east');
+  spout(D.X_E_OUT + o, D.Z_N_OUT - ft(2), 'academy.grounds.east');
+
+  const vent = (x, z, chunk, alongX) => {
+    b.chunk(chunk);
+    b.detail(4.0);
+    const w = ftin(1, 6), hh = inch(9);
+    trimBox(b, x - (alongX ? w / 2 : inch(2)), D.GRADE + ftin(1, 0), z - (alongX ? inch(2) : w / 2),
+      x + (alongX ? w / 2 : inch(2)), D.GRADE + ftin(1, 0) + hh, z + (alongX ? inch(2) : w / 2),
+      M.trimDark);
+  };
+  for (const zz of [ft(6), ft(24), ft(42), ft(56)]) {
+    vent(D.X_W_OUT - inch(1), zz, 'academy.grounds.west', false);
+    vent(D.X_E_OUT + inch(1), zz, 'academy.grounds.east', false);
+  }
 
   /* ============================================================
      THE SITE BOUNDARY

@@ -32,6 +32,8 @@ export class Debug {
     this._nearDoor = null;
     this._nearAt = { x: 1e9, z: 1e9 };
     this.showCollision = false;
+    /** Architecture review: the CRT off, the fog out of the way. F4. */
+    this.reviewMode = false;
     this.fps = 0;
     this._frames = 0;
     this._acc = 0;
@@ -89,7 +91,7 @@ export class Debug {
     ];
     return `<table class="dbg">${rows.map(([k, v]) =>
       `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>`
-      + `<div class="dbg-keys">F1 overlay &middot; F2 collision &middot; F3 teleport up</div>`;
+      + `<div class="dbg-keys">F1 overlay &middot; F2 collision &middot; F3 teleport up &middot; F4 review</div>`;
   }
 
   /* ---------------- architecture mode ---------------- */

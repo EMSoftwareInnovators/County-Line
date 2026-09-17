@@ -25,7 +25,7 @@
    ============================================================ */
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
-import { chairRail, trimBox } from './parts.js';
+import { column, mantel, openingsAround, trimBox, wainscot } from './parts.js';
 
 /* Interior openings. `at` is an absolute coordinate along the wall. */
 const door = (at, id, opt = {}) => ({
@@ -41,6 +41,20 @@ const arch = (at, opt = {}) => ({
 
 /**
  * One interior wall, with its doors.
+ *
+ * This is a thin adapter over `b.wallWith()` and it must stay one: the
+ * whole point of that call is that the hole and the thing hung in it are
+ * ONE declaration, derived from one set of numbers. Stage 2 hand-rolled
+ * the pair here -- wall from one set of coordinates, door from another --
+ * and drift followed immediately, because the door loop took the leaf's
+ * base height from the WALL's foot rather than from its own opening. A
+ * wall that begins below its doorway (the front porch's flanking walls
+ * start two feet under grade) then hung its leaf five feet underground
+ * with the masonry meant for below the threshold standing in the doorway.
+ *
+ * So: build the opening list, hand it over, and let one place do the
+ * arithmetic.
+ *
  * @param w { axis, line, from, to, thickness, material, y0, y1, chunk, openings }
  */
 export function partition(b, w) {
@@ -50,8 +64,14 @@ export function partition(b, w) {
   if (w.chunk) b.chunk(w.chunk);
   const holes = (w.openings || []).map((o) => ({
     at: o.at - w.from, width: o.width, y0: o.y0, y1: o.y1, kind: o.kind,
+    door: o.door && {
+      /* Interior leaves are painted, and their casings are painted too --
+         the dark-stained joinery Stage 2 used is not what any photograph
+         of the inside of this building shows. */
+      material: b.M.doorPainted, frameMaterial: b.M.paintWhite, ...o.door,
+    },
   }));
-  b.wall({
+  return b.wallWith({
     x0: alongX ? w.from : w.line,
     z0: alongX ? w.line : w.from,
     x1: alongX ? w.to : w.line,
@@ -64,21 +84,6 @@ export function partition(b, w) {
     openings: holes,
     tag: 'partition',
   });
-  for (const o of (w.openings || [])) {
-    if (!o.door) continue;
-    b.door({
-      y: y0,
-      x: alongX ? o.at : w.line,
-      z: alongX ? w.line : o.at,
-      yaw: alongX ? 0 : Math.PI / 2,
-      width: o.width,
-      height: o.y1 - o.y0,
-      depth: w.thickness,
-      material: b.M.doorLeaf,
-      frameMaterial: b.M.trimDark,
-      ...o.door,
-    });
-  }
 }
 
 /** A floor slab plus the headroom above it, over a whole band. */
@@ -86,6 +91,80 @@ function slab(b, chunk, x0, x1, z0, z1, m) {
   b.chunk(chunk);
   b.detail(2.4);
   b.floor({ x0, x1, z0, z1, y: 0, material: m, thickness: ftin(1, 0), tag: 'floor1' });
+}
+
+/* ============================================================
+   THE STAIR HALL ZONE
+
+   One function, both wings, built entirely from the rectangles in
+   dimensions.js. Stage 2 had this as three separate patches with their
+   own coordinates and it produced a restroom inside the upper flight, a
+   door opening under a staircase and a second door opening into the side
+   of one. Rebuilt rather than patched, which is what the brief asked for.
+
+   What it makes, per wing:
+
+     - the wall between the rear hall and the stair hall, with the two
+       doorways in it;
+     - the partition between the staircase and the restroom;
+     - the restroom, as a real enclosed room with its own ceiling.
+
+   The staircase itself is stairs.js, from the same constants.
+   ============================================================ */
+function stairHallZone(b, side) {
+  const M = b.M;
+  const west = side === 'west';
+  const light = { material: M.plaster, thickness: D.PART };
+  const hallLine = west ? D.X_W_HALL_W - D.PART / 2 : D.X_E_HALL_E + D.PART / 2;
+  const inner = west ? D.X_W_IN : D.X_E_IN;
+  const outerWall = west ? D.X_W_HALL_W : D.X_E_HALL_E;
+  const stair = west ? 'academy.west.stairhall' : 'academy.east.stairhall';
+  const rear = west ? 'academy.west.rearhall' : 'academy.east.rearhall';
+
+  /* The rear hall's west (or east) wall: the door at the foot of the
+     flight, and the restroom door north of it. */
+  partition(b, {
+    chunk: rear,
+    axis: 'z', line: hallLine,
+    from: D.Z_MID_S, to: D.Z_MID_N,
+    ...light,
+    openings: [
+      /* Narrower than the flight, not equal to it: a doorway exactly as
+         wide as the stair puts its jamb on the stringer, and the closed
+         string of the flight then stands in the opening. Three feet clear
+         between the two stringers is an ordinary stair-hall door. */
+      door(D.Z_FLIGHT_A, west ? 'weststair-westhall' : 'easthall-eaststair',
+        { name: 'stair hall door', width: D.STAIR_WIDTH - inch(8),
+          hinge: west ? 'x1' : 'x0', swing: west ? -1 : 1 }),
+      door((D.Z_SERVICE_S + D.Z_SERVICE_N) / 2, west ? 'restroom' : 'restroom-east',
+        { name: 'restroom door', width: D.SERVICE_DOOR_W, height: D.SERVICE_DOOR_H }),
+    ],
+  });
+
+  /* The partition across the stair hall, between the well and the
+     restroom band. It is a wall, not a leftover. */
+  b.chunk(stair);
+  partition(b, {
+    axis: 'x', line: D.Z_STAIR_N + D.PART / 2,
+    from: Math.min(inner, outerWall), to: Math.max(inner, outerWall),
+    ...light, y1: D.CEIL_SECONDARY, openings: [],
+  });
+
+  b.room({
+    id: west ? 'academy.west.restroom' : 'academy.east.restroom',
+    name: 'Restroom',
+    x0: Math.min(inner, outerWall), x1: Math.max(inner, outerWall),
+    z0: D.Z_SERVICE_S + D.PART, z1: D.Z_SERVICE_N,
+    y0: 0, y1: D.CEIL_SERVICE, floor: 1,
+  });
+  b.chunk(west ? 'academy.west.restroom' : 'academy.east.restroom');
+  b.detail(2.2);
+  b.ceiling({
+    x0: Math.min(inner, outerWall), x1: Math.max(inner, outerWall),
+    z0: D.Z_SERVICE_S + D.PART, z1: D.Z_SERVICE_N,
+    y: D.CEIL_SERVICE, material: M.beadboard, thickness: inch(6),
+    tag: 'service-ceiling',
+  });
 }
 
 export function buildFirstFloor(b) {
@@ -118,36 +197,57 @@ export function buildFirstFloor(b) {
   const X_DOCENT_E = D.X_W_IN + ft(18);
   const X_SHOP_W = D.X_E_IN - ft(18);
 
+  /* THREE CEILING CLASSES AND NO MORE. The photographs show very tall
+     first-floor rooms; the number they are tall is not documented
+     anywhere, so it is estimated once (dimensions.js) and applied by
+     class rather than varied room by room. `P` is the principal height
+     the central room reaches, `S` the secondary rooms' plaster ceiling
+     nine inches under the same structural floor, `V` the furred-down
+     service ceiling over the closets. */
+  const P_ = D.CEIL_PRINCIPAL, S_ = D.CEIL_SECONDARY, V_ = D.CEIL_SERVICE;
+
   const rooms = [
     /* ---- the center ---- */
-    ['academy.central', 'Central Room', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N, M.plasterOchre],
+    ['academy.central', 'Central Room', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N, P_],
 
     /* ---- west wing, south to north ---- */
-    ['academy.west.docent', 'Docent Library', D.X_W_IN, X_DOCENT_E, D.Z_S_IN, D.Z_DOCENT_N, M.plaster],
-    ['academy.west.store', 'West Store Room', X_DOCENT_E + D.PART, D.X_WING_W_IN, D.Z_S_IN, D.Z_DOCENT_N, M.plaster],
-    ['academy.indians', 'Indians of the Southeast', D.X_W_IN, D.X_WING_W_IN, D.Z_INDIANS_S, D.Z_FB_N, M.plasterOchre],
-    ['academy.west.stairhall', 'West Stair Hall', D.X_W_IN, D.X_W_HALL_W, D.Z_MID_S, D.Z_MID_N, M.plaster],
-    ['academy.west.rearhall', 'West Rear Hall', D.X_W_HALL_W, D.X_WING_W_IN, D.Z_MID_S, D.Z_MID_N, M.plaster],
-    ['academy.west.offices', 'Offices', D.X_W_IN, D.X_WING_W_IN, D.Z_NB_S, D.Z_N_IN, M.plasterGreen],
+    ['academy.west.docent', 'Docent Library', D.X_W_IN, X_DOCENT_E, D.Z_S_IN, D.Z_DOCENT_N, S_],
+    ['academy.west.store', 'West Store Room', X_DOCENT_E + D.PART, D.X_WING_W_IN, D.Z_S_IN, D.Z_DOCENT_N, V_],
+    ['academy.indians', 'Indians of the Southeast', D.X_W_IN, D.X_WING_W_IN, D.Z_INDIANS_S, D.Z_FB_N, S_],
+    /* THE STAIR HALLS GET NO CEILING. They are the same footprint as the
+       well, and the well is a hole in the floor above -- a plaster
+       ceiling over one is a ceiling across a staircase, which stops the
+       player's head at about the ninth riser and then drops them back
+       down it. `P_` here means "reaches the structural floor", and over
+       the well there is no structural floor to reach. */
+    ['academy.west.stairhall', 'West Stair Hall', D.X_W_IN, D.X_W_HALL_W, D.Z_MID_S, D.Z_STAIR_N, P_],
+    ['academy.west.rearhall', 'West Rear Hall', D.X_W_HALL_W, D.X_WING_W_IN, D.Z_MID_S, D.Z_MID_N, S_],
+    ['academy.west.offices', 'Offices', D.X_W_IN, D.X_WING_W_IN, D.Z_NB_S, D.Z_N_IN, S_],
 
     /* ---- east wing, south to north ---- */
-    ['academy.americana.main', 'Americana', D.X_WING_E_IN, X_SHOP_W, D.Z_S_IN, D.Z_DOCENT_N, M.plaster],
-    ['academy.giftshop', 'Gift Shop', X_SHOP_W + D.PART, D.X_E_IN, D.Z_S_IN, D.Z_DOCENT_N, M.plaster],
-    ['academy.americana.inner', 'Inner Americana', D.X_WING_E_IN, D.X_E_IN, D.Z_INDIANS_S, D.Z_FB_N, M.plasterOchre],
-    ['academy.east.rearhall', 'East Rear Hall / USS Augusta', D.X_WING_E_IN, D.X_E_HALL_E, D.Z_MID_S, D.Z_MID_N, M.plaster],
-    ['academy.east.stairhall', 'East Stair Hall', D.X_E_HALL_E, D.X_E_IN, D.Z_MID_S, D.Z_MID_N, M.plaster],
-    ['academy.east.animal', 'Animal Room', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_NB_S, D.Z_ANIMAL_N, M.plasterGreen],
-    ['academy.east.staff', 'Staff', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_STAFF_S, D.Z_N_IN, M.plasterGreen],
-    ['academy.east.service', 'East Service Room', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_NB_S, D.Z_STRIP_S_N, M.plaster],
-    ['academy.east.vestibule', 'East Vestibule', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_STRIP_M_S, D.Z_STRIP_M_N, M.plaster],
-    ['academy.east.council', 'Council Room', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_STRIP_N_S, D.Z_N_IN, M.plasterGreen],
+    ['academy.americana.main', 'Americana', D.X_WING_E_IN, X_SHOP_W, D.Z_S_IN, D.Z_DOCENT_N, S_],
+    ['academy.giftshop', 'Gift Shop', X_SHOP_W + D.PART, D.X_E_IN, D.Z_S_IN, D.Z_DOCENT_N, S_],
+    ['academy.americana.inner', 'Inner Americana', D.X_WING_E_IN, D.X_E_IN, D.Z_INDIANS_S, D.Z_FB_N, S_],
+    ['academy.east.rearhall', 'East Rear Hall / USS Augusta', D.X_WING_E_IN, D.X_E_HALL_E, D.Z_MID_S, D.Z_MID_N, S_],
+    ['academy.east.stairhall', 'East Stair Hall', D.X_E_HALL_E, D.X_E_IN, D.Z_MID_S, D.Z_STAIR_N, P_],
+    ['academy.east.animal', 'Animal Room', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_NB_S, D.Z_ANIMAL_N, S_],
+    ['academy.east.staff', 'Staff', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_STAFF_S, D.Z_N_IN, S_],
+    ['academy.east.service', 'East Service Room', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_NB_S, D.Z_STRIP_S_N, S_],
+    ['academy.east.vestibule', 'East Vestibule', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_STRIP_M_S, D.Z_STRIP_M_N, V_],
+    ['academy.east.council', 'Council Room', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_STRIP_N_S, D.Z_N_IN, S_],
   ];
 
-  for (const [id, name, x0, x1, z0, z1, m] of rooms) {
-    b.room({ id, name, x0, x1, z0, z1, y0: 0, y1: D.FLOOR1_CEIL, floor: 1, material: 'wood' });
+  for (const [id, name, x0, x1, z0, z1, ceil] of rooms) {
+    b.room({ id, name, x0, x1, z0, z1, y0: 0, y1: ceil, floor: 1, material: 'wood' });
     b.detail(2.2);
-    chairRail(b, { x0, x1, z0, z1, y: 0 }, M.trimDark);
-    void m;
+    /* A plaster ceiling where the room stops short of the structural
+       floor above it. The principal rooms reach it and get none. */
+    if (ceil < D.FLOOR1_CEIL - 1e-6) {
+      b.ceiling({
+        x0, x1, z0, z1, y: ceil,
+        material: M.plasterCeiling, thickness: inch(6), tag: 'ceiling1',
+      });
+    }
   }
 
   /* ============================================================
@@ -169,9 +269,9 @@ export function buildFirstFloor(b) {
       openings: [
         door(ft(-6), west ? 'central-indians' : 'central-americana',
           { name: west ? 'door to Indians of the Southeast' : 'door to Americana',
-            width: ftin(4, 0), height: ftin(8, 6), hinge: west ? 'x0' : 'x1', swing: west ? 1 : -1 }),
+            width: ftin(4, 6), height: ftin(10, 0), hinge: west ? 'x0' : 'x1', swing: west ? 1 : -1 }),
         door(ft(12.5), west ? 'central-westhall' : 'central-easthall',
-          { name: 'hall door', width: ftin(3, 8), height: ftin(8, 0),
+          { name: 'hall door', width: D.DOOR_W, height: D.DOOR_H,
             hinge: west ? 'x1' : 'x0', swing: west ? -1 : 1 }),
       ],
     });
@@ -201,57 +301,33 @@ export function buildFirstFloor(b) {
     ],
   });
 
-  /* Indians to the middle band: into the stair hall and into the rear
-     hall. This pair is what makes the long circulation loop close. */
+  /* Indians to the middle band. ONE opening, the cased arch the visitor
+     map shows on the wing's inner circulation line. Stage 2 also put a
+     door at x = -49 straight into the stair hall -- which is underneath
+     the first flight, so it opened onto the soffit of a staircase. It was
+     invented, it was wrong, and it is gone. */
   partition(b, {
     chunk: 'academy.west.rearhall',
     axis: 'x', line: D.Z_FB_N + D.CROSS / 2,
     from: D.X_W_IN, to: D.X_WING_W_IN, ...P,
-    openings: [
-      door(ft(-49), 'indians-weststair', { name: 'stair hall door' }),
-      arch(ft(-32), { width: ftin(5, 6) }),
-    ],
+    openings: [arch(ft(-32), { width: ftin(5, 6) })],
   });
 
-  /* Stair hall to rear hall. */
-  partition(b, {
-    chunk: 'academy.west.rearhall',
-    axis: 'z', line: D.X_W_HALL_W - D.PART / 2,
-    from: D.Z_MID_S, to: D.Z_MID_N,
-    ...light,
-    openings: [door(ft(12), 'weststair-westhall', { name: 'stair hall door', hinge: 'x1', swing: -1 })],
-  });
+  /* ---- THE STAIR HALL ZONE ----
+     Built from the rectangles set out in dimensions.js. Two doors in the
+     rear hall's west wall and nothing else: one at the FOOT OF THE FLIGHT,
+     so walking through it is stepping onto the bottom tread, and one into
+     the restroom, which is its own enclosed room across the north end and
+     touches the staircase nowhere. */
+  stairHallZone(b, 'west');
 
-  /* Middle band to the Offices: the west inner circulation the visitor
-     map shows running up the wing. */
+  /* Middle band to the Offices: the inner circulation the visitor map
+     shows running up the wing. */
   partition(b, {
     chunk: 'academy.west.offices',
     axis: 'x', line: D.Z_MID_N + D.CROSS / 2,
     from: D.X_W_IN, to: D.X_WING_W_IN, ...P,
-    openings: [
-      door(ft(-49), 'weststair-offices', { name: 'office door' }),
-      arch(ft(-32), { width: ftin(5, 0) }),
-    ],
-  });
-
-  /* The restroom, tucked into the stair hall beside the flight. */
-  /* North of the upper flight, against the outer wall, which is the only
-     corner of the stair hall the staircase does not occupy. */
-  const RX0 = D.X_W_IN, RX1 = D.X_W_IN + ftin(7, 6);
-  const RZ0 = D.Z_MID_N - ftin(3, 10), RZ1 = D.Z_MID_N;
-  b.chunk('academy.west.stairhall');
-  partition(b, {
-    axis: 'x', line: RZ0 - D.PART / 2, from: RX0, to: RX1 + D.PART,
-    ...light, y1: D.FLOOR1_CEIL,
-    openings: [door(RX0 + ftin(3, 4), 'restroom', { name: 'restroom door', width: ftin(2, 8) })],
-  });
-  partition(b, {
-    axis: 'z', line: RX1 + D.PART / 2, from: RZ0 - D.PART, to: RZ1,
-    ...light, y1: D.FLOOR1_CEIL, openings: [],
-  });
-  b.room({
-    id: 'academy.west.restroom', name: 'Restroom',
-    x0: RX0, x1: RX1, z0: RZ0, z1: RZ1, y0: 0, y1: D.FLOOR1_CEIL, floor: 1,
+    openings: [arch(ft(-32), { width: ftin(5, 0) })],
   });
 
   /* ============================================================
@@ -277,28 +353,16 @@ export function buildFirstFloor(b) {
     chunk: 'academy.east.rearhall',
     axis: 'x', line: D.Z_FB_N + D.CROSS / 2,
     from: D.X_WING_E_IN, to: D.X_E_IN, ...P,
-    openings: [
-      arch(ft(32), { width: ftin(5, 6) }),
-      door(ft(49), 'americana-eaststair', { name: 'stair hall door' }),
-    ],
+    openings: [arch(ft(32), { width: ftin(5, 6) })],
   });
-  partition(b, {
-    chunk: 'academy.east.rearhall',
-    axis: 'z', line: D.X_E_HALL_E + D.PART / 2,
-    from: D.Z_MID_S, to: D.Z_MID_N,
-    ...light,
-    openings: [door(ft(12), 'easthall-eaststair', { name: 'stair hall door' })],
-  });
+  stairHallZone(b, 'east');
 
   /* ---- the east wing's north band: a column of rooms and a strip ---- */
   partition(b, {
     chunk: 'academy.east.animal',
     axis: 'x', line: D.Z_MID_N + D.CROSS / 2,
     from: D.X_WING_E_IN, to: D.X_E_IN, ...P,
-    openings: [
-      arch(ft(32), { width: ftin(5, 0) }),
-      door(ft(49), 'eaststair-service', { name: 'service door' }),
-    ],
+    openings: [arch(ft(32), { width: ftin(5, 0) })],
   });
   /* the longitudinal partition between the column and the strip */
   partition(b, {
@@ -308,7 +372,13 @@ export function buildFirstFloor(b) {
     ...light,
     openings: [
       door(ft(30), 'animal-service', { name: 'service door' }),
-      door(ft(43), 'animal-vestibule', { name: 'vestibule door', hinge: 'x1', swing: -1 }),
+      /* The Animal Room and the vestibule only share 2'8" of wall -- the
+         Animal/Staff cross wall lands right beside this opening -- so it
+         is a service door at the width that actually fits, not a full one
+         with a wall across its jamb. */
+      door(ftin(40, 1), 'animal-vestibule',
+        { name: 'vestibule door', width: ftin(2, 6), height: D.SERVICE_DOOR_H,
+          hinge: 'x1', swing: -1 }),
       door(ft(52), 'staff-council', { name: 'council door' }),
     ],
   });
@@ -340,11 +410,67 @@ export function buildFirstFloor(b) {
      A beadboard ceiling line, expressed as the shadow gap at the wall
      head. The ceiling itself is the soffit of the second-floor slab.
      ============================================================ */
+  /* ---- wainscot ----
+     LAST, because it has to know where the doorways are, and it asks the
+     level rather than a second list of its own. Painted beadboard with a
+     capping rail and a substantial baseboard, which is what every
+     interior photograph of this building shows along the bottom of every
+     wall -- stopping, as a board on a wall does, at every opening. */
   for (const [id, , x0, x1, z0, z1] of rooms) {
     b.chunk(id);
-    trimBox(b, x0, D.FLOOR1_CEIL - inch(7), z0, x1, D.FLOOR1_CEIL, z0 + inch(2), M.trimDark);
-    trimBox(b, x0, D.FLOOR1_CEIL - inch(7), z1 - inch(2), x1, D.FLOOR1_CEIL, z1, M.trimDark);
-    trimBox(b, x0, D.FLOOR1_CEIL - inch(7), z0, x0 + inch(2), D.FLOOR1_CEIL, z1, M.trimDark);
-    trimBox(b, x1 - inch(2), D.FLOOR1_CEIL - inch(7), z0, x1, D.FLOOR1_CEIL, z1, M.trimDark);
+    b.detail(2.2);
+    const r = { x0, x1, z0, z1, y: 0 };
+    wainscot(b, r, {
+      height: D.WAINSCOT_H, cap: D.WAINSCOT_CAP, base: D.BASE_H,
+      gaps: openingsAround(b.level, r),
+    });
+  }
+
+  for (const [id, , x0, x1, z0, z1, ceil] of rooms) {
+    b.chunk(id);
+    const y = ceil - inch(9);
+    trimBox(b, x0, y, z0, x1, ceil, z0 + inch(3), M.paintWhite);
+    trimBox(b, x0, y, z1 - inch(3), x1, ceil, z1, M.paintWhite);
+    trimBox(b, x0, y, z0, x0 + inch(3), ceil, z1, M.paintWhite);
+    trimBox(b, x1 - inch(3), y, z0, x1, ceil, z1, M.paintWhite);
+  }
+
+  /* ============================================================
+     THE CENTRAL ROOM'S OWN CHARACTER
+
+     From the large interior photograph: slender white painted structural
+     columns floor to ceiling, a plain plaster ceiling over them, the tall
+     sash windows of the shell, tall doors, beadboard wainscot, and a
+     painted shelf mantel on one wall.
+
+     What is NOT taken from that photograph is everything that is
+     obviously of its own decade -- the carpet, the track lighting, the
+     tables, the laptops. County Line is set in 1998 and the photographs
+     are architectural references, not a set dressing list.
+     ============================================================ */
+  b.chunk('academy.central');
+  b.detail(1.2);
+  for (const c of D.CENTRAL_ROOM_COLUMNS) {
+    column(b, {
+      x: c.x, z: c.z, y: 0, top: D.CEIL_PRINCIPAL,
+      dia: D.INT_COLUMN_DIA, base: D.INT_COLUMN_BASE_H, cap: D.INT_COLUMN_CAP_H,
+      material: M.paintWhite,
+    });
+  }
+  /* ONE mantel, on the central room's west wall between its two doorways,
+     which is where the interior photograph shows a painted shelf mantel.
+     It is not repeated anywhere else in the building: the other rooms may
+     well have had them, and there is no reference that says which. */
+  mantel(b, {
+    axis: 'z', line: D.X_BAY_W, at: ft(3), outward: 1,
+    width: ftin(5, 6), height: ftin(4, 8), y: 0, material: M.paintWhite,
+  });
+  /* Surface conduit, run at picture-rail height and dropped to a switch
+     beside each doorway -- visible in every photograph of the interior
+     and one of the things that says "an old building still in use". */
+  b.detail(3.0);
+  for (const zz of [D.Z_CENTRAL_S + inch(6), D.Z_CENTRAL_N - inch(6)]) {
+    trimBox(b, D.X_BAY_W, D.PICTURE_RAIL, zz - inch(1),
+      D.X_BAY_E, D.PICTURE_RAIL + inch(2), zz + inch(1), M.trimDark);
   }
 }

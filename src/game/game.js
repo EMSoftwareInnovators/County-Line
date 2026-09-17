@@ -37,6 +37,9 @@ import { SaveGame, Profile } from './save.js';
 import { Campaign, TEST_CAMPAIGN, PHASE } from './campaign.js';
 import { Sfx } from './sfx.js';
 import { Debug } from './debug.js';
+
+/** Every image-degradation stage off. See the note at the call site. */
+const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
 import { createPlayer, updatePlayer, buildCamera, forwardOf, eyePoint } from './player.js';
 import { Npc, patrol } from './npc.js';
 import { buildActorMeshes, makeActorSkin, drawActor, ACTOR_HEIGHT } from './actor.js';
@@ -280,8 +283,11 @@ export class Game {
     this.time += dt;
 
     this.debug.update(dt);
-    if (this.input.rawHit('F1')) this.debug.cycle();
-    if (this.input.rawHit('F2')) this.debug.showCollision = !this.debug.showCollision;
+    if (this.devTools) {
+      if (this.input.rawHit('F1')) this.debug.cycle();
+      if (this.input.rawHit('F2')) this.debug.showCollision = !this.debug.showCollision;
+      if (this.input.rawHit('F4')) this.debug.reviewMode = !this.debug.reviewMode;
+    }
 
     this.fade += (this.fadeTo - this.fade) * Math.min(1, dt * 3.2);
 
@@ -491,7 +497,13 @@ export class Game {
     const room = this.level.roomAt(this.player.x, this.player.y, this.player.z);
     const outside = !room || room.outdoor;
     const f = this.level.fog;
-    this.raster.setFog(outside ? f.near * 1.6 : f.near, outside ? f.far * 1.5 : f.far);
+    if (this.devTools && this.debug.reviewMode) {
+      /* Fog is atmosphere, and atmosphere is exactly what gets in the way
+         of judging a facade against a photograph of one. */
+      this.raster.setFog(this.level.far * 0.9, this.level.far);
+    } else {
+      this.raster.setFog(outside ? f.near * 1.6 : f.near, outside ? f.far * 1.5 : f.far);
+    }
 
     if (!this.input.locked && this.input.scheme === 'kbm' && this.wantLock) {
       /* Telling a player to click when clicking cannot work is worse than
@@ -718,7 +730,17 @@ export class Game {
       this.debug.drawCollision(rz, this.level, this.player, m.id);
     }
 
-    const p = this.settings.postParams();
+    /* ARCHITECTURE REVIEW MODE (F4, development builds only).
+       Strips the CRT so a screenshot can be held against a photograph
+       without arguing with dither, bleed, scanlines, grain and a
+       vignette. The geometry, the materials and the baked lighting are
+       untouched -- this changes how the frame is PRESENTED and nothing
+       about what was drawn, which is the only way the comparison means
+       anything. It is not a graphics option and the player never sees
+       it. */
+    const review = this.devTools && this.debug.reviewMode;
+    const p = review ? REVIEW_POST : this.settings.postParams();
+    this.post.setVignette(review ? 0 : (p.vignette === undefined ? 0.42 : p.vignette));
     this.post.render(rz.color, {
       dt,
       dither: p.dither,

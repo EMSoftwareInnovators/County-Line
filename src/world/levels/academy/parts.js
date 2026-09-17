@@ -308,4 +308,352 @@ export function steps(b, spec) {
   });
 }
 
+
+/* ============================================================
+   STAGE 2.1 -- THE PIECES THE PHOTOGRAPHS ASKED FOR
+   ============================================================ */
+
+/**
+ * An n-sided prism, tapering if the two radii differ. This is how every
+ * round thing in the building is made: a column shaft, the discs of its
+ * base, the rings of its capital.
+ *
+ * Eight sides. At 320x240 a column is a handful of pixels across and the
+ * ninth side is not a thing anybody will ever see; what reads is the
+ * silhouette and the light falling round it, and eight sides carry both.
+ */
+export function prism(b, spec) {
+  const n = spec.sides || 8;
+  const m = spec.material;
+  const f = { tex: m.tex, density: m.density };
+  const { x, z, y0, y1 } = spec;
+  const r0 = spec.r0, r1 = spec.r1 === undefined ? spec.r0 : spec.r1;
+  const mb = b.mb;
+  const was = mb.maxEdge; mb.maxEdge = 6;
+  const P = (i, r, y) => {
+    const a = (i / n) * Math.PI * 2;
+    return [x + Math.cos(a) * r, y, z + Math.sin(a) * r];
+  };
+  /* Wound so the outside is the front. Going the other way round makes a
+     column that is only visible from inside itself, which is a thing you
+     discover by standing in a portico with no columns in it. */
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    mb.quad(P(j, r0, y0), P(i, r0, y0), P(i, r1, y1), P(j, r1, y1),
+      f.tex, [0, 0, 16, 16], 0, [1, 1, false]);
+  }
+  if (spec.cap) {
+    /* A flat disc closing the top, for the step of a base. Fanned from
+       the center, which is n triangles drawn as n degenerate quads. */
+    const c = [x, y1, z];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      mb.quad(c, P(j, r1, y1), P(i, r1, y1), c, f.tex, [0, 0, 16, 16], 0, [1, 1, false]);
+    }
+  }
+  mb.maxEdge = was;
+}
+
+/**
+ * A column: shaft, stepped base, molded capital.
+ *
+ * Two of these in the building and they are not the same thing. The
+ * PORTICO columns outside are the tall painted ones in the front
+ * photographs; the INTERIOR columns are the slender white posts standing
+ * in the middle of the big first-floor room. Both are built here because
+ * they are the same drawing at different sizes, and neither is a
+ * classical order -- they are thin structural columns with just enough
+ * profile to read as period joinery rather than as pipes.
+ *
+ * @param spec { x, z, y, top, dia, material, base, cap, collide }
+ */
+export function column(b, spec) {
+  const m = spec.material;
+  const r = spec.dia / 2;
+  const baseH = spec.base === undefined ? spec.dia : spec.base;
+  const capH = spec.cap === undefined ? spec.dia * 0.85 : spec.cap;
+  const y = spec.y, top = spec.top;
+
+  /* base: a square plinth, then two discs stepping in to the shaft */
+  const pl = r * 1.55;
+  trimBox(b, spec.x - pl, y, spec.z - pl, spec.x + pl, y + baseH * 0.38, spec.z + pl, m);
+  prism(b, { x: spec.x, z: spec.z, y0: y + baseH * 0.38, y1: y + baseH * 0.72, r0: r * 1.38, r1: r * 1.30, material: m, cap: true });
+  prism(b, { x: spec.x, z: spec.z, y0: y + baseH * 0.72, y1: y + baseH, r0: r * 1.22, r1: r * 1.04, material: m, cap: true });
+
+  /* shaft: a whisper of entasis, because a dead-straight cylinder reads
+     as scaffolding */
+  prism(b, { x: spec.x, z: spec.z, y0: y + baseH, y1: top - capH, r0: r, r1: r * 0.93, material: m });
+
+  /* capital: a necking ring, a flared echinus, a square abacus */
+  prism(b, { x: spec.x, z: spec.z, y0: top - capH, y1: top - capH * 0.72, r0: r * 0.98, r1: r * 1.02, material: m, cap: true });
+  prism(b, { x: spec.x, z: spec.z, y0: top - capH * 0.72, y1: top - capH * 0.26, r0: r * 1.02, r1: r * 1.34, material: m, cap: true });
+  const ab = r * 1.46;
+  trimBox(b, spec.x - ab, top - capH * 0.26, spec.z - ab, spec.x + ab, top, spec.z + ab, m);
+
+  if (spec.collide !== false && b.col) {
+    b.col.addSolid({
+      x0: spec.x - r, x1: spec.x + r, z0: spec.z - r, z1: spec.z + r,
+      y0: y, y1: top, tag: 'column', walkable: false, noOcclude: true,
+    });
+  }
+}
+
+/**
+ * A multi-pane sash window in a thick wall.
+ *
+ * The opening is already cut through the masonry, so the REVEAL comes
+ * free -- the end faces of the piers either side are the reveal, and
+ * setting the glass back from the outer face is what makes it deep. What
+ * is built here is the joinery: two stiles, the meeting rail between the
+ * two sashes, an exterior sill, and the glazing itself, whose muntins are
+ * in its texture at an architectural pitch.
+ *
+ * @param spec {
+ *   axis: 'x' | 'z'   which way the wall runs
+ *   line              the wall's center line
+ *   at                the station along the wall
+ *   width, sill, head
+ *   thickness         of the wall
+ *   face              'south' | 'north' | 'west' | 'east'
+ *   reveal            how far back from the outer face the sash sits
+ * }
+ */
+export function sashWindow(b, spec) {
+  const M = b.M;
+  const alongX = spec.axis === 'x';
+  const half = spec.width / 2;
+  const t = spec.thickness;
+  const outward = (spec.face === 'south' || spec.face === 'west') ? -1 : 1;
+  /* the plane the sash sits in, measured from the wall center line */
+  const back = outward * (t / 2 - spec.reveal);
+  const sashT = inch(2.5);
+
+  const cx = alongX ? spec.at : spec.line + back;
+  const cz = alongX ? spec.line + back : spec.at;
+  const nx = alongX ? 0 : 1, nz = alongX ? 1 : 0;   // across the wall
+
+  const box = (a0, a1, y0, y1, d0, d1, m) => {
+    const x0 = alongX ? cx + a0 : cx + d0;
+    const x1 = alongX ? cx + a1 : cx + d1;
+    const z0 = alongX ? cz + d0 : cz + a0;
+    const z1 = alongX ? cz + d1 : cz + a1;
+    trimBox(b, Math.min(x0, x1), y0, Math.min(z0, z1), Math.max(x0, x1), y1, Math.max(z0, z1), m);
+  };
+
+  /* the glazing: one plane, set back, double sided so it reads from both
+     the room and the street */
+  const g = M.windowGlass;
+  const was = b.mb.maxEdge; b.mb.maxEdge = 6;
+  const p = (a, y) => [alongX ? cx + a : cx, y, alongX ? cz : cz + a];
+  b.mb.quad(p(-half, spec.sill), p(half, spec.sill), p(half, spec.head), p(-half, spec.head),
+    g.tex, [0, 0, (spec.width) * g.density, (spec.head - spec.sill) * g.density],
+    F_DOUBLE, [1, 1, false]);
+  b.mb.maxEdge = was;
+
+  /* stiles either side, meeting rail across the middle */
+  const mid = spec.sill + (spec.head - spec.sill) * 0.52;
+  box(-half, -half + sashT, spec.sill, spec.head, -sashT / 2, sashT / 2, M.sashFrame);
+  box(half - sashT, half, spec.sill, spec.head, -sashT / 2, sashT / 2, M.sashFrame);
+  box(-half, half, mid - inch(2), mid + inch(2), -sashT / 2, sashT / 2, M.sashFrame);
+
+  /* the sill, projecting past the reveal and past the opening */
+  const so = inch(4);
+  const sx0 = alongX ? spec.at - half - so : spec.line - t / 2 - inch(3);
+  const sx1 = alongX ? spec.at + half + so : spec.line + t / 2 + inch(3);
+  const sz0 = alongX ? spec.line - t / 2 - inch(3) : spec.at - half - so;
+  const sz1 = alongX ? spec.line + t / 2 + inch(3) : spec.at + half + so;
+  trimBox(b, sx0, spec.sill - inch(5), sz0, sx1, spec.sill, sz1, M.granite);
+  void nx; void nz;
+}
+
+/**
+ * The terracotta surround the photographs shows at every opening: a
+ * projecting architrave with alternating deeper blocks up the jambs,
+ * which is what gives the elevation its one strong color.
+ */
+export function windowSurround(b, spec) {
+  const m = spec.material;
+  const alongX = spec.axis === 'x';
+  const half = spec.width / 2 + inch(6);
+  const t = spec.thickness;
+  const outward = (spec.face === 'south' || spec.face === 'west') ? -1 : 1;
+  const d0 = outward * t / 2;
+  const d1 = d0 + outward * inch(3);
+  const put = (a0, a1, y0, y1, extra) => {
+    const e = extra || 0;
+    const x0 = alongX ? spec.at + a0 : spec.line + Math.min(d0, d1 + outward * e);
+    const x1 = alongX ? spec.at + a1 : spec.line + Math.max(d0, d1 + outward * e);
+    const z0 = alongX ? spec.line + Math.min(d0, d1 + outward * e) : spec.at + a0;
+    const z1 = alongX ? spec.line + Math.max(d0, d1 + outward * e) : spec.at + a1;
+    trimBox(b, Math.min(x0, x1), y0, Math.min(z0, z1), Math.max(x0, x1), y1, Math.max(z0, z1), m);
+  };
+  /* head */
+  put(-half, half, spec.head, spec.head + inch(9));
+  /* jambs, quoined: every other block stands a little further proud.
+
+     The block height is deliberately generous. A ten-foot window quoined
+     at eighteen inches is fourteen boxes a side, and at eighty-six
+     windows that is most of a frame's budget spent on something two
+     pixels wide; at two foot four it is eight, and nothing about the
+     elevation reads differently. */
+  const jw = inch(6);
+  const n = Math.max(3, Math.round((spec.head - spec.sill) / ftin(2, 4)));
+  const step = (spec.head - spec.sill) / n;
+  for (let i = 0; i < n; i++) {
+    const y0 = spec.sill + i * step, y1 = y0 + step * 0.94;
+    const e = (i % 2) ? inch(2) : 0;
+    put(-half, -half + jw, y0, y1, e);
+    put(half - jw, half, y0, y1, e);
+  }
+}
+
+/**
+ * The corbel table: the row of small brackets under the parapet that runs
+ * round the building and along the portico, picked out in the same
+ * terracotta as the window surrounds. It is one of the two things that
+ * make the elevation recognisable at a glance -- the other being the
+ * crenellations above it.
+ */
+export function corbelTable(b, spec) {
+  const m = spec.material;
+  /* Every dimension here arrives in the spec. parts.js is a vocabulary,
+     not a second place where the building is measured. */
+  const alongX = spec.axis === 'x';
+  const len = alongX ? spec.x1 - spec.x0 : spec.z1 - spec.z0;
+  if (len <= 0) return;
+  const pitch = spec.pitch, cw = spec.w, ch = spec.h, proj = spec.proj;
+  const n = Math.max(1, Math.floor(len / pitch));
+  const pad = (len - (n - 1) * pitch) / 2;
+  const t = spec.thickness;
+  const outward = spec.outward === undefined ? 1 : spec.outward;
+  const d0 = outward > 0 ? t / 2 : -t / 2 - proj;
+  const d1 = outward > 0 ? t / 2 + proj : -t / 2;
+  for (let i = 0; i < n; i++) {
+    const a = pad + i * pitch - cw / 2;
+    const x0 = alongX ? spec.x0 + a : spec.line + d0;
+    const x1 = alongX ? spec.x0 + a + cw : spec.line + d1;
+    const z0 = alongX ? spec.line + d0 : spec.z0 + a;
+    const z1 = alongX ? spec.line + d1 : spec.z0 + a + cw;
+    trimBox(b, x0, spec.y, z0, x1, spec.y + ch, z1, m);
+  }
+}
+
+
+/**
+ * Painted beadboard wainscot with a capping rail and a baseboard under
+ * it, run round the inside of a rectangular room.
+ *
+ * The beads are in the texture, not in geometry -- a room of this size
+ * would be two thousand boxes otherwise, for something a pixel wide. What
+ * IS physical is the cap, because the cap is what the wainscot reads as
+ * from across the room: a shadow line at chair height all the way round.
+ */
+export function wainscot(b, r, spec) {
+  const M = b.M;
+  const y = r.y === undefined ? 0 : r.y;
+  const h = spec.height;
+  const capH = spec.cap;
+  const board = spec.material || M.beadboard;
+  const paint = spec.capMaterial || M.paintWhite;
+  const t = inch(1);
+  const c = inch(2);
+  const gaps = spec.gaps || [];
+
+  /* Four sides. `a` runs along the side; `side` names which one, so the
+     caller's gap list can say where the doorways are. */
+  const sides = [
+    { side: 'south', a0: r.x0, a1: r.x1, fix: [r.z0, r.z0 + t], along: 'x' },
+    { side: 'north', a0: r.x0, a1: r.x1, fix: [r.z1 - t, r.z1], along: 'x' },
+    { side: 'west', a0: r.z0, a1: r.z1, fix: [r.x0, r.x0 + t], along: 'z' },
+    { side: 'east', a0: r.z0, a1: r.z1, fix: [r.x1 - t, r.x1], along: 'z' },
+  ];
+
+  for (const s of sides) {
+    /* WAINSCOT STOPS AT A DOORWAY. It is a board on a wall, not a band
+       painted round the room, and running it across an opening hides the
+       bottom three feet of every door in the building -- which is exactly
+       what the first pass did. */
+    const cuts = gaps.filter((g) => g.side === s.side)
+      .map((g) => [g.a0, g.a1])
+      .sort((p1, p2) => p1[0] - p2[0]);
+    let cursor = s.a0;
+    const run = (from, to) => {
+      if (to - from < inch(3)) return;
+      const box = (y0, y1, m, pad) => {
+        const p = pad || 0;
+        if (s.along === 'x') {
+          trimBox(b, from, y0, s.fix[0] - p, to, y1, s.fix[1] + p, m);
+        } else {
+          trimBox(b, s.fix[0] - p, y0, from, s.fix[1] + p, y1, to, m);
+        }
+      };
+      box(y, y + h - capH, board);
+      box(y + h - capH, y + h, paint, c);          // the cap
+      box(y, y + spec.base, paint, c);             // the baseboard
+    };
+    for (const [g0, g1] of cuts) {
+      run(cursor, Math.min(g0, s.a1));
+      cursor = Math.max(cursor, g1);
+    }
+    run(cursor, s.a1);
+  }
+}
+
+/**
+ * Where a room's walls are interrupted, worked out from the doors the
+ * level has actually built rather than from a second list that can drift
+ * away from the first.
+ */
+export function openingsAround(level, r, pad) {
+  const p = pad === undefined ? inch(7) : pad;
+  const out = [];
+  const near = (a, b2) => Math.abs(a - b2) < ftin(1, 6);
+  for (const d of level.doors) {
+    const hw = d.width / 2 + p;
+    const alongX = Math.abs(Math.cos(d.yaw)) > 0.5;   // the door's leaf runs along X
+    if (alongX) {
+      if (d.x < r.x0 - p || d.x > r.x1 + p) continue;
+      if (near(d.z, r.z0)) out.push({ side: 'south', a0: d.x - hw, a1: d.x + hw });
+      else if (near(d.z, r.z1)) out.push({ side: 'north', a0: d.x - hw, a1: d.x + hw });
+    } else {
+      if (d.z < r.z0 - p || d.z > r.z1 + p) continue;
+      if (near(d.x, r.x0)) out.push({ side: 'west', a0: d.z - hw, a1: d.z + hw });
+      else if (near(d.x, r.x1)) out.push({ side: 'east', a0: d.z - hw, a1: d.z + hw });
+    }
+  }
+  return out;
+}
+
+/**
+ * A plain painted shelf mantel: two pilasters, a frieze and a shelf, with
+ * the fireplace opening under it.
+ *
+ * ONE of these is placed, in the room the interior photograph shows it
+ * in. It is not scattered -- see the note at the call site.
+ */
+export function mantel(b, spec) {
+  const M = b.M;
+  const m = spec.material || M.paintWhite;
+  const w = spec.width, h = spec.height, y = spec.y || 0;
+  const proj = inch(7);
+  const alongX = spec.axis === 'x';
+  const line = spec.line;
+  const at = spec.at;
+  const outward = spec.outward === undefined ? 1 : spec.outward;
+  const put = (a0, a1, y0, y1, p0, p1, mm) => {
+    const x0 = alongX ? at + a0 : line + outward * p0;
+    const x1 = alongX ? at + a1 : line + outward * p1;
+    const z0 = alongX ? line + outward * p0 : at + a0;
+    const z1 = alongX ? line + outward * p1 : at + a1;
+    trimBox(b, Math.min(x0, x1), y0, Math.min(z0, z1), Math.max(x0, x1), y1, Math.max(z0, z1), mm || m);
+  };
+  const pw = inch(8);
+  put(-w / 2, -w / 2 + pw, y, y + h - inch(9), 0, proj * 0.7);      // pilasters
+  put(w / 2 - pw, w / 2, y, y + h - inch(9), 0, proj * 0.7);
+  put(-w / 2, w / 2, y + h - inch(9), y + h - inch(3), 0, proj * 0.7);  // frieze
+  put(-w / 2 - inch(3), w / 2 + inch(3), y + h - inch(3), y + h, 0, proj); // shelf
+  /* the opening, as a dark recess rather than a hole in the wall */
+  put(-w / 2 + pw, w / 2 - pw, y, y + h - inch(11), 0, inch(1.5), M.trimDark);
+}
+
 export { F_DOUBLE };

@@ -178,59 +178,127 @@ export function buildMaterials() {
      in this game. Nothing here is traced from a photograph.
      ============================================================ */
 
-  /* -------- stucco over brick, scored to imitate ashlar --------
-     The real building is brick, stuccoed and scored in the 1856-57
-     Tudor-Gothic remodelling. The scoring is what keeps a big blank wall
-     from reading as a flat color at this resolution. */
-  M.stucco = mat(makeTex(64, 64, (g, w, h) => {
-    fill(g, '#9d9385', w, h);
-    speckle(g, w, h, 1500, ['#a79c8d', '#93897b', '#aaa094', '#8b8174']);
-    noise(g, w, h, 10);
-    // ashlar joints: two courses per tile, offset
-    g.strokeStyle = '#847a6d'; g.lineWidth = 1;
-    for (const y of [0, 32]) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); g.stroke(); }
-    for (const [y, x] of [[0, 0], [0, 32], [32, 16], [32, 48]]) {
-      g.beginPath(); g.moveTo(x + 0.5, y); g.lineTo(x + 0.5, y + 32); g.stroke();
-    }
-    grime(g, w, h, 0.16, 16);
-  }), { material: 'stone' });
+  /* ============================================================
+     THE EXTERIOR, REWORKED IN STAGE 2.1
 
-  /** The same wall, weathered where the rain runs off. Used low down and
-      on the garden faces, so the elevations are not one flat tone. */
-  M.stuccoWorn = mat(makeTex(64, 64, (g, w, h) => {
-    fill(g, '#8e8477', w, h);
-    speckle(g, w, h, 1500, ['#978d80', '#847a6d', '#9e9487']);
-    noise(g, w, h, 12);
-    g.strokeStyle = '#776d61'; g.lineWidth = 1;
-    for (const y of [0, 32]) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); g.stroke(); }
-    for (const [y, x] of [[0, 0], [0, 32], [32, 16], [32, 48]]) {
-      g.beginPath(); g.moveTo(x + 0.5, y); g.lineTo(x + 0.5, y + 32); g.stroke();
+     The first pass made the walls brown and busy. The photographs show
+     something else entirely: a PALE, WARM GRAY ashlar, laid in clearly
+     readable horizontal courses, with darker recessed joints and very
+     little else going on. The building is weathered, not derelict -- in
+     1998 it is in public use -- so the grime is restrained and there is
+     no soot, no stain and no ruin.
+
+     The other rule here is resolution. At 320x240 a wall is a few dozen
+     pixels across, and any texture with energy above about a quarter of
+     its own tile turns into static under the dither. So: large features,
+     low contrast between them, and almost no noise.
+     ============================================================ */
+
+  /** Ashlar courses, five feet to a tile: four courses of fifteen inches
+      with staggered perpends. */
+  const ashlar = (base, joint, dark, weather) => makeTex(64, 64, (g, w, h) => {
+    fill(g, base, w, h);
+    /* Four courses. Each gets a faint tone of its own so the wall reads as
+       laid rather than as painted. */
+    const tones = [base, dark, base, dark];
+    for (let i = 0; i < 4; i++) {
+      g.fillStyle = tones[i]; g.fillRect(0, i * 16, w, 16);
     }
-    grime(g, w, h, 0.3, 26);
-  }), { material: 'stone' });
+    /* Bed joints: recessed, so a shadow rather than a line. */
+    g.fillStyle = joint;
+    for (let i = 0; i < 4; i++) g.fillRect(0, i * 16, w, 1);
+    g.fillStyle = 'rgba(255,255,255,.07)';
+    for (let i = 0; i < 4; i++) g.fillRect(0, i * 16 + 1, w, 1);
+    /* Perpends, staggered course to course. */
+    g.fillStyle = joint;
+    for (let i = 0; i < 4; i++) {
+      const off = (i % 2) * 16;
+      for (let x = off; x < w; x += 32) g.fillRect(x, i * 16, 1, 16);
+    }
+    noise(g, w, h, 4);
+    grime(g, w, h, weather, 10);
+  });
+
+  M.ashlar = mat(ashlar('#b9b6ad', '#8f8c84', '#b3b0a7', 0.07), { density: 42, material: 'stone' });
+  /** The same wall lower down and on the garden faces, where the rain
+      runs. A shade deeper, and that is all. */
+  M.ashlarWorn = mat(ashlar('#adaaa1', '#847f77', '#a7a49b', 0.13), { density: 42, material: 'stone' });
+
+  /* Kept under the old names so nothing has to be renamed twice; the
+     building's walls are ashlar now and these are what it asks for. */
+  M.stucco = M.ashlar;
+  M.stuccoWorn = M.ashlarWorn;
+
+  /** The terracotta the window surrounds and the corbel table are picked
+      out in -- the one strong color on the whole elevation. */
+  M.terracotta = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#9c6653', w, h);
+    speckle(g, w, h, 120, ['#a56e5a', '#905e4c', '#aa7561']);
+    noise(g, w, h, 5);
+    grime(g, w, h, 0.1, 6);
+  }), { density: 48, material: 'stone' });
+
+  /** Painted ironwork and joinery: the portico columns, the entablature
+      over them, the railings. A dark blue-gray, not black. */
+  M.ironwork = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#575f66', w, h);
+    for (let i = 0; i < 24; i++) {
+      g.fillStyle = `rgba(255,255,255,${0.02 + Math.random() * 0.04})`;
+      g.fillRect(0, Math.random() * h, w, 1);
+    }
+    noise(g, w, h, 4);
+  }), { density: 48, material: 'metal' });
+
+  /** White painted joinery: the interior columns, the wainscot cap, the
+      window and door casings, the mantel. */
+  M.paintWhite = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#e9e5db', w, h);
+    for (let i = 0; i < 18; i++) {
+      g.fillStyle = `rgba(0,0,0,${0.02 + Math.random() * 0.03})`;
+      g.fillRect(0, Math.random() * h, w, 1);
+    }
+    noise(g, w, h, 3);
+  }), { density: 48, material: 'wood' });
 
   /* -------- interior plaster, distempered, a century of it -------- */
   M.plaster = mat(makeTex(64, 64, (g, w, h) => {
-    fill(g, '#b3a992', w, h);
-    speckle(g, w, h, 900, ['#bab08f', '#aca287', '#c0b69c']);
-    noise(g, w, h, 8);
-    grime(g, w, h, 0.1, 10);
+    /* Near-white, not tan: every interior photograph shows plain white or
+       cream distemper, with the color in the room coming from the joinery
+       and the floor rather than from the walls. */
+    fill(g, '#d5d0c4', w, h);
+    speckle(g, w, h, 400, ['#dad5c9', '#cec9bd', '#e0dbcf']);
+    noise(g, w, h, 4);
+    grime(g, w, h, 0.09, 12);
   }), { material: 'stone' });
 
   /** A cooler, greener distemper, so adjoining rooms are told apart. */
+  /* Two more distempers, enough to tell one room from the next -- but
+     BARELY tinted. Stage 2 had these at full strength, which made the
+     rooms read as painted in three flat colors; the photographs show
+     white walls everywhere and the color in a room coming from the floor
+     and the joinery. */
   M.plasterGreen = mat(makeTex(64, 64, (g, w, h) => {
-    fill(g, '#9aa593', w, h);
-    speckle(g, w, h, 900, ['#a3ae9b', '#909b89', '#aab5a2']);
-    noise(g, w, h, 8);
-    grime(g, w, h, 0.1, 10);
+    fill(g, '#cbd0c4', w, h);
+    speckle(g, w, h, 400, ['#d0d5c9', '#c4c9bd', '#d6dbcf']);
+    noise(g, w, h, 4);
+    grime(g, w, h, 0.09, 12);
   }), { material: 'stone' });
 
-  /** And a warmer one. Three distempers is enough to read a plan by. */
   M.plasterOchre = mat(makeTex(64, 64, (g, w, h) => {
-    fill(g, '#b8a279', w, h);
-    speckle(g, w, h, 900, ['#c0aa81', '#b09a71', '#c6b089']);
-    noise(g, w, h, 8);
-    grime(g, w, h, 0.12, 10);
+    fill(g, '#dbd4c2', w, h);
+    speckle(g, w, h, 400, ['#e0d9c7', '#d4cdbb', '#e5dece']);
+    noise(g, w, h, 4);
+    grime(g, w, h, 0.1, 12);
+  }), { material: 'stone' });
+
+  /** Ceilings and slab soffits. A step below the wall plaster, because
+      vertex lighting gives a flat white ceiling nothing to separate it
+      from a flat white wall and the room turns into fog. */
+  M.plasterCeiling = mat(makeTex(64, 64, (g, w, h) => {
+    fill(g, '#c5c1b6', w, h);
+    speckle(g, w, h, 300, ['#cac6bb', '#c0bcb1']);
+    noise(g, w, h, 3);
+    grime(g, w, h, 0.08, 14);
   }), { material: 'stone' });
 
   /* -------- beadboard: narrow boards with a bead between each --------
@@ -238,12 +306,16 @@ export function buildMaterials() {
      architectural information, so the texture is directional and the
      level lays it with the run of the room. */
   M.beadboard = mat(makeTex(64, 64, (g, w, h) => {
-    fill(g, '#b6ad9b', w, h);
-    for (let x = 0; x < w; x += 8) {
-      g.fillStyle = 'rgba(0,0,0,.20)'; g.fillRect(x, 0, 1, h);        // the seam
-      g.fillStyle = 'rgba(255,255,255,.10)'; g.fillRect(x + 1, 0, 1, h);
-      g.fillStyle = 'rgba(0,0,0,.09)'; g.fillRect(x + 3, 0, 1, h);    // the bead
-      g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(x + 4, 0, 1, h);
+    fill(g, '#c6bfae', w, h);
+    /* Sixteen pixels to a board, not eight. At eight the bead pitch lands
+       near the pixel grid at ordinary viewing distance and the whole
+       wainscot shimmers with chroma fringing; at sixteen it reads as
+       boards. Board width beats board count. */
+    for (let x = 0; x < w; x += 16) {
+      g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(x, 0, 1, h);        // the seam
+      g.fillStyle = 'rgba(255,255,255,.09)'; g.fillRect(x + 1, 0, 1, h);
+      g.fillStyle = 'rgba(0,0,0,.07)'; g.fillRect(x + 7, 0, 1, h);    // the bead
+      g.fillStyle = 'rgba(255,255,255,.05)'; g.fillRect(x + 8, 0, 1, h);
     }
     noise(g, w, h, 7);
     grime(g, w, h, 0.1, 8);
@@ -282,6 +354,27 @@ export function buildMaterials() {
     }
     noise(g, w, h, 6);
   }), { density: 48, material: 'wood' });
+
+  /** A four-panel leaf. `paint` swaps the stain for the white the
+      interior photographs show on every door inside the building; the
+      exterior leaves stay timber. */
+  const leaf = (base, panel, high) => makeTex(64, 64, (g, w, h) => {
+    fill(g, base, w, h);
+    for (let i = 0; i < 40; i++) {
+      g.strokeStyle = `rgba(0,0,0,${0.02 + Math.random() * 0.04})`;
+      const x = Math.random() * w;
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 4, h); g.stroke();
+    }
+    g.strokeStyle = panel; g.lineWidth = 3;
+    g.strokeRect(9, 5, w - 18, 22);
+    g.strokeRect(9, 36, w - 18, 22);
+    g.strokeStyle = high; g.lineWidth = 1;
+    g.strokeRect(11, 7, w - 22, 18);
+    g.strokeRect(11, 38, w - 22, 18);
+    noise(g, w, h, 4);
+  });
+  M.doorPainted = mat(leaf('#d9d4c8', '#bdb8ac', 'rgba(255,255,255,.5)'),
+    { material: 'wood' });
 
   M.doorLeaf = mat(makeTex(64, 64, (g, w, h) => {
     fill(g, '#5d472f', w, h);
@@ -372,19 +465,43 @@ export function buildMaterials() {
   }), { material: 'stone' });
 
   /* -------- glazing, and the roof -------- */
+  /* -------- sash glazing --------
+     The muntins are IN THE TEXTURE, at a density that puts a pane about
+     fourteen inches across. Modelling a twelve-over-twelve sash as
+     geometry would be four hundred boxes across the building for
+     something two pixels wide at the resolution this runs at; the
+     physical part of a window is its frame, its meeting rail and its deep
+     reveal, and those are built in parts.js.
+
+     The tile is two panes square with the bars on its own edges, so it
+     tiles on a muntin and there is no seam. */
+  const PANE = 0.356;                       // about fourteen inches
   M.windowGlass = mat(makeTex(64, 64, (g, w, h) => {
-    fill(g, '#1b2530', w, h);
+    fill(g, '#2a3540', w, h);
     const gr = g.createLinearGradient(0, 0, w, h);
-    gr.addColorStop(0, 'rgba(150,175,200,0.42)');
-    gr.addColorStop(0.55, 'rgba(45,62,78,0.22)');
-    gr.addColorStop(1, 'rgba(120,145,170,0.36)');
+    gr.addColorStop(0, 'rgba(165,188,210,0.40)');
+    gr.addColorStop(0.5, 'rgba(60,78,94,0.20)');
+    gr.addColorStop(1, 'rgba(130,155,178,0.34)');
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
-    // glazing bars: a six-over-six sash, as near as 64 pixels will carry
-    g.fillStyle = '#39332a';
-    g.fillRect(20, 0, 2, h); g.fillRect(42, 0, 2, h);
-    for (const y of [16, 32, 48]) g.fillRect(0, y, w, 2);
-    noise(g, w, h, 5);
-  }), { material: 'stone' });
+    g.fillStyle = '#c9c4b8';                // painted bars, not dark
+    for (const x of [0, 31, 62]) g.fillRect(x, 0, 2, h);
+    for (const y of [0, 31, 62]) g.fillRect(0, y, w, 2);
+    g.fillStyle = 'rgba(0,0,0,.22)';
+    for (const x of [2, 33]) g.fillRect(x, 0, 1, h);
+    for (const y of [2, 33]) g.fillRect(0, y, w, 1);
+    noise(g, w, h, 3);
+  }), { density: 64 / (2 * PANE), material: 'stone' });
+
+  /** The sash itself: stiles, rails and the meeting rail, painted the
+      same off-white as the bars. */
+  M.sashFrame = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#cdc8bc', w, h);
+    for (let i = 0; i < 14; i++) {
+      g.fillStyle = `rgba(0,0,0,${0.03 + Math.random() * 0.04})`;
+      g.fillRect(0, Math.random() * h, w, 1);
+    }
+    noise(g, w, h, 3);
+  }), { density: 64, material: 'wood' });
 
   M.roofSlate = mat(makeTex(64, 64, (g, w, h) => {
     fill(g, '#4b4e52', w, h);

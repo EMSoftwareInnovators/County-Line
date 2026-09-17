@@ -58,18 +58,27 @@ the home of the Augusta Museum of History from 1937 to 1995. Pressing NEW
 TEST GAME puts you on the front walk looking at it.
 
 It is reconstructed at approximately real-world scale from a 1994 measured
-plan and the museum's own visitor maps: 112'9" across, 94'0" deep, two
-storeys, 35 rooms, 40 doors, both historic staircases, the recessed
-cast-iron loggia on the front, and the open-air garden court between the
-two rear wings with **no floor and no bridge over it at any point**.
+plan, the museum's own visitor maps and photographs of the building:
+112'9" across, 94'0" deep, two floors, 36 rooms, 37 doors, both historic
+staircases, a one-story columned portico under a crenellated terrace with
+the central block standing above it, and the open-air garden court between
+the two rear wings with **no floor and no bridge over it at any point**.
+
+Inside, the first floor is very tall — the central room is about 15'9"
+clear — with multi-pane sash windows running from a low sill almost to
+the ceiling, painted beadboard wainscot, tall historic doors and the
+slender white structural columns the photographs show down the middle of
+the big room.
 
 ![the front elevation from Telfair Street](docs/academy/01-facade.png)
 
 **[docs/OLD-ACADEMY.md](docs/OLD-ACADEMY.md)** documents the sources, the
 two places the reconstruction knowingly departs from a printed figure and
-why, what is measured and what is assumed, the coordinate origin, the full
-room and door schedule, and the module layout. `docs/academy/` holds 24
-views of it.
+why, what is measured and what is estimated from photographs, the
+coordinate origin, the full room and door schedule, and the module
+layout. `docs/academy/` holds 24 views of it, and `docs/academy/review/`
+the same 24 with the CRT switched off for comparison against the
+reference photographs.
 
 Stage 2 contains no bus terminal, no story, no campaign nights and no
 scares. What it is *not* is listed at the end of that document.
@@ -109,11 +118,19 @@ coordinates to test movement, stairs, doors and interaction.
 | **F1** | cycle the developer read-out — off, one line, everything, **architecture mode** |
 | **F2** | draw the collision world |
 | **F3** | jump to the top of the stairs |
+| **F4** | architecture-review mode — the CRT off, for comparing against photographs |
 
 Architecture mode is the fourth F1 position and reads out in feet and
 inches: where you are relative to the level origin, the current room's
 bounds and how much clear space is around you, the nearest doorway with
 its size and state, and the plan figures to check them against.
+
+**F1 to F4 are development-only.** A shipped build has none of them: the
+production marker is checked once at start-up and the keys are never
+bound. Architecture-review mode is not a graphics option and the player
+never sees it — it changes how a finished frame is presented, not what
+was drawn, which is the only way a comparison against a photograph means
+anything.
 
 Everything above can be rebound, on the keyboard and on a controller,
 from SETTINGS → CONTROLS. Xbox and PlayStation pads are both understood,
@@ -222,6 +239,9 @@ architectural invariants — the footprint, that nothing is ever built over
 the garden or the rear porch, that the upper wings never bridge, that both
 staircases exist away from the center line — and then **walks routes A to
 K** with real key events, reporting which room it actually ended up in.
+`tools/academy-doors.mjs` exercises every doorway in the building — leaf
+alignment, collision when shut, passage when open, both approach sides,
+and the eight canonical connections opened, walked and shut again.
 `tools/unit.mjs` checks the dimensional arithmetic without a browser, so a
 station that stops closing fails in milliseconds.
 

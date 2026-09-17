@@ -70,10 +70,12 @@ substantive ones:
 
 | | |
 |---|---|
-| **Storey height** — *assumed* | No reference gives one. 14'6" clear on the first floor sits mid-range for an 1850s institutional building of this size. 18" of floor structure over it puts the second floor at exactly 16'0", which is 24 risers of exactly 8 inches. **The staircase governs the storey height, not the other way round** — the number was chosen to make the flight come out whole. |
+| **Storey height** — *estimated from photographs, Stage 2.1* | No reference gives one. Stage 2 guessed 14'6" and the interior photographs showed that far too low: the rooms are very tall, the sash windows run from a low sill almost to the ceiling, and there is a great deal of plain wall above both. The main central room is now **15'9" clear (~4.8 m)**, read off the photographs; secondary rooms are 15'0" and service rooms 11'0", three classes and no more. 1'7" of floor structure puts the second floor at **17'4"**, which is 26 risers of exactly 8 inches. **The staircase governs the storey height, not the other way round** — 17'4" was chosen because the whole switchback then still fits the 13'5" the middle band leaves. None of this is a documented historical measurement and it is the first thing to replace if a measured section turns up. |
 | **Second-floor partitions** — *assumed from the visitor map* | The 1994 measured plan is first-floor only. The upper storey's partitions come from the museum's second-floor visitor map, which is schematic; the *rooms* are certain, their exact dimensions are not. |
 | **Window rhythm** — *assumed from photographs* | Bay positions are spaced to match elevation photographs, not measured. Sill and head heights are chosen once and applied consistently. |
-| **Roof form** — *simplified* | A flat deck behind the parapet. The parapet silhouette is the recognisable thing; what is behind it is not visible from the ground and is not reconstructed. |
+| **Roof form** — *simplified* | A flat deck behind the parapet. The parapet silhouette is the recognisable thing; what is behind it is not visible from the ground and is not reconstructed. The **central block stands clear of the two front blocks** with its own band and its own crenellations, which the historic front photograph shows plainly and Stage 2 had the wrong way round. |
+| **The portico** — *from photographs, Stage 2.1* | ONE story of slender columns, a **crenellated masonry terrace** on top of them at second-floor level, and the central block's own upper wall standing solid behind that with three tall openings in it. Stage 2 built a two-story open loggia, which is the single thing that made the front read as a generic castellated block. |
+| **Central-room columns** — *from photographs, count uncertain* | Slender white painted structural columns, floor to ceiling, with a stepped base and a molded capital. They are certainly there. How many and exactly where is NOT established — see below. |
 | **Grade** — *assumed* | The site stands about 3 feet above the street. The front steps are sized from that. |
 
 Nothing here is traced from a photograph, and no reference image is used
@@ -107,7 +109,9 @@ there first. The arithmetic is checked without a browser by
 | `X_E_OUT` east face | +56'4½" | `Z_N_OUT` north end | +62'7½" |
 | overall width | 112'9" | overall depth | 94'0" |
 | each wing | 34'3" | central bay | 44'3" |
-| first-floor ceiling | 14'6" | second floor at | 16'0" |
+| first-floor ceiling (central) | 15'9" | second floor at | 17'4" |
+| wing rooms' ceiling | 15'0" | terrace / portico soffit | 17'4" / 15'10" |
+| wing parapet (merlon top) | 36'6" | central block parapet | 41'6" |
 
 ---
 
@@ -145,17 +149,64 @@ sky, and that is the single most characteristic thing about the building.
 There is **no grand central staircase and never was one**: the center is
 a room, not a hall. Both staircases are out in the wings' middle bands
 against the outer walls, where both floor plans put them, and each is a
-switchback of two 12-riser flights around a half-landing at the outer
-end.
+switchback of two 13-riser flights around a half-landing at the outer
+end. You step on at the doorway from the rear hall: walking through it is
+walking onto the bottom tread.
+
+### The stair hall zone
+
+Set out as rectangles in `dimensions.js` before any geometry is built,
+because Stage 2 dropped a staircase into the band and then wedged a
+restroom into what was left, which produced a four-foot closet
+overlapping the upper flight:
+
+```
+  X_W_IN                            X_W_HALL_W       X_WING_W_IN
+  -54'9"                              -41'4"            -23'9"
+     +------------------------------------+-----------------+  Z_MID_N 22'1"
+     |          R E S T R O O M           |                 |
+     |          13'5" x 5'2"              |   W E S T       |
+     +------------------------------------+   R E A R       |  Z_STAIR_N 16'11"
+     |  landing |  flight B  ->  (up)     |   H A L L       |
+     |  3'4"    |  13 x 9¼" to 17'4"      |                 |
+     |  8'8"    |- - - - - - - - - - - - -| ) restroom door |
+     |  high    |  flight A  <-  (up)     | ) stair door    |
+     +------------------------------------+-----------------+  Z_MID_S  9'1"
+```
+
+The east wing is the mirror image. The restroom is a real enclosed room
+with its own furred-down ceiling and its own door off the rear hall, and
+it touches the staircase nowhere.
 
 ![the garden, west elevation](academy/09-garden-west.png)
 
 ---
 
+## The central room's columns
+
+The interior photograph of the large central first-floor room shows
+slender white painted structural columns running floor to ceiling, with a
+stepped base and a simple molded capital. They are certainly there and
+they are certainly slender.
+
+**What is not established is how many, or exactly where.** One oblique
+photograph shows four of them in what reads as two receding lines, but it
+does not show the room's corners and it cannot be counted from.
+
+So their positions live in **one table**, `CENTRAL_ROOM_COLUMNS` in
+`dimensions.js`, in room coordinates. Two rows of three at x = ±11'0" and
+z = −10'6", 0, +10'6" is the most restrained arrangement consistent with
+the view — a wide center bay with an aisle each side. When a better
+photograph or a measured plan turns up, that array changes and nothing
+else does.
+
+---
+
 ## What is in it
 
-35 rooms, 40 doors, 63 render chunks, 57 navigation nodes on 77 edges,
-about 12,000 triangles, 532 collision solids, 41 floors, 9 ramps.
+36 rooms, 37 doors, 65 render chunks, 57 navigation nodes on 77 edges,
+about 16,600 triangles, and a collision world of solids, floors, 9 ramps
+and ceilings.
 
 ### First floor
 
@@ -287,10 +338,26 @@ which room it actually ended up in. It checks:
   flight's footprint;
 * and then walks routes **A to K**.
 
+`tools/academy-doors.mjs` exercises **every doorway in the building**
+against the collider and the interaction system: that the leaf is hung in
+its own opening at its own sill height, that nothing else stands in the
+opening, that shut is impassable and open is passable (including at the
+jamb), that the collision follows the animation rather than the intent,
+that it is offered from both sides, and that the eight canonical
+connections can be opened, walked through and shut from the other side.
+
+`tools/academy-shots.mjs` captures every view **twice** — once as the game
+renders it, once in architecture-review mode.
+
 **F1 in the running game cycles into architecture mode**, which reads out
 in feet and inches: where you are relative to the origin, the current
 room's bounds and clear dimensions, the nearest doorway with its size and
-state, and the plan figures to check them against.
+state, and the plan figures to check them against. **F4 is
+architecture-review mode**: the CRT off and the fog pushed out of the
+way, so a screenshot can be held against a photograph without arguing
+with dither, bleed, scanlines, grain and a vignette. The geometry, the
+materials and the baked lighting are untouched — only the presentation
+changes. Both are development-only and a shipped build has neither.
 
 ---
 

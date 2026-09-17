@@ -10,20 +10,31 @@
    The parapet runs the entire perimeter -- both side elevations, both
    north ends, the front of both projecting blocks, and BOTH GARDEN-FACING
    WALLS, so that the view up out of the garden is battlements on either
-   hand. The central block carries its own, lower and set back behind the
-   colonnade, which is what makes the middle of the front read as recessed.
+   hand.
+
+   STAGE 2.1: THE CENTRAL BLOCK STANDS ABOVE THE WINGS, not below them.
+   The historic photograph of the front shows it rising clear of the two
+   projecting blocks, with its lettered band and its own crenellations
+   over that. Stage 2 had it lower and set back, which is exactly the
+   wrong way round and is half of why the facade read as squat.
+
+   The corbel table under every parapet is the other half. The photographs
+   show a continuous row of small brackets picked out in terracotta,
+   running round the building and along the portico, and without it a
+   crenellated wall is just a wall with teeth.
    ============================================================ */
 import { ftin } from '../../../engine/units.js';
 import * as D from './dimensions.js';
-import { crenellate } from './parts.js';
+import { corbelTable, crenellate } from './parts.js';
 
-function deck(b, x0, x1, z0, z1) {
-  b.mb.box(x0, D.ROOF - ftin(1, 0), z0, x1, D.ROOF, z1,
+function deck(b, x0, x1, z0, z1, y) {
+  const top = y === undefined ? D.ROOF : y;
+  b.mb.box(x0, top - ftin(1, 0), z0, x1, top, z1,
     { all: { tex: b.M.roofSlate.tex, density: b.M.roofSlate.density } });
   /* Solid, so that nothing can end up standing on the inside of a roof,
      and so the interaction ray cannot see through it. */
   b.col.addSolid({
-    x0, x1, z0, z1, y0: D.ROOF - ftin(1, 0), y1: D.ROOF,
+    x0, x1, z0, z1, y0: top - ftin(1, 0), y1: top,
     tag: 'roof', walkable: false,
   });
 }
@@ -32,14 +43,23 @@ export function buildRoof(b) {
   const M = b.M;
   const P = {
     base: D.ROOF - ftin(1, 6),
-    capTop: D.PARAPET_TOP - D.MERLON_RISE,
+    capTop: D.PARAPET_CAP,
     merlonTop: D.PARAPET_TOP,
     thickness: D.EXT,
-    material: M.stucco,
-    capMaterial: M.stuccoWorn,
+    material: M.ashlar,
+    capMaterial: M.ashlarWorn,
     merlon: D.MERLON,
     crenel: D.CRENEL,
   };
+  /** The corbel table sits directly under whatever parapet it belongs to. */
+  const corbels = (axis, a0, a1, line, y, outward) => corbelTable(b, {
+    axis,
+    x0: axis === 'x' ? a0 : 0, x1: axis === 'x' ? a1 : 0,
+    z0: axis === 'z' ? a0 : 0, z1: axis === 'z' ? a1 : 0,
+    line, thickness: D.EXT, outward,
+    pitch: D.CORBEL_PITCH, w: D.CORBEL_W, h: D.CORBEL_H, proj: D.CORBEL_PROJ,
+    y: y - D.CORBEL_H, material: M.terracotta,
+  });
 
   b.chunk('academy.roof');
   b.detail(3.0);
@@ -47,7 +67,8 @@ export function buildRoof(b) {
   /* ---- the decks ---- */
   deck(b, D.X_W_OUT, D.X_BAY_W, D.Z_FACADE, D.Z_N_OUT);          // west wing
   deck(b, D.X_BAY_E, D.X_E_OUT, D.Z_FACADE, D.Z_N_OUT);          // east wing
-  deck(b, D.X_BAY_W, D.X_BAY_E, D.Z_FACADE, D.Z_CENTRAL_N_OUT);  // center + gallery
+  deck(b, D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S_OUT, D.Z_CENTRAL_N_OUT,
+    D.ROOF_CENTER);                                              // the central block
 
   /* ---- parapets, clockwise from the south-west corner ---- */
   const WEST_CL = D.X_W_OUT + D.EXT / 2;
@@ -73,17 +94,40 @@ export function buildRoof(b) {
   crenellate(b, { ...P, x0: GARDEN_W_CL, z0: D.Z_CENTRAL_N_OUT, x1: GARDEN_W_CL, z1: D.Z_N_OUT });
   crenellate(b, { ...P, x0: GARDEN_E_CL, z0: D.Z_CENTRAL_N_OUT, x1: GARDEN_E_CL, z1: D.Z_N_OUT });
 
-  /* The center's own parapet, set back over the gallery and a little
-     lower, so the two front blocks read as towers either side of it. */
+  /* ---- the corbel table, under every run of parapet above ---- */
+  corbels('z', D.Z_FACADE, D.Z_N_OUT, WEST_CL, P.base, -1);
+  corbels('z', D.Z_FACADE, D.Z_N_OUT, EAST_CL, P.base, 1);
+  corbels('x', D.X_W_OUT, D.X_BAY_W, FACADE_CL, P.base, -1);
+  corbels('x', D.X_BAY_E, D.X_E_OUT, FACADE_CL, P.base, -1);
+  corbels('x', D.X_W_OUT, D.X_BAY_W, NORTH_CL, P.base, 1);
+  corbels('x', D.X_BAY_E, D.X_E_OUT, NORTH_CL, P.base, 1);
+  corbels('z', D.Z_CENTRAL_N_OUT, D.Z_N_OUT, GARDEN_W_CL, P.base, 1);
+  corbels('z', D.Z_CENTRAL_N_OUT, D.Z_N_OUT, GARDEN_E_CL, P.base, -1);
+
+  /* ---- the central block ----
+     Standing clear of the two front blocks, with its own band and its own
+     crenellations over that. Its south face is the wall behind the
+     terrace; its north face looks down on the rear porch. */
   const C = {
     ...P,
-    base: D.ROOF - ftin(1, 6),
-    capTop: D.PARAPET_TOP - D.MERLON_RISE - ftin(1, 6),
-    merlonTop: D.PARAPET_TOP - ftin(1, 6),
+    base: D.ROOF_CENTER - ftin(1, 6),
+    capTop: D.PARAPET_CAP_CENTER,
+    merlonTop: D.PARAPET_TOP_CENTER,
   };
-  crenellate(b, { ...C, x0: D.X_BAY_W, z0: FACADE_CL, x1: D.X_BAY_E, z1: FACADE_CL });
-  crenellate(b, {
-    ...C, x0: D.X_BAY_W, z0: D.Z_CENTRAL_N + D.EXT / 2,
-    x1: D.X_BAY_E, z1: D.Z_CENTRAL_N + D.EXT / 2,
-  });
+  const CS = D.Z_CENTRAL_S - D.EXT / 2;
+  const CN = D.Z_CENTRAL_N + D.EXT / 2;
+  crenellate(b, { ...C, x0: D.X_BAY_W, z0: CS, x1: D.X_BAY_E, z1: CS });
+  crenellate(b, { ...C, x0: D.X_BAY_W, z0: CN, x1: D.X_BAY_E, z1: CN });
+  for (const sx of [D.X_BAY_W - D.EXT / 2, D.X_BAY_E + D.EXT / 2]) {
+    crenellate(b, { ...C, x0: sx, z0: CS, x1: sx, z1: CN });
+  }
+  corbels('x', D.X_BAY_W, D.X_BAY_E, CS, C.base, -1);
+  corbels('x', D.X_BAY_W, D.X_BAY_E, CN, C.base, 1);
+
+  /* The band the historic photograph carries THE LIBRARY on. Blank here:
+     the lettering belongs to a period this reconstruction is not set in,
+     and a guessed inscription is worse than none. */
+  b.mb.box(D.X_BAY_W - D.EXT / 2 - ftin(0, 3), C.base - ftin(3, 0), CS - ftin(0, 3),
+    D.X_BAY_E + D.EXT / 2 + ftin(0, 3), C.base - ftin(0, 6), CS,
+    { all: { tex: M.ashlarWorn.tex, density: M.ashlarWorn.density } });
 }

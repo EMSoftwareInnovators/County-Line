@@ -30,7 +30,10 @@ function slab(b, chunk, x0, x1, z0, z1) {
   b.detail(2.4);
   b.floor({
     x0, x1, z0, z1, y: D.FLOOR2,
-    material: b.M.heartPine, soffit: b.M.beadboard,
+    /* Plain plaster underneath, not beaded board: every interior
+       photograph shows a flat plastered ceiling, and a bead texture at
+       this resolution reads as diagonal static across the whole room. */
+    material: b.M.heartPine, soffit: b.M.plasterCeiling,
     thickness: D.FLOOR_STRUCTURE, tag: 'floor2',
   });
   b.headroom({ x0, x1, z0, z1, y: D.FLOOR1_CEIL, tag: 'floor2-soffit' });
@@ -42,7 +45,7 @@ function ceil(b, chunk, x0, x1, z0, z1) {
   b.detail(2.4);
   b.ceiling({
     x0, x1, z0, z1, y: D.FLOOR2_CEIL,
-    material: b.M.beadboard, thickness: ftin(1, 0), tag: 'ceiling2',
+    material: b.M.plasterCeiling, thickness: ftin(1, 0), tag: 'ceiling2',
   });
 }
 
@@ -162,12 +165,20 @@ export function buildSecondFloor(b) {
   /* The War Room and Modern Mammals are one meeting room with a spine
      wall down it, pierced by a wide opening -- which is exactly how the
      visitor map draws it, annotated across both halves as the common
-     meeting room. */
+     meeting room.
+
+     IT STOPS SHORT OF THE SOUTH WALL. The terrace door is on the center
+     line, and a spine running the full depth walks straight into it: you
+     could open the door and find masonry behind it. The map's division is
+     a partition inside one room, not a structural wall, and it cannot run
+     into the wall that carries the door out onto the terrace. Seven feet
+     of clear passage across the south end is the least invasive way to
+     make both true. */
   partition(b, {
     chunk: 'academy.upper.center.war',
-    axis: 'z', line: 0, from: D.Z_CENTRAL_S, to: D.Z_CENTRAL_N,
+    axis: 'z', line: 0, from: D.Z_CENTRAL_S + ftin(7, 0), to: D.Z_CENTRAL_N,
     ...light, ...up,
-    openings: [upArch(0, { width: ftin(8, 0), height: ftin(9, 6) })],
+    openings: [upArch(ftin(3, 6), { width: ftin(8, 0), height: ftin(10, 6) })],
   });
 
   /* wing cross-walls, matching the ones below them */

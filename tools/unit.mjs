@@ -626,22 +626,77 @@ section('save');
   isFt('the front porch is 13 ft 6 in deep', D.FRONT_PORCH_DEPTH, 13.5);
   isFt('the rear porch 15 ft', D.REAR_PORCH_DEPTH, 15);
 
-  /* ---- the staircase governs the story height, not the reverse ---- */
-  isFt('the second floor is at 16 ft', D.FLOOR2, 16);
-  check('which is 24 risers', D.STAIR_RISERS === 24, String(D.STAIR_RISERS));
+  /* ---- the vertical section, re-derived in Stage 2.1 ----
+     None of these is a documented measurement. They are a photographic
+     estimate of a very tall first floor, plus the arithmetic the
+     staircase then forces on it. What is checked is that the arithmetic
+     still closes, not that the estimate is right. */
+  isFt('the central room is about 15 ft 9 in clear', D.CEIL_PRINCIPAL, 15.75);
+  check('which is the ~4.8 m the photographs were read at',
+    Math.abs(D.CEIL_PRINCIPAL - 4.8) < 0.01, `${D.CEIL_PRINCIPAL.toFixed(3)} m`);
+  check('the secondary rooms sit in the 4.5-4.7 m band',
+    D.CEIL_SECONDARY >= 4.5 && D.CEIL_SECONDARY <= 4.72,
+    `${D.CEIL_SECONDARY.toFixed(3)} m`);
+  check('and there are only three first-floor ceiling classes',
+    new Set([D.CEIL_PRINCIPAL, D.CEIL_SECONDARY, D.CEIL_SERVICE]).size === 3);
+  check('service ceilings are below the secondary ones, not above',
+    D.CEIL_SERVICE < D.CEIL_SECONDARY && D.CEIL_SECONDARY <= D.CEIL_PRINCIPAL);
+
+  isFt('the second floor is at 17 ft 4 in', D.FLOOR2, 17 + 4 / 12);
+  check('which is 26 risers', D.STAIR_RISERS === 26, String(D.STAIR_RISERS));
   check('of exactly 8 in', Math.abs(D.STAIR_RISE * 39.3700787 - 8) < 1e-6,
     `${(D.STAIR_RISE * 39.3700787).toFixed(6)} in`);
   check('and the ceiling plus the floor structure is that height',
-    near(D.FLOOR1_CEIL + D.FLOOR_STRUCTURE, D.FLOOR2, 1e-9));
+    near(D.CEIL_PRINCIPAL + D.FLOOR_STRUCTURE, D.FLOOR2, 1e-9));
   check('a step up is deliberately shorter than a riser, so stairs are stairs',
     SCALE.stepHeight < D.STAIR_RISE, `${F(SCALE.stepHeight).toFixed(3)} < ${F(D.STAIR_RISE).toFixed(3)} ft`);
+  const twoRT = (2 * D.STAIR_RISE + D.STAIR_RUN) * 39.3700787;
+  check('2R + T lands in the historic 24-26 inch band', twoRT > 24 && twoRT < 26.01,
+    `${twoRT.toFixed(2)} in`);
 
   /* ---- the whole switchback has to fit the middle band ---- */
   const switchback = D.STAIR_LANDING + (D.STAIR_RISERS / 2) * D.STAIR_RUN;
-  const available = D.REAR_HALL_W === undefined ? 0 : (D.WING_IN - D.REAR_HALL_W);
+  const available = D.WING_IN - D.REAR_HALL_W;
   check('the switchback fits between the outer wall and the rear hall',
     switchback <= available + 1e-9,
     `${F(switchback).toFixed(3)} ft in ${F(available).toFixed(3)} ft`);
+  check('and the restroom takes what is left of the band, as a real room',
+    near(D.Z_SERVICE_N - D.Z_SERVICE_S, D.MID_BAND - D.STAIR_WELL_D, 1e-9)
+    && (D.Z_SERVICE_N - D.Z_SERVICE_S) > 1.4,
+    `${F(D.Z_SERVICE_N - D.Z_SERVICE_S).toFixed(2)} ft deep`);
+  check('the stair well and the restroom do not overlap',
+    D.Z_SERVICE_S >= D.Z_STAIR_N - 1e-9);
+
+  /* ---- the front, which is what Stage 2.1 was mostly about ---- */
+  check('the portico is ONE story, not two',
+    D.PORTICO_SOFFIT < D.FLOOR2 && D.TERRACE === D.FLOOR2,
+    `soffit ${F(D.PORTICO_SOFFIT).toFixed(2)} ft, terrace ${F(D.TERRACE).toFixed(2)} ft`);
+  check('the terrace parapet is masonry with a merlon rhythm',
+    D.TERRACE_MERLON_TOP > D.TERRACE_PARAPET && D.TERRACE_PARAPET > D.TERRACE);
+  check('the central block stands ABOVE the wings',
+    D.ROOF_CENTER > D.ROOF && D.PARAPET_TOP_CENTER > D.PARAPET_TOP,
+    `${F(D.PARAPET_TOP_CENTER).toFixed(1)} ft vs ${F(D.PARAPET_TOP).toFixed(1)} ft`);
+  check('the first-floor windows are tall and narrow',
+    (D.WIN1_HEAD - D.WIN1_SILL) / D.WIN_W > 2.4,
+    `${((D.WIN1_HEAD - D.WIN1_SILL) / D.WIN_W).toFixed(2)} : 1`);
+  check('and they stop short of the ceiling rather than running into it',
+    D.WIN1_HEAD < D.CEIL_PRINCIPAL - 0.4,
+    `head ${F(D.WIN1_HEAD).toFixed(2)} ft under a ${F(D.CEIL_PRINCIPAL).toFixed(2)} ft ceiling`);
+  check("the Academy's doors are NOT the engine's generic 6ft8 leaf",
+    D.DOOR_H > SCALE.doorHeight + 0.3 && SCALE.doorHeight < 2.1,
+    `academy ${F(D.DOOR_H).toFixed(2)} ft, engine ${F(SCALE.doorHeight).toFixed(2)} ft`);
+
+  /* ---- the central room's columns ---- */
+  check('the central room has its columns', D.CENTRAL_ROOM_COLUMNS.length >= 4,
+    `${D.CENTRAL_ROOM_COLUMNS.length} of them`);
+  check('they stand inside the room, not in its walls',
+    D.CENTRAL_ROOM_COLUMNS.every((c) => Math.abs(c.x) < D.BAY / 2 - 1
+      && Math.abs(c.z) < D.CENTRAL_DEPTH / 2 - 1));
+  check('they are symmetric about the building center line',
+    D.CENTRAL_ROOM_COLUMNS.every((c) => D.CENTRAL_ROOM_COLUMNS
+      .some((o) => Math.abs(o.x + c.x) < 1e-9 && Math.abs(o.z - c.z) < 1e-9)));
+  check('and they are slender, not classical orders',
+    D.INT_COLUMN_DIA < 0.35, `${(D.INT_COLUMN_DIA * 39.37).toFixed(1)} in through`);
 
   /* ---- the things the brief says must never happen ---- */
   check('the two rear wings do not meet: there is a bay between them',
@@ -659,6 +714,9 @@ section('save');
     `${F(D.GRADE)} < ${F(D.GARDEN_LEVEL)} < 0 ft`);
   check('the parapet stands above the roof deck', D.PARAPET_TOP > D.ROOF);
   check('a merlon is wider than the crenel beside it', D.MERLON > D.CRENEL);
+  check('and the corbel table has a readable rhythm under it',
+    D.CORBEL_PITCH > D.CORBEL_W && D.CORBEL_PROJ > 0.1,
+    `${(D.CORBEL_PITCH * 39.37).toFixed(0)} in pitch`);
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nall good');

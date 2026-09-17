@@ -39,6 +39,11 @@ import * as uiGlyphs from './ui/glyphs.js';
 
 const start = async () => {
   const game = new Game();
+  /* The game needs to know too. The developer read-out, the collision
+     view and the architecture-review mode are all reachable from the
+     keyboard, and a shipped build must not have any of them: the marker
+     is checked once, here, and handed over. */
+  game.devTools = !IS_PRODUCTION;
   if (!IS_PRODUCTION) {
     window.__game = game;
     window.__cl = {

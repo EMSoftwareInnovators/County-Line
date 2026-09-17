@@ -46,6 +46,7 @@ const BROWSER = [
   ['audio routing', 'tools/audio.mjs'],
   ['performance', 'tools/perf.mjs'],
   ['the shipped web build', 'tools/production.mjs'],
+  ['the Old Academy: every doorway', 'tools/academy-doors.mjs'],
   ['the Old Academy: invariants and routes A-K', 'tools/academy.mjs'],
 ];
 

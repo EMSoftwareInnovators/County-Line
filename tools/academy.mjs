@@ -129,6 +129,7 @@ const plan = await page.evaluate(() => {
     doors: g.level.doors.map((d) => d.id),
     chunks: g.level.chunks.map((c) => ({ id: c.id, b: c.bounds })),
     floors: g.level.collision.floors.map((f) => ({ x0: f.x0, x1: f.x1, z0: f.z0, z1: f.z1, y: f.y, tag: f.tag })),
+    ceilings: g.level.collision.ceilings.map((c) => ({ x0: c.x0, x1: c.x1, z0: c.z0, z1: c.z1, y: c.y, tag: c.tag })),
     ramps: g.level.collision.ramps.map((r) => ({ x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, yLow: r.yLow, yHigh: r.yHigh, tag: r.tag })),
   };
 });
@@ -138,7 +139,7 @@ check('overall width is 112 ft 9 in', Math.abs(M(plan.width) - 112.75) < 0.05, `
 check('overall depth is 94 ft', Math.abs(M(plan.depth) - 94) < 0.05, `${M(plan.depth).toFixed(3)} ft`);
 check('each wing is 34 ft 3 in', Math.abs(M(plan.wing) - 34.25) < 0.05, `${M(plan.wing).toFixed(3)} ft`);
 check('the central bay is about 44 ft 6 in', Math.abs(M(plan.bay) - 44.5) < 0.4, `${M(plan.bay).toFixed(3)} ft`);
-check('the second floor is at 16 ft', Math.abs(M(plan.floor2) - 16) < 0.05, `${M(plan.floor2).toFixed(3)} ft`);
+check('the second floor is at 17 ft 4 in', Math.abs(M(plan.floor2) - 17.3333) < 0.05, `${M(plan.floor2).toFixed(3)} ft`);
 check('the plan is not a rectangle -- the wings are longer than the center is deep',
   M(plan.depth) - M(plan.bay) > 40, `${(M(plan.depth) - M(plan.bay)).toFixed(1)} ft of wing beyond the bay`);
 
@@ -171,7 +172,8 @@ check('and an east upper wing', upE.length >= 2, upE.map((r) => r.id).join(','))
 console.log('\n-- the rooms the brief names --');
 const want = [
   'academy.central', 'academy.indians', 'academy.americana.inner', 'academy.west.offices',
-  'academy.west.restroom', 'academy.west.stairhall', 'academy.east.stairhall',
+  'academy.west.restroom', 'academy.east.restroom',
+  'academy.west.stairhall', 'academy.east.stairhall',
   'academy.east.staff', 'academy.east.animal', 'academy.east.rearhall',
   'academy.west.rearhall', 'academy.porch.front', 'academy.porch.rear', 'academy.garden',
   'academy.upper.west.history', 'academy.upper.west.rotating', 'academy.upper.center.war',
@@ -217,6 +219,36 @@ check('neither staircase is anywhere near the center line',
 check('every flight climbs a full half story',
   flights.every((r) => Math.abs(Math.abs(r.yHigh - r.yLow) - plan.floor2 / 2) < 0.02),
   flights.map((r) => M(Math.abs(r.yHigh - r.yLow)).toFixed(2)).join(', '));
+/* A plaster ceiling was laid across both stairwells once, and the
+   symptom was a player who climbed nine risers, hit their head and slid
+   back down. Nothing may roof a staircase. */
+const roofedStairs = plan.ceilings.filter((c) => flights.some((f) =>
+  c.y < plan.floor2 - 0.05 && c.y > 1
+  && c.x1 > f.x0 + 0.05 && c.x0 < f.x1 - 0.05
+  && c.z1 > f.z0 + 0.05 && c.z0 < f.z1 - 0.05));
+check('no ceiling is laid over a staircase', roofedStairs.length === 0,
+  roofedStairs.map((c) => `${c.tag} at ${M(c.y).toFixed(1)} ft`).join(',') || 'none');
+/* And the headroom above a flight has to clear a standing player all the
+   way up it -- which is the same fault seen from the other side. */
+const headroom = await page.evaluate(() => {
+  const g = window.__game;
+  const C = g.level.collision;
+  const out = [];
+  for (const r of C.ramps) {
+    if (r.tag !== 'stair') continue;
+    for (let t = 0.05; t <= 0.95; t += 0.1) {
+      const x = r.x0 + (r.x1 - r.x0) * t;
+      const z = (r.z0 + r.z1) / 2;
+      const y = r.yLow + (r.yHigh - r.yLow) * t;
+      const c = C.ceilingAt(x, z, y + 0.05);
+      if (c - y < 1.95) out.push(`${(y / 0.3048).toFixed(1)} ft up: ${((c - y) / 0.3048).toFixed(1)} ft of head`);
+    }
+  }
+  return out;
+});
+check('and there is standing headroom the whole way up both', headroom.length === 0,
+  headroom.slice(0, 3).join(' | ') || 'clear');
+
 /* The restroom got itself built on top of the west upper flight once.
    Nothing that is a room may stand in a stair's footprint. */
 const inFlight = plan.rooms.filter((r) => r.floor === 1 && !/stairhall$/.test(r.id) && flights.some((f) =>
@@ -323,14 +355,14 @@ console.log('\n-- routes H and I: both staircases --');
 async function climb(side) {
   const west = side === 'west';
   const out = west ? W : E, back = west ? E : W;
-  await put(ft(west ? -38 : 38), 0, ft(12), out);
+  await put(ft(west ? -38 : 38), 0, ft(10.9), out);
   const got = await advance(inRoom(`academy.${side}.stairhall`));
   const half = await advance(pastY(ft(7.6)));
   await step(west ? pastX(ft(-53), -1) : pastX(ft(53), 1));
   await face(N);
-  await step(pastZ(ft(15.9)));
+  await step(pastZ(ft(14.4)));
   await face(back);
-  await advance(pastY(ft(15.6)));
+  await advance(pastY(ft(16.9)));
   const top = await advance(west ? pastX(ft(-38), 1) : pastX(ft(38), -1));
   return { got, half, top };
 }
@@ -340,17 +372,17 @@ for (const side of ['west', 'east']) {
   check(`${label}1 the ${side} rear hall reaches the ${side} stair hall`,
     r.got.room === `academy.${side}.stairhall`, where(r.got));
   check(`${label}2 the flight climbs rather than teleports`,
-    r.half.y > ft(4) && r.half.y < ft(12) && r.half.floor !== 2,
+    r.half.y > ft(4) && r.half.y < ft(13) && r.half.floor !== 2,
     `half way up at ${M(r.half.y).toFixed(2)} ft`);
   check(`${label}3 and the ${side} stair reaches the second floor`,
-    r.top.y > ft(15.5) && r.top.floor === 2 && r.top.room === `academy.upper.${side}.landing`,
+    r.top.y > ft(16.8) && r.top.floor === 2 && r.top.room === `academy.upper.${side}.landing`,
     `${where(r.top)} y ${M(r.top.y).toFixed(2)} ft`);
 }
 
 console.log('\n-- and back down --');
 /* The same switchback in reverse, from the head of the west flight. */
-await put(ft(-39), ft(16), ft(16), W);
-await advance(belowY(ft(8.4)));
+await put(ft(-39), ft(17.34), ft(15), W);
+await advance(belowY(ft(9.2)));
 await step(pastX(ft(-53), -1));
 await face(S);
 await step(belowZ(ft(12)));
@@ -365,7 +397,7 @@ console.log('\n-- route J: west upper -> meeting room -> east upper --');
    not up at the landing doors. So the route goes in at the landing door,
    down the room, across, and back up to the other door. That dog-leg is
    the building's, not a compromise. */
-await put(ft(-30), ft(16), ft(12.5), E);
+await put(ft(-30), ft(17.34), ft(12.5), E);
 p = await advance(inRoom('academy.upper.center.war'));
 check('J1 the west landing reaches the War Room',
   p.room === 'academy.upper.center.war', where(p));

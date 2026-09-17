@@ -335,9 +335,19 @@ export class LevelBuilder {
       const yaw = alongX ? (h.facing === -1 ? Math.PI : 0)
         : (h.facing === -1 ? -Math.PI / 2 : Math.PI / 2);
       if (h.door) {
+        /* THE LEAF SITS IN ITS OWN OPENING, NOT AT THE FOOT OF THE WALL.
+           This read `y: spec.y0` until Stage 2.1, which is the same thing
+           only while a wall begins exactly at its doorway's threshold. It
+           does not for a second-story door -- the run starts at the second
+           floor but the wall below it is one run from grade -- and it does
+           not for a wall that begins below grade, which the front porch's
+           flanking walls do. Both cases put a leaf feet away from the hole
+           it belongs in, with the masonry that should have been under the
+           threshold standing in the doorway instead. `_y` is what wallRun
+           actually cut, so `_y` is what the door is hung in. */
         this.door({
           x: cx, z: cz, yaw,
-          y: spec.y0,
+          y: h._y[0],
           width: h.width, height: h._y[1] - h._y[0],
           depth: spec.thickness,
           ...h.door,
