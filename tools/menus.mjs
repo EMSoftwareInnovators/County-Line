@@ -74,13 +74,43 @@ await press('ArrowRight', 150);
 const sens1 = await page.evaluate(() => window.__game.input.sensitivity);
 check('mouse sensitivity changes the input layer', sens1 > sens0, `${sens0} -> ${sens1}`);
 
-/* ---- resolution ---- */
-const resRow = rows.indexOf('Resolution');
+/* ---- the picture page ----
+   Its rows used to be the tail of SETTINGS, where a panel shorter than
+   the list clipped them off the bottom with no scrollbar -- so as far as
+   a player was concerned the game had no video options. They are on their
+   own page now, and this walks to it the way a player does rather than
+   setting an index. */
+const picRow = rows.indexOf('Picture...');
+check('SETTINGS offers a picture page', picRow >= 0, `row ${picRow}`);
+await page.evaluate((i) => { window.__game.menu.sel = i; window.__game.menu.render(); }, picRow);
+await press('Enter', 250);
+check('and it opens', (await page.evaluate(() => window.__game.menu.screen.title)) === 'PICTURE',
+  await page.evaluate(() => window.__game.menu.screen.title));
+
+const picRows = await page.evaluate(() => window.__game.menu.rows().map((r) => r.label));
+for (const label of ['Resolution', 'Retro filter', 'Vertex snapping', 'Field of view']) {
+  check(`  it has ${label}`, picRows.includes(label), picRows.join(', '));
+}
+
+const resRow = picRows.indexOf('Resolution');
 await page.evaluate((i) => { window.__game.menu.sel = i; window.__game.menu.render(); }, resRow);
 const w0 = await page.evaluate(() => window.__game.raster.w);
 await press('ArrowRight', 250);
 const w1 = await page.evaluate(() => window.__game.raster.w);
 check('changing resolution resizes the framebuffer', w1 !== w0, `${w0} -> ${w1}`);
+
+/* Back to SETTINGS, which is where the rest of this harness expects to
+   be standing. */
+await page.evaluate(() => {
+  const m = window.__game.menu;
+  m.sel = m.rows().length - 1; m.render();
+});
+await press('Enter', 250);
+check('Back returns from PICTURE to SETTINGS',
+  (await page.evaluate(() => window.__game.menu.screen.title)) === 'SETTINGS',
+  await page.evaluate(() => window.__game.menu.screen.title));
+
+
 check('and the canvas with it',
   await page.evaluate(() => document.getElementById('screen').width === window.__game.raster.w));
 await press('ArrowLeft', 250);
@@ -249,6 +279,36 @@ check('quitting asks first', /QUIT TO TITLE/.test(s.head), s.head);
 await press('Enter', 300);           // "No, go back"
 s = await st();
 check('and saying no goes back to the pause menu', /PAUSED/.test(s.head), s.head);
+
+/* ---- and every row of every page is reachable ----
+   The bug was not that the rows were missing; it was that they were below
+   the fold of a panel that clipped instead of scrolling. So: for each
+   settings page, walk the highlight through every row and check the
+   highlighted element is inside the scrolling list's visible box. */
+for (const [name, fn] of [['SETTINGS', 'settingsScreen'], ['PICTURE', 'pictureScreen'],
+  ['CONTROLS', 'controlsScreen']]) {
+  await page.setViewportSize({ width: 800, height: 420 });     // a deliberately short window
+  await page.evaluate(async (f) => {
+    const m = await import('/src/ui/menus.js');
+    window.__game.openTitleMenu(m[f](window.__game));
+  }, fn);
+  await page.waitForTimeout(200);
+  const n = await page.evaluate(() => window.__game.menu.rows().length);
+  let hidden = 0;
+  for (let i = 0; i < n; i++) {
+    await press('ArrowDown', 30);
+    hidden += await page.evaluate(() => {
+      const sel = document.querySelector('#panel li.opt.sel');
+      if (!sel) return 0;
+      const list = sel.parentElement;
+      const top = sel.offsetTop, bot = top + sel.offsetHeight;
+      return (top >= list.scrollTop - 2 && bot <= list.scrollTop + list.clientHeight + 2) ? 0 : 1;
+    });
+  }
+  check(`every row of ${name} stays on screen in a short window`, hidden === 0,
+    `${hidden} of ${n} off screen`);
+}
+await page.setViewportSize({ width: 800, height: 600 });
 
 check('no page errors', page.logs.filter((l) => l.startsWith('[pageerror]')).length === 0,
   page.logs.join(' | '));

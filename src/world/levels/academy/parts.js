@@ -462,7 +462,10 @@ export function sashWindow(b, spec) {
   const sx1 = alongX ? spec.at + half + so : spec.line + t / 2 + inch(3);
   const sz0 = alongX ? spec.line - t / 2 - inch(3) : spec.at - half - so;
   const sz1 = alongX ? spec.line + t / 2 + inch(3) : spec.at + half + so;
-  trimBox(b, sx0, spec.sill - inch(5), sz0, sx1, spec.sill, sz1, M.granite);
+  /* The sill's top stands an inch ABOVE the spandrel it caps. Flush, the
+     two horizontal faces are coplanar and the whole sill shimmers. A
+     stone sill oversails anyway -- that is what makes it a sill. */
+  trimBox(b, sx0, spec.sill - inch(5), sz0, sx1, spec.sill + inch(1), sz1, M.granite);
   void nx; void nz;
 }
 
@@ -558,14 +561,22 @@ export function wainscot(b, r, spec) {
   const t = inch(1);
   const c = inch(2);
   const gaps = spec.gaps || [];
+  /* The cap and the baseboard project past the boards, so they are the
+     ones that decide how far a corner has to be kept clear. */
 
   /* Four sides. `a` runs along the side; `side` names which one, so the
      caller's gap list can say where the doorways are. */
+  /* The two runs along Z stop short of the two along X by the depth the
+     latter occupy. FOUR RUNS ROUND A RECTANGLE OVERLAP AT ITS CORNERS,
+     and two boxes sharing a volume with coincident faces fight for every
+     pixel of it -- which showed up as a flickering square in the corner
+     of every room in the building. */
+  const e = t + c;
   const sides = [
     { side: 'south', a0: r.x0, a1: r.x1, fix: [r.z0, r.z0 + t], along: 'x' },
     { side: 'north', a0: r.x0, a1: r.x1, fix: [r.z1 - t, r.z1], along: 'x' },
-    { side: 'west', a0: r.z0, a1: r.z1, fix: [r.x0, r.x0 + t], along: 'z' },
-    { side: 'east', a0: r.z0, a1: r.z1, fix: [r.x1 - t, r.x1], along: 'z' },
+    { side: 'west', a0: r.z0 + e, a1: r.z1 - e, fix: [r.x0, r.x0 + t], along: 'z' },
+    { side: 'east', a0: r.z0 + e, a1: r.z1 - e, fix: [r.x1 - t, r.x1], along: 'z' },
   ];
 
   for (const s of sides) {
@@ -636,11 +647,35 @@ export function openingsAround(level, r, pad) {
 }
 
 /**
+ * A chimney breast with a mantel on it: the masonry standing a little
+ * into the room, and the painted shelf mantel against that.
+ *
+ * `outward` is which way the breast projects: +1 toward +X, -1 toward -X.
+ * The wall it belongs to is a party wall, so one of these goes on each
+ * side of it and the two share a stack.
+ */
+export function chimneyBreast(b, spec) {
+  const M = b.M;
+  const o = spec.outward;
+  const half = D_BREAST.w / 2;
+  const x0 = Math.min(spec.line, spec.line + o * D_BREAST.proj);
+  const x1 = Math.max(spec.line, spec.line + o * D_BREAST.proj);
+  /* the breast itself, in the room's own wall finish */
+  trimBox(b, x0, 0, spec.at - half, x1, D_BREAST.ceil, spec.at + half,
+    spec.breast || M.plaster);
+  mantel(b, {
+    axis: 'z', line: spec.line + o * D_BREAST.proj, at: spec.at,
+    outward: o, width: D_BREAST.mantelW, height: D_BREAST.mantelH,
+    y: 0, material: spec.material || M.paintWhite,
+  });
+}
+/** Set once by the level, so parts.js holds no plan dimension. */
+const D_BREAST = { w: 0, proj: 0, ceil: 0, mantelW: 0, mantelH: 0 };
+export function setBreast(spec) { Object.assign(D_BREAST, spec); }
+
+/**
  * A plain painted shelf mantel: two pilasters, a frieze and a shelf, with
  * the fireplace opening under it.
- *
- * ONE of these is placed, in the room the interior photograph shows it
- * in. It is not scattered -- see the note at the call site.
  */
 export function mantel(b, spec) {
   const M = b.M;

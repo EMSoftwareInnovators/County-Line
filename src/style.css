@@ -133,15 +133,37 @@ body{
 
 /* ---------------- panels ---------------- */
 #panel{display:grid;place-items:center;background:rgba(6,6,8,.8)}
+/* A LONG MENU HAS TO BE REACHABLE. This was `max-height:88cqw` with
+   `overflow:hidden`, and 88% of the cabinet's WIDTH is 117% of its height
+   at 4:3 -- so a page with more rows than fit was simply cut off, with no
+   scrollbar and no indication that anything was below the cut. The video
+   settings were the rows that fell off the bottom.
+
+   Now the pad is a flex column capped to the cabinet's HEIGHT, the list
+   between the heading and the footer is the part that scrolls, and the
+   controller scrolls the highlighted row into view as it moves. */
 .pad{
-  width:82cqw;max-height:88cqw;overflow:hidden;
+  display:flex;flex-direction:column;
+  width:82cqw;max-height:90cqh;
   background:rgba(18,17,16,.94);
   border:0.3cqw solid var(--dim);
   padding:2.2cqw 3cqw;
 }
+.pad h2,.pad .blurb,.pad .pad-foot{flex:0 0 auto}
 .pad h2{font-size:3.4cqw;letter-spacing:.5cqw;color:var(--accent);margin-bottom:1.2cqw}
 .pad .blurb{font-size:2cqw;color:var(--dim);margin-bottom:1.2cqw}
-.pad ul.menu{list-style:none}
+.pad ul.menu{
+  list-style:none;
+  /* positioned so a row's offsetTop is measured from the LIST, which is
+     what panelReveal's fallback arithmetic assumes. Without it offsetTop
+     comes from some ancestor and the fallback scrolls to the wrong place
+     on any engine that ignores scrollIntoView's options. */
+  position:relative;
+  flex:1 1 auto;min-height:0;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--dim) transparent;
+}
+.pad ul.menu::-webkit-scrollbar{width:0.8cqw}
+.pad ul.menu::-webkit-scrollbar-thumb{background:var(--dim)}
 .pad ul.menu li{font-size:2.4cqw;padding:.22cqw 0;display:flex;gap:1cqw;color:var(--dim)}
 .pad ul.menu li.note{
   display:block;color:var(--accent);opacity:.75;

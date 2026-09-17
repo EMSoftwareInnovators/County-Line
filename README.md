@@ -120,6 +120,10 @@ coordinates to test movement, stairs, doors and interaction.
 | **F3** | jump to the top of the stairs |
 | **F4** | architecture-review mode — the CRT off, for comparing against photographs |
 
+Picture settings — internal resolution, retro filter, vertex snapping,
+field of view — are on their own page: SETTINGS → **Picture...**. Menus
+longer than the panel scroll, and the highlight is always kept on screen.
+
 Architecture mode is the fourth F1 position and reads out in feet and
 inches: where you are relative to the level origin, the current room's
 bounds and how much clear space is around you, the nearest doorway with

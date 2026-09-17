@@ -28,17 +28,22 @@ export const SITE = {
   z1: D.Z_N_OUT + D.REAR_GROUND,
 };
 
+/* A path or a bed laid ON turf has to stand clear of it. An inch is not
+   enough: two near-coplanar horizontal surfaces seen at a grazing angle
+   are the classic depth-buffer fight, and the front walk shimmered the
+   whole way to the street. Three inches is both quieter and truer -- a
+   walk does sit above the grass. */
 function bed(b, x0, z0, x1, z1, y) {
   const M = b.M;
-  trimBox(b, x0, y, z0, x1, y + inch(7), z1, M.dirt);
-  b.col.addFloor({ x0, x1, z0, z1, y: y + inch(7), tag: 'bed', material: 'grass' });
+  trimBox(b, x0, y + inch(1), z0, x1, y + inch(8), z1, M.dirt);
+  b.col.addFloor({ x0, x1, z0, z1, y: y + inch(8), tag: 'bed', material: 'grass' });
   /* a handful of shrubs, deliberately few */
   const n = Math.max(2, Math.round((x1 - x0) / ftin(5, 0)));
   for (let i = 0; i < n; i++) {
     const cx = x0 + (x1 - x0) * ((i + 0.5) / n);
     const cz = (z0 + z1) / 2;
     const r = ftin(1, 6);
-    trimBox(b, cx - r, y + inch(6), cz - r, cx + r, y + ftin(2, 8), cz + r, M.shrub);
+    trimBox(b, cx - r, y + inch(7), cz - r, cx + r, y + ftin(2, 8), cz + r, M.shrub);
     b.col.addSolid({
       x0: cx - r, x1: cx + r, z0: cz - r, z1: cz + r,
       y0: y, y1: y + ftin(2, 8), tag: 'shrub', walkable: false, noOcclude: true,
@@ -67,7 +72,7 @@ export function buildGrounds(b) {
      nobody crossed. */
   b.floor({
     x0: -ftin(3, 0), x1: ftin(3, 0), z0: D.Z_PORCH_N, z1: D.Z_N_OUT,
-    y: D.GARDEN_LEVEL + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'garden-walk',
+    y: D.GARDEN_LEVEL + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'garden-walk',
   });
   bed(b, D.X_BAY_W + ftin(2, 0), D.Z_PORCH_N + ft(6), -ftin(5, 0), D.Z_PORCH_N + ftin(9, 6),
     D.GARDEN_LEVEL);
@@ -121,13 +126,13 @@ export function buildGrounds(b) {
   b.detail(3.0);
   b.floor({
     x0: -ftin(3, 6), x1: ftin(3, 6), z0: SITE.z0 + ft(6), z1: D.Z_FACADE,
-    y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
   /* and a cross walk along the front of the building */
   b.floor({
     x0: D.X_W_OUT - ft(8), x1: D.X_E_OUT + ft(8),
     z0: D.Z_FACADE - ftin(9, 0), z1: D.Z_FACADE - ftin(5, 6),
-    y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
   /* Planting either side of the walk, kept well clear of it. */
   for (const s of [-1, 1]) {
@@ -149,16 +154,16 @@ export function buildGrounds(b) {
   b.chunk('academy.grounds.west');
   b.floor({
     x0: D.X_W_OUT - ftin(8, 0), x1: D.X_W_OUT, z0: ft(40), z1: ft(46),
-    y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
   b.chunk('academy.grounds.east');
   b.floor({
     x0: D.X_E_OUT, x1: D.X_E_OUT + ftin(8, 0), z0: ft(40), z1: ft(46),
-    y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
   b.floor({
     x0: D.X_E_OUT, x1: D.X_E_OUT + ftin(8, 0), z0: ft(16.5), z1: ft(22.5),
-    y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
 
   /* Three-foot stoops at each side door, since the floor stands three

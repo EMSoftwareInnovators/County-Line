@@ -268,7 +268,10 @@ export function buildMaterials() {
     fill(g, '#d5d0c4', w, h);
     speckle(g, w, h, 400, ['#dad5c9', '#cec9bd', '#e0dbcf']);
     noise(g, w, h, 4);
-    grime(g, w, h, 0.09, 12);
+    /* Barely any. A plaster texture tiles every meter or so, and a dark
+       radial blob repeated across a wall reads as a damp stain rather
+       than as age -- which is exactly how the interiors looked. */
+    grime(g, w, h, 0.035, 5);
   }), { material: 'stone' });
 
   /** A cooler, greener distemper, so adjoining rooms are told apart. */
@@ -281,19 +284,21 @@ export function buildMaterials() {
     fill(g, '#cbd0c4', w, h);
     speckle(g, w, h, 400, ['#d0d5c9', '#c4c9bd', '#d6dbcf']);
     noise(g, w, h, 4);
-    grime(g, w, h, 0.09, 12);
+    grime(g, w, h, 0.035, 5);
   }), { material: 'stone' });
 
   M.plasterOchre = mat(makeTex(64, 64, (g, w, h) => {
     fill(g, '#dbd4c2', w, h);
     speckle(g, w, h, 400, ['#e0d9c7', '#d4cdbb', '#e5dece']);
     noise(g, w, h, 4);
-    grime(g, w, h, 0.1, 12);
+    grime(g, w, h, 0.035, 5);
   }), { material: 'stone' });
 
-  /** Ceilings and slab soffits. A step below the wall plaster, because
-      vertex lighting gives a flat white ceiling nothing to separate it
-      from a flat white wall and the room turns into fog. */
+  /** Plain plastered ceiling. Not used in the Academy -- its ceilings are
+      beaded board -- but kept for a later interior that has one, and it
+      is what a flat ceiling should look like: a step below the wall
+      plaster, because vertex lighting gives a flat white ceiling nothing
+      to separate it from a flat white wall and the room turns to fog. */
   M.plasterCeiling = mat(makeTex(64, 64, (g, w, h) => {
     fill(g, '#c5c1b6', w, h);
     speckle(g, w, h, 300, ['#cac6bb', '#c0bcb1']);
@@ -302,23 +307,31 @@ export function buildMaterials() {
   }), { material: 'stone' });
 
   /* -------- beadboard: narrow boards with a bead between each --------
-     The real ceilings are beaded board. Which way the boards run is
+     THE CEILINGS IN THIS BUILDING ARE BEADED BOARD, and so is the
+     wainscot -- the same boards, painted. Which way they run is
      architectural information, so the texture is directional and the
-     level lays it with the run of the room. */
+     level lays it with the run of the room.
+
+     A step down in value from the wall plaster, so that a beaded ceiling
+     over a white wall still reads as a ceiling under vertex lighting. */
   M.beadboard = mat(makeTex(64, 64, (g, w, h) => {
     fill(g, '#c6bfae', w, h);
     /* Sixteen pixels to a board, not eight. At eight the bead pitch lands
        near the pixel grid at ordinary viewing distance and the whole
        wainscot shimmers with chroma fringing; at sixteen it reads as
        boards. Board width beats board count. */
+    /* Low contrast on purpose. The seam and the bead only have to survive
+       being drawn a few pixels wide through an affine mapping; push them
+       any harder and a beaded ceiling reads as diagonal streaks across
+       the whole room rather than as boards. */
     for (let x = 0; x < w; x += 16) {
-      g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(x, 0, 1, h);        // the seam
-      g.fillStyle = 'rgba(255,255,255,.09)'; g.fillRect(x + 1, 0, 1, h);
-      g.fillStyle = 'rgba(0,0,0,.07)'; g.fillRect(x + 7, 0, 1, h);    // the bead
-      g.fillStyle = 'rgba(255,255,255,.05)'; g.fillRect(x + 8, 0, 1, h);
+      g.fillStyle = 'rgba(0,0,0,.085)'; g.fillRect(x, 0, 1, h);       // the seam
+      g.fillStyle = 'rgba(255,255,255,.05)'; g.fillRect(x + 1, 0, 1, h);
+      g.fillStyle = 'rgba(0,0,0,.04)'; g.fillRect(x + 7, 0, 1, h);    // the bead
+      g.fillStyle = 'rgba(255,255,255,.03)'; g.fillRect(x + 8, 0, 1, h);
     }
-    noise(g, w, h, 7);
-    grime(g, w, h, 0.1, 8);
+    noise(g, w, h, 4);
+    grime(g, w, h, 0.05, 5);
   }), { material: 'wood' });
 
   /* -------- heart pine floorboards -------- */
@@ -329,7 +342,7 @@ export function buildMaterials() {
         '#806341', '#7a5d3c', '#886b47', '#745839'][i];
       g.fillRect(0, i * 8, w, 8);
     }
-    for (let i = 0; i < 260; i++) {                 // grain
+    for (let i = 0; i < 130; i++) {                 // grain
       g.strokeStyle = `rgba(60,40,22,${0.05 + Math.random() * 0.1})`;
       g.lineWidth = 1;
       const y = Math.random() * h;

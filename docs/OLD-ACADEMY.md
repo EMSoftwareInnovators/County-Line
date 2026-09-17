@@ -211,6 +211,32 @@ in it, and the trim stops at every one of them — the wainscot asks the
 level where its walls are interrupted rather than keeping a second list
 that can drift away from the first.
 
+Ceilings throughout are **beaded board**, as the building's are.
+
+### Who owns a corner
+
+Two wall runs meeting at a corner both have an end face there, and if they
+reach the same plane those faces are coplanar and overlapping — a
+depth-buffer fight up the full height of every corner, invisible in a
+screenshot and impossible to miss in motion. So there is a rule:
+
+> **The runs along X own the corners.** The façade, the north ends and the
+> central block's two faces run their full length. The runs along Z — the
+> side elevations, the garden walls, the portico's flanking walls — stop
+> at the *inner* face of whatever they abut.
+
+The same discipline applies everywhere two things meet: the parapet sits
+*on* the wall rather than overlapping it and is four inches thicker so its
+faces stand clear; the roof decks span the interior rather than the
+footprint; door and opening casings project ⅞" past the wall face instead
+of sitting flush with it; a window sill oversails its spandrel by an inch;
+paths stand three inches above the turf; and the wainscot's four runs stop
+short of each other at the corners instead of overlapping there.
+
+`tools/academy.mjs` asserts it arithmetically — **no solid may share a
+face plane with anything it overlaps**. That check found 132 pairs when it
+was first written.
+
 ### First floor
 
 | room id | name | source |

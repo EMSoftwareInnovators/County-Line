@@ -221,12 +221,23 @@ export class Door {
 export function buildDoorFrame(mb, door, material, opening) {
   const [rx, rz] = door.right;
   const hw = door.width / 2;
-  const jamb = 0.07;
+  const jamb = 0.10;                 // architrave width, about four inches
   const depth = opening && opening.depth ? opening.depth : 0.16;
+  /* THE CASING STANDS PROUD OF THE WALL.
+
+     It used to be exactly as deep as the wall was thick, which put its two
+     long faces in precisely the same plane as the faces of the piers
+     either side of the opening. Two coplanar surfaces in a 1/z depth
+     buffer fight for every pixel they share, and with integer vertex
+     snapping on top of that the result shimmers as the camera moves --
+     which is why every doorway and archway in the building flickered
+     round its edges. An architrave projects in real joinery anyway. */
+  const PROUD = 0.022;               // about seven eighths of an inch
   const f = { tex: material.tex, density: material.density };
   const put = (cx, cz, halfAlong, y0, y1) => {
-    const ax = Math.abs(rx) * halfAlong + Math.abs(rz) * depth / 2;
-    const az = Math.abs(rz) * halfAlong + Math.abs(rx) * depth / 2;
+    const d = depth / 2 + PROUD;
+    const ax = Math.abs(rx) * halfAlong + Math.abs(rz) * d;
+    const az = Math.abs(rz) * halfAlong + Math.abs(rx) * d;
     mb.box(cx - ax, y0, cz - az, cx + ax, y1, cz + az, { all: f });
   };
   // the two jambs

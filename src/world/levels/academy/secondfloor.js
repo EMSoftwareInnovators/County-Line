@@ -48,13 +48,17 @@ import { stairWells } from './stairs.js';
 function slab(b, chunk, x0, x1, z0, z1) {
   if (x1 - x0 < 1e-6 || z1 - z0 < 1e-6) return;
   b.chunk(chunk);
-  b.detail(2.4);
+  /* See the note on the first floor's slabs: big horizontal planes are
+     where affine texture mapping shows, so they are subdivided finer. */
+  b.detail(1.5);
   b.floor({
     x0, x1, z0, z1, y: D.FLOOR2,
-    /* Plain plaster underneath, not beaded board: every interior
-       photograph shows a flat plastered ceiling, and a bead texture at
-       this resolution reads as diagonal static across the whole room. */
-    material: b.M.heartPine, soffit: b.M.plasterCeiling,
+    /* BEADED BOARD UNDERNEATH. The ceilings in this building are beaded
+       board and that is what the room below sees. Stage 2.1 swapped them
+       for flat plaster because the bead pitch was aliasing into diagonal
+       static at 320x240 -- the answer to that was a wider board, which
+       the texture now has, not a different ceiling. */
+    material: b.M.heartPine, soffit: b.M.beadboard,
     thickness: D.FLOOR_STRUCTURE, tag: 'floor2',
   });
   b.headroom({ x0, x1, z0, z1, y: D.FLOOR1_CEIL, tag: 'floor2-soffit' });
@@ -63,10 +67,10 @@ function slab(b, chunk, x0, x1, z0, z1) {
 /** A ceiling over the top story. */
 function ceil(b, chunk, x0, x1, z0, z1) {
   b.chunk(chunk);
-  b.detail(2.4);
+  b.detail(1.5);
   b.ceiling({
     x0, x1, z0, z1, y: D.FLOOR2_CEIL,
-    material: b.M.plasterCeiling, thickness: ftin(1, 0), tag: 'ceiling2',
+    material: b.M.beadboard, thickness: ftin(1, 0), tag: 'ceiling2',
   });
 }
 

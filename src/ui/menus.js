@@ -166,6 +166,9 @@ export class MenuController {
       + `<ul class="menu">${body}</ul>`
       + `<p class="pad-foot">${s.footer || defaultFooter()}</p>`
     );
+    /* A rebuilt panel starts scrolled to the top, so the highlight has to
+       be brought back into view. */
+    if (this.ui.panelReveal) this.ui.panelReveal(this.sel);
   }
 }
 
@@ -195,14 +198,40 @@ export function settingsScreen(game) {
       slider('Mouse sensitivity', () => v.mouseSensitivity, (x) => { v.mouseSensitivity = x; touch(); }),
       slider('Controller sensitivity', () => v.padSensitivity, (x) => { v.padSensitivity = x; touch(); }),
       toggle('Invert look (Y)', () => v.invertY, (x) => { v.invertY = x; touch(); }),
-      text('PICTURE'),
+      action('Picture...', () => game.menu.show(pictureScreen(game))),
+      action('Controls...', () => game.menu.show(controlsScreen(game))),
+      action('Back', () => game.menu.back()),
+    ],
+  };
+}
+
+/**
+ * The picture settings, on their own page.
+ *
+ * They used to be the last four rows of SETTINGS, below five volume
+ * sliders and three look rows, and the panel clipped them off the bottom
+ * without a scrollbar -- so as far as the player was concerned the game
+ * had no video options at all. A page of its own is the fix that does not
+ * depend on how tall anybody's window is.
+ */
+export function pictureScreen(game) {
+  const S = game.settings;
+  const v = S.values;
+  const touch = () => { S.apply(game.systems()); game.persistSettings(); };
+  return {
+    title: 'PICTURE',
+    blurb: 'Resolution is the internal framebuffer, not the window. '
+      + 'The window always scales to fit it.',
+    rows: () => [
       choice('Resolution', RESOLUTIONS, () => v.resolution, (i) => { v.resolution = i; touch(); },
         { render: (r) => r[2] }),
       choice('Retro filter', RETRO_LEVELS, () => RETRO_LEVELS.indexOf(v.retro),
         (i) => { v.retro = RETRO_LEVELS[i]; touch(); },
         { render: (r) => r.toUpperCase() }),
       toggle('Vertex snapping', () => v.vertexSnap, (x) => { v.vertexSnap = x; touch(); }),
-      action('Controls...', () => game.menu.show(controlsScreen(game))),
+      slider('Field of view', () => (v.fieldOfView - 50) / 40,
+        (x) => { v.fieldOfView = Math.round(50 + x * 40); touch(); },
+        { value: () => `${v.fieldOfView}\u00b0` }),
       action('Back', () => game.menu.back()),
     ],
   };

@@ -23,7 +23,7 @@
    running round the building and along the portico, and without it a
    crenellated wall is just a wall with teeth.
    ============================================================ */
-import { ftin } from '../../../engine/units.js';
+import { ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
 import { corbelTable, crenellate } from './parts.js';
 
@@ -41,11 +41,19 @@ function deck(b, x0, x1, z0, z1, y) {
 
 export function buildRoof(b) {
   const M = b.M;
+  /* THE PARAPET SITS ON THE WALL, IT DOES NOT OVERLAP IT.
+
+     `base` used to be eighteen inches below the roof, so the parapet and
+     the wall under it shared the same thickness over an eighteen-inch
+     band round the entire building -- four coplanar faces per elevation,
+     fighting for every pixel. The parapet now starts where the wall stops
+     and is four inches thicker, so its faces stand clear on both sides,
+     which is also how a coping is built. */
   const P = {
-    base: D.ROOF - ftin(1, 6),
+    base: D.ROOF,
     capTop: D.PARAPET_CAP,
     merlonTop: D.PARAPET_TOP,
-    thickness: D.EXT,
+    thickness: D.EXT + inch(4),
     material: M.ashlar,
     capMaterial: M.ashlarWorn,
     merlon: D.MERLON,
@@ -64,11 +72,16 @@ export function buildRoof(b) {
   b.chunk('academy.roof');
   b.detail(3.0);
 
-  /* ---- the decks ---- */
-  deck(b, D.X_W_OUT, D.X_BAY_W, D.Z_FACADE, D.Z_N_OUT);          // west wing
-  deck(b, D.X_BAY_E, D.X_E_OUT, D.Z_FACADE, D.Z_N_OUT);          // east wing
-  deck(b, D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S_OUT, D.Z_CENTRAL_N_OUT,
-    D.ROOF_CENTER);                                              // the central block
+  /* ---- the decks ----
+     THE DECK SPANS THE INTERIOR, NOT THE FOOTPRINT. Taken out to the
+     outer face it overlapped the top of every wall, and since both stop
+     at the same height their top faces were coplanar over a strip all the
+     way round the building -- a hundred and eight fighting pairs, and the
+     whole roofline shimmering when seen from anywhere above it. Inside
+     the wall lines there is nothing to overlap. */
+  deck(b, D.X_W_IN, D.X_WING_W_IN, D.Z_S_IN, D.Z_N_IN);
+  deck(b, D.X_WING_E_IN, D.X_E_IN, D.Z_S_IN, D.Z_N_IN);
+  deck(b, D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N, D.ROOF_CENTER);
 
   /* ---- parapets, clockwise from the south-west corner ---- */
   const WEST_CL = D.X_W_OUT + D.EXT / 2;
@@ -110,7 +123,7 @@ export function buildRoof(b) {
      terrace; its north face looks down on the rear porch. */
   const C = {
     ...P,
-    base: D.ROOF_CENTER - ftin(1, 6),
+    base: D.ROOF_CENTER,
     capTop: D.PARAPET_CAP_CENTER,
     merlonTop: D.PARAPET_TOP_CENTER,
   };

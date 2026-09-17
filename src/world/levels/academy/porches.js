@@ -48,7 +48,7 @@ export function buildPorches(b) {
     x0: D.X_BAY_W, x1: D.X_BAY_E, z0: D.Z_FACADE, z1: D.Z_CENTRAL_S_OUT,
     y0: 0, y1: D.PORTICO_SOFFIT, floor: 1, outdoor: true,
   });
-  b.detail(1.6);
+  b.detail(1.5);
   b.floor({
     x0: D.X_BAY_W, x1: D.X_BAY_E, z0: D.Z_FACADE - inch(8), z1: D.Z_CENTRAL_S_OUT,
     y: 0, material: M.porchDeck, thickness: ftin(2, 6), tag: 'porch',
@@ -62,7 +62,9 @@ export function buildPorches(b) {
     partition(b, {
       chunk: 'academy.porch.front',
       axis: 'z', line: west ? D.X_BAY_W - D.EXT / 2 : D.X_BAY_E + D.EXT / 2,
-      from: D.Z_FACADE, to: D.Z_CENTRAL_S_OUT,
+      /* Behind the facade, not flush with it -- the runs along X own the
+         corners. See the note in shell.js. */
+      from: D.Z_S_IN, to: D.Z_CENTRAL_S_OUT,
       thickness: D.EXT, material: M.ashlar, innerMaterial: M.plaster, flip: west,
       y0: D.GRADE - ft(2), y1: D.ROOF,
       openings: [{
@@ -136,7 +138,9 @@ export function buildPorches(b) {
     merlon: D.MERLON, crenel: D.CRENEL, solid: true,
   };
   crenellate(b, { ...par, x0: D.X_BAY_W, z0: D.Z_FACADE - inch(4), x1: D.X_BAY_E, z1: D.Z_FACADE - inch(4) });
-  for (const sx of [D.X_BAY_W + inch(7), D.X_BAY_E - inch(7)]) {
+  /* The returns are set in past the recess walls: centered on the wall's
+     own inner face, a return's near side lands exactly in that plane. */
+  for (const sx of [D.X_BAY_W + inch(11), D.X_BAY_E - inch(11)]) {
     crenellate(b, { ...par, x0: sx, z0: D.Z_FACADE - inch(4), x1: sx, z1: D.Z_CENTRAL_S_OUT });
   }
 
@@ -178,7 +182,7 @@ export function buildPorches(b) {
     x0: D.X_BAY_W, x1: D.X_BAY_E, z0: D.Z_CENTRAL_N_OUT, z1: D.Z_PORCH_N,
     y0: 0, y1: D.REAR_PORCH_CEIL, floor: 1, outdoor: true,
   });
-  b.detail(1.8);
+  b.detail(1.5);
   b.floor({
     x0: D.X_BAY_W, x1: D.X_BAY_E, z0: D.Z_CENTRAL_N_OUT, z1: D.Z_PORCH_N + inch(8),
     y: 0, material: M.porchDeck, thickness: ftin(2, 0), tag: 'porch',

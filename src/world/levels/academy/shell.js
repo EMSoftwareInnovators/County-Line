@@ -26,6 +26,21 @@ import { sashWindow, stringCourse, trimBox, windowSurround } from './parts.js';
 const WIN = (at, opt = {}) => ({ at, kind: 'window', ...opt });
 const DOOR = (at, opt = {}) => ({ at, kind: 'door', ...opt });
 
+/*
+ * WHO OWNS A CORNER.
+ *
+ * Two wall runs meeting at a corner both have an end face there, and if
+ * they reach the same plane those two faces are coplanar and overlapping
+ * -- which is a depth-buffer fight along the full height of every corner
+ * of the building. So there is a rule, and it is applied here rather than
+ * left to whoever writes the next elevation:
+ *
+ *   THE RUNS ALONG X OWN THE CORNERS. The facade, the north ends and the
+ *   central block's two faces run their full length. The runs along Z --
+ *   the side elevations and the garden walls -- stop at the INNER face of
+ *   whatever they abut.
+ */
+
 /**
  * Build one story of one elevation segment.
  *
@@ -181,7 +196,7 @@ export function buildShell(b) {
      has something smaller than a 94-foot wall to reject. */
   elevation(b, {
     chunk: 'ext.west.front', axis: 'z', line: WEST_CL,
-    from: D.Z_FACADE, to: D.Z_FB_N, face: 'west',
+    from: D.Z_S_IN, to: D.Z_FB_N, face: 'west',
     outer: M.stucco, inner: M.plasterOchre,
     lower: [ft(-24.5), ft(-13.4), ft(-5.17), ft(3.08)].map(w1),
     upper: [ft(-24.5), ft(-13.4), ft(-5.17), ft(3.08)].map(w2),
@@ -195,7 +210,7 @@ export function buildShell(b) {
   });
   elevation(b, {
     chunk: 'ext.west.north', axis: 'z', line: WEST_CL,
-    from: D.Z_MID_N + D.CROSS / 2, to: D.Z_N_OUT, face: 'west',
+    from: D.Z_MID_N + D.CROSS / 2, to: D.Z_N_IN, face: 'west',
     outer: M.stucco, inner: M.plasterGreen,
     lower: [
       w1(ft(27.5)), w1(ft(34.5)),
@@ -213,7 +228,7 @@ export function buildShell(b) {
   /* ---------------- east elevation ---------------- */
   elevation(b, {
     chunk: 'ext.east.front', axis: 'z', line: EAST_CL,
-    from: D.Z_FACADE, to: D.Z_FB_N, face: 'east',
+    from: D.Z_S_IN, to: D.Z_FB_N, face: 'east',
     outer: M.stucco, inner: M.plasterOchre,
     lower: [ft(-24.5), ft(-16), ft(-7.5), ft(1)].map(w1),
     upper: [ft(-24.5), ft(-16), ft(-7.5), ft(1)].map(w2),
@@ -237,7 +252,7 @@ export function buildShell(b) {
   });
   elevation(b, {
     chunk: 'ext.east.north', axis: 'z', line: EAST_CL,
-    from: D.Z_MID_N + D.CROSS / 2, to: D.Z_N_OUT, face: 'east',
+    from: D.Z_MID_N + D.CROSS / 2, to: D.Z_N_IN, face: 'east',
     outer: M.stucco, inner: M.plasterGreen,
     lower: [
       w1(ft(27.5)), w1(ft(34)),
@@ -277,7 +292,7 @@ export function buildShell(b) {
     elevation(b, {
       chunk: s < 0 ? 'ext.garden.west' : 'ext.garden.east',
       axis: 'z', line,
-      from: D.Z_CENTRAL_N_OUT, to: D.Z_N_OUT,
+      from: D.Z_CENTRAL_N_OUT, to: D.Z_N_IN,
       face: s < 0 ? 'east' : 'west',
       outer: M.stuccoWorn,
       inner: s < 0 ? M.plaster : M.plaster,

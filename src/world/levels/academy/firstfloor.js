@@ -25,7 +25,7 @@
    ============================================================ */
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
-import { column, mantel, openingsAround, trimBox, wainscot } from './parts.js';
+import { chimneyBreast, column, openingsAround, setBreast, trimBox, wainscot } from './parts.js';
 
 /* Interior openings. `at` is an absolute coordinate along the wall. */
 const door = (at, id, opt = {}) => ({
@@ -89,7 +89,16 @@ export function partition(b, w) {
 /** A floor slab plus the headroom above it, over a whole band. */
 function slab(b, chunk, x0, x1, z0, z1, m) {
   b.chunk(chunk);
-  b.detail(2.4);
+  /* FLOORS AND CEILINGS GET SUBDIVIDED FINER THAN WALLS.
+
+     The rasterizer maps textures affinely, so the error across a quad
+     grows with how big the quad is on screen -- and nothing in a room is
+     bigger on screen than the floor you are standing on. At 2.4 m the
+     board lines bent into visible chevrons across every room. 1.5 m costs
+     a few hundred triangles over the whole building and the boards run
+     straight. Floors get 1.0 m: they are the one surface always seen at
+     a grazing angle, and it is the cheapest place to spend triangles. */
+  b.detail(1.0);
   b.floor({ x0, x1, z0, z1, y: 0, material: m, thickness: ftin(1, 0), tag: 'floor1' });
 }
 
@@ -152,7 +161,9 @@ function stairHallZone(b, side) {
   b.chunk(stair);
   partition(b, {
     axis: 'x', line: D.Z_STAIR_N + D.PART / 2,
-    from: x0, to: x1,
+    /* Stopping at the rear-hall wall's inner face, not at its center
+       line: run to the center and the two walls share an end plane. */
+    from: west ? x0 : x0 + D.PART, to: west ? x1 - D.PART : x1,
     ...light, y1: west ? D.CEIL_SERVICE : D.CEIL_SECONDARY, openings: [],
   });
 
@@ -173,13 +184,19 @@ function stairHallZone(b, side) {
   b.ceiling({
     x0, x1, z0: D.Z_SERVICE_S + D.PART, z1: D.Z_SERVICE_N,
     y: west ? D.CEIL_SERVICE : D.CEIL_SECONDARY,
-    material: west ? M.beadboard : M.plasterCeiling, thickness: inch(6),
+    material: M.beadboard, thickness: inch(6),
     tag: 'service-ceiling',
   });
 }
 
 export function buildFirstFloor(b) {
   const M = b.M;
+  /* parts.js is a vocabulary, not a second place the building is
+     measured, so the one thing it cannot derive is handed to it. */
+  setBreast({
+    w: D.BREAST_W, proj: D.BREAST_PROJ, ceil: D.CEIL_PRINCIPAL,
+    mantelW: D.MANTEL_W, mantelH: D.MANTEL_H,
+  });
   const P = { material: M.plaster, thickness: D.CROSS };
   const light = { material: M.plaster, thickness: D.PART };
 
@@ -262,9 +279,10 @@ export function buildFirstFloor(b) {
     /* A plaster ceiling where the room stops short of the structural
        floor above it. The principal rooms reach it and get none. */
     if (ceil < D.FLOOR1_CEIL - 1e-6) {
+      b.detail(1.5);
       b.ceiling({
         x0, x1, z0, z1, y: ceil,
-        material: M.plasterCeiling, thickness: inch(6), tag: 'ceiling1',
+        material: M.beadboard, thickness: inch(6), tag: 'ceiling1',
       });
     }
   }
@@ -482,14 +500,35 @@ export function buildFirstFloor(b) {
       material: M.paintWhite,
     });
   }
-  /* ONE mantel, on the central room's west wall between its two doorways,
-     which is where the interior photograph shows a painted shelf mantel.
-     It is not repeated anywhere else in the building: the other rooms may
-     well have had them, and there is no reference that says which. */
-  mantel(b, {
-    axis: 'z', line: D.X_BAY_W, at: ft(3), outward: 1,
-    width: ftin(5, 6), height: ftin(4, 8), y: 0, material: M.paintWhite,
-  });
+  /* ---- the two chimney breasts ----
+     One in each of the central room's long walls, on the room's cross
+     center line, and each with a fireplace on BOTH sides: the central
+     room, and the exhibit room across the wall from it. A stack in a
+     party wall serves two rooms, which is why they come in pairs and why
+     the ones behind are directly opposite the ones in front.
+
+     Stage 2.1 had a single mantel on the west wall and nothing anywhere
+     else, which left a chimney serving one room and a blank wall where
+     its other half should be. */
+  for (const s of [-1, 1]) {
+    const west = s < 0;
+    const face = west ? D.X_BAY_W : D.X_BAY_E;          // the central room's side
+    const back = west ? D.X_WING_W_IN : D.X_WING_E_IN;  // the exhibit room's side
+    const room = west ? 'academy.indians' : 'academy.giftshop';
+
+    b.chunk('academy.central');
+    b.detail(1.6);
+    chimneyBreast(b, {
+      line: face, at: D.MANTEL_Z, outward: -s, material: M.paintWhite,
+      breast: M.plasterOchre,
+    });
+    b.chunk(room);
+    b.detail(1.6);
+    chimneyBreast(b, {
+      line: back, at: D.MANTEL_Z, outward: s, material: M.paintWhite,
+      breast: M.plaster,
+    });
+  }
   /* Surface conduit, run at picture-rail height and dropped to a switch
      beside each doorway -- visible in every photograph of the interior
      and one of the things that says "an old building still in use". */

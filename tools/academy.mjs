@@ -247,6 +247,44 @@ check('neither staircase is anywhere near the center line',
 check('every flight climbs a full half story',
   flights.every((r) => Math.abs(Math.abs(r.yHigh - r.yLow) - plan.floor2 / 2) < 0.02),
   flights.map((r) => M(Math.abs(r.yHigh - r.yLow)).toFixed(2)).join(', '));
+/* ---- nothing may share a face plane with anything it overlaps ----
+   This is the flicker check. Two boxes whose faces lie in the same plane
+   and whose other two axes overlap fight for every pixel they share, and
+   with integer vertex snapping on top of that the shared area shimmers as
+   the camera moves. It is invisible in a screenshot and impossible to
+   miss in motion, so it is checked arithmetically rather than by eye.
+
+   At the last count this found 132 pairs: the roof decks laid over the
+   tops of the walls, every parapet overlapping the wall under it, and two
+   wall runs reaching the same plane at every corner of the building. */
+const fighting = await page.evaluate(() => {
+  const C = window.__game.level.collision;
+  /* `noOcclude` boxes are thin colliders for things like shrubs and
+     railings that carry no wall-sized geometry of their own. */
+  const S = C.solids.filter((x) => x.noOcclude !== true);
+  const EPS = 0.01, OVER = 0.06;
+  const ov = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
+  const same = (p1, q1) => Math.abs(p1 - q1) < EPS;
+  const out = [];
+  for (let i = 0; i < S.length; i++) {
+    for (let j = i + 1; j < S.length; j++) {
+      const A = S[i], B = S[j];
+      const ox = ov(A.x0, A.x1, B.x0, B.x1);
+      const oy = ov(A.y0, A.y1, B.y0, B.y1);
+      const oz = ov(A.z0, A.z1, B.z0, B.z1);
+      let axis = null;
+      if (oy > OVER && oz > OVER && (same(A.x0, B.x0) || same(A.x1, B.x1))) axis = 'x';
+      else if (oy > OVER && ox > OVER && (same(A.z0, B.z0) || same(A.z1, B.z1))) axis = 'z';
+      else if (ox > OVER && oz > OVER && (same(A.y0, B.y0) || same(A.y1, B.y1))) axis = 'y';
+      if (axis) out.push(`${A.tag || '?'}/${B.tag || '?'} on ${axis}`);
+    }
+  }
+  return out;
+});
+check('nothing shares a face plane with anything it overlaps',
+  fighting.length === 0,
+  fighting.length ? `${fighting.length} pairs, e.g. ${fighting.slice(0, 3).join(', ')}` : 'none');
+
 /* A plaster ceiling was laid across both stairwells once, and the
    symptom was a player who climbed nine risers, hit their head and slid
    back down. Nothing may roof a staircase. */
@@ -339,9 +377,12 @@ await put(0, 0, ft(12), N);
 p = await advance(inRoom('academy.porch.rear'));
 check('F1 the rear double doors reach the rear porch',
   p.room === 'academy.porch.rear', where(p));
-p = await advance((q) => q.room === 'academy.garden' && q.y <= ft(-1.4));
+/* The garden floor is at -1'6" and the gravel walk up the middle of it
+   stands three inches above that, so "down in the garden" is anything
+   below about a foot. */
+p = await advance((q) => q.room === 'academy.garden' && q.y <= ft(-1.2));
 check('F2 and the steps go down into the garden',
-  p.room === 'academy.garden' && p.y <= ft(-1.4), `${where(p)} y ${M(p.y).toFixed(2)} ft`);
+  p.room === 'academy.garden' && p.y <= ft(-1.2), `${where(p)} y ${M(p.y).toFixed(2)} ft`);
 
 console.log('\n-- route G: the long first-floor loop --');
 /* Indians -> west rear hall -> rear porch -> east rear hall -> Americana

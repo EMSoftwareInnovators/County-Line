@@ -412,6 +412,26 @@ export const REAR_GROUND = ft(50);             // ground north of the wings
 export const GARDEN_LEVEL = -ftin(1, 6);
 
 /* ============================================================
+   THE CHIMNEY BREASTS
+
+   Two stacks, one in each of the central room's long walls, each carrying
+   a fireplace on BOTH sides of it: the central room on one hand, and the
+   exhibit room across the wall on the other. That is how a stack in a
+   party wall works and it is what the photographs show -- a mantel on the
+   central room's east wall as well as its west, and one in each of the
+   rooms behind them.
+
+   On the room's cross center line, so the pair is symmetrical about both
+   axes like everything else in this building.
+   ============================================================ */
+export const MANTEL_Z = 0;
+export const MANTEL_W = ftin(5, 6);
+export const MANTEL_H = ftin(4, 8);
+/** How far the breast stands into the room, before the mantel on it. */
+export const BREAST_PROJ = inch(9);
+export const BREAST_W = MANTEL_W + ftin(1, 6);
+
+/* ============================================================
    THE CENTRAL ROOM'S FOUR SIDE DOORWAYS
 
    THIS BUILDING IS SYMMETRICAL AND ITS DOORS SHOULD BE TOO. The central

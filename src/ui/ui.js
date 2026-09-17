@@ -123,7 +123,28 @@ export class UI {
   panelSelect(i) {
     const rows = this.el.panelBody.querySelectorAll('li.opt');
     rows.forEach((el, k) => el.classList.toggle('sel', k === i));
+    this.panelReveal(i);
     return rows.length;
+  }
+
+  /**
+   * Keep the highlighted row on screen. A menu longer than the panel
+   * scrolls, and a highlight that walks off the bottom of it is a setting
+   * the player cannot see or change -- which is exactly what happened to
+   * the picture settings.
+   */
+  panelReveal(i) {
+    const rows = this.el.panelBody.querySelectorAll('li.opt');
+    const el = rows[i];
+    if (!el || !el.scrollIntoView) return;
+    try {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    } catch (err) { /* older engines take no options; the clamp below covers it */ }
+    const list = el.parentElement;
+    if (!list) return;
+    const top = el.offsetTop, bot = top + el.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bot > list.scrollTop + list.clientHeight) list.scrollTop = bot - list.clientHeight;
   }
 
   setFade(v) { this.el.fade.style.opacity = String(Math.max(0, Math.min(1, v))); }
