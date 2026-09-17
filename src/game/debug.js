@@ -8,7 +8,12 @@
    laid out to real measurements and the question is "how far is that
    wall, and am I on the floor I think I am".
 
-   F1 cycles the overlay: off, a one-line strip, the full read-out.
+   F1 cycles the overlay: off, a one-line strip, the full read-out, and
+   then ARCHITECTURE MODE -- which answers the questions you have while
+   laying a real building out to a measured plan and nothing else: where
+   am I relative to the origin, how big is this room in feet and inches,
+   and which doorway is nearest. Everything in that mode is in imperial,
+   because the plan it is being checked against is.
    F2 draws the collision world.
 
    None of this is on the HUD. It is a separate layer, it is off by
@@ -21,8 +26,11 @@ import { makeTex } from '../engine/texture.js';
 
 export class Debug {
   constructor() {
-    /** 0 off, 1 one line, 2 everything. */
+    /** 0 off, 1 one line, 2 everything, 3 architecture. */
     this.level = 0;
+    /** Recomputed only when the player has moved; door lists are long. */
+    this._nearDoor = null;
+    this._nearAt = { x: 1e9, z: 1e9 };
     this.showCollision = false;
     this.fps = 0;
     this._frames = 0;
@@ -33,7 +41,7 @@ export class Debug {
     this._tex = null;
   }
 
-  cycle() { this.level = (this.level + 1) % 3; }
+  cycle() { this.level = (this.level + 1) % 4; }
 
   update(dt) {
     this._frames++;
@@ -56,6 +64,7 @@ export class Debug {
       return `<div class="dbg-line">${this.fps} fps &middot; ${pos} &middot; `
         + `${room ? room.name : 'outside'} &middot; ${g.state}</div>`;
     }
+    if (this.level === 3) return this.architecture(g, room);
 
     const tgt = g.level && g.level.interact.target;
     const surf = p.surface;
@@ -81,6 +90,99 @@ export class Debug {
     return `<table class="dbg">${rows.map(([k, v]) =>
       `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>`
       + `<div class="dbg-keys">F1 overlay &middot; F2 collision &middot; F3 teleport up</div>`;
+  }
+
+  /* ---------------- architecture mode ---------------- */
+
+  /**
+   * The read-out for checking a reconstruction against a measured plan.
+   *
+   * Everything here is imperial and everything is relative to the level
+   * origin, because that is the frame the plan is drawn in. Meters are
+   * what the engine runs on; feet and inches are what the drawing says,
+   * and converting them in your head while standing in a corridor is how
+   * you end up with a wing that is four inches wrong.
+   */
+  architecture(g, room) {
+    const p = g.player;
+    const lv = g.level;
+    const plan = lv && lv.marks ? lv.marks.plan : null;
+    const dir = (a) => {
+      const d = ((a * 57.2958) % 360 + 360) % 360;
+      const names = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+      return names[Math.round(d / 45) % 8];
+    };
+    const span = (a, b2) => `${toFtIn(b2 - a)}`;
+
+    const rows = [
+      ['origin', 'center of the first-floor central room, at floor level'],
+      ['from origin',
+        `E ${toFtIn(p.x)} &middot; N ${toFtIn(p.z)} &middot; up ${toFtIn(p.y)}`],
+      ['as the crow flies',
+        `${toFtIn(Math.hypot(p.x, p.z))} ${dir(Math.atan2(-p.x, -p.z))}`],
+      ['facing', `${dir(p.yaw)} (${(p.yaw * 57.2958).toFixed(0)}°)`],
+      ['eye height', toFtIn(p.eye)],
+    ];
+
+    if (room) {
+      rows.push(['room', `${room.name}`]);
+      rows.push(['id', room.id]);
+      rows.push(['story', room.outdoor ? `${room.floor} (outdoor)` : String(room.floor)]);
+      rows.push(['size', `${span(room.x0, room.x1)} E-W &times; ${span(room.z0, room.z1)} N-S`]);
+      rows.push(['x bounds', `${toFtIn(room.x0)} to ${toFtIn(room.x1)}`]);
+      rows.push(['z bounds', `${toFtIn(room.z0)} to ${toFtIn(room.z1)}`]);
+      if (room.y1 !== undefined) {
+        rows.push(['head height', `${toFtIn(room.y1 - room.y0)} (floor at ${toFtIn(room.y0)})`]);
+      }
+      rows.push(['clear of walls',
+        `W ${toFtIn(p.x - room.x0)} &middot; E ${toFtIn(room.x1 - p.x)} &middot; `
+        + `S ${toFtIn(p.z - room.z0)} &middot; N ${toFtIn(room.z1 - p.z)}`]);
+    } else {
+      rows.push(['room', 'outside every registered volume']);
+    }
+
+    const d = this._nearestDoor(lv, p);
+    if (d) {
+      rows.push(['nearest doorway', `${d.door.name} (${d.door.id})`]);
+      rows.push(['  in the wall at',
+        `E ${toFtIn(d.door.x)} &middot; N ${toFtIn(d.door.z)}, `
+        + `${Math.abs(Math.cos(d.door.yaw)) > 0.5 ? 'running E-W' : 'running N-S'}`]);
+      rows.push(['  opening',
+        `${toFtIn(d.door.width)} wide &times; ${toFtIn(d.door.height)} high`
+        + `${d.door.leaves === 2 ? ', double' : ''}`]);
+      rows.push(['  distance', `${toFtIn(d.dist)} ${dir(Math.atan2(d.door.x - p.x, d.door.z - p.z))}`]);
+      rows.push(['  state', d.door.locked ? 'locked'
+        : d.door.clear ? 'open' : d.door.open ? 'opening' : 'shut']);
+    }
+
+    if (plan) {
+      rows.push(['plan: overall', `${toFtIn(plan.width)} &times; ${toFtIn(plan.depth)}`]);
+      rows.push(['plan: wing / bay', `${toFtIn(plan.wing)} / ${toFtIn(plan.bay)}`]);
+      rows.push(['plan: second floor', toFtIn(plan.floor2)]);
+      rows.push(['plan: façade at', `N ${toFtIn(plan.facade)}`]);
+      rows.push(['plan: north end at', `N ${toFtIn(plan.north)}`]);
+    }
+
+    return `<table class="dbg">${rows.map(([k, v]) =>
+      `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>`
+      + '<div class="dbg-keys">architecture &middot; F1 overlay &middot; '
+      + 'F2 collision &middot; F3 teleport up</div>';
+  }
+
+  /** The door whose leaf center is closest, in three dimensions. */
+  _nearestDoor(level, p) {
+    if (!level || !level.doors || !level.doors.length) return null;
+    const moved = Math.hypot(p.x - this._nearAt.x, p.z - this._nearAt.z) > 0.4;
+    if (this._nearDoor && !moved) return this._nearDoor;
+    this._nearAt = { x: p.x, z: p.z };
+    let best = null, bd = Infinity;
+    for (const d of level.doors) {
+      const dy = Math.max(0, Math.max(d.y - p.y, p.y - (d.y + d.height)));
+      const dist = Math.hypot(d.x - p.x, d.z - p.z, dy);
+      if (dist < bd) { bd = dist; best = d; }
+    }
+    this._nearDoor = best ? { door: best, dist: bd } : null;
+    return this._nearDoor;
   }
 
   /* ---------------- collision view ---------------- */

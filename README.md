@@ -1,8 +1,9 @@
 # COUNTY LINE
 
-A first-person horror game. This repository is at **Stage 1: the technical
-foundation** — the engine, the systems and the test rig that the real game
-gets built on. There is no game in it yet, and that is deliberate.
+A first-person horror game. This repository is at **Stage 2: the Old
+Academy** — the architectural reconstruction of the building the game is
+set in, standing on the Stage 1 engine. There is still no *game* in it,
+and that is deliberate: Stage 2 builds the place, not what happens there.
 
 County Line is a spiritual follow-up to
 [FINAL RENTAL](https://github.com/EMSoftwareInnovators/Final-Rental), and
@@ -49,9 +50,35 @@ rather than running a socket inside a shipped game.
 
 ## What is in it
 
-Stage 1 is a **technical testbed**, not a level. Pressing NEW TEST GAME
-drops you into a deliberately plain greybox building built to test the
-engine:
+### The Old Academy of Richmond County
+
+540 Telfair Street, Augusta, Georgia — built 1801–02, remodeled in
+1856–57 into the crenellated Tudor-Gothic building that stands today, and
+the home of the Augusta Museum of History from 1937 to 1995. Pressing NEW
+TEST GAME puts you on the front walk looking at it.
+
+It is reconstructed at approximately real-world scale from a 1994 measured
+plan and the museum's own visitor maps: 112'9" across, 94'0" deep, two
+storeys, 35 rooms, 40 doors, both historic staircases, the recessed
+cast-iron loggia on the front, and the open-air garden court between the
+two rear wings with **no floor and no bridge over it at any point**.
+
+![the front elevation from Telfair Street](docs/academy/01-facade.png)
+
+**[docs/OLD-ACADEMY.md](docs/OLD-ACADEMY.md)** documents the sources, the
+two places the reconstruction knowingly departs from a printed figure and
+why, what is measured and what is assumed, the coordinate origin, the full
+room and door schedule, and the module layout. `docs/academy/` holds 24
+views of it.
+
+Stage 2 contains no bus terminal, no story, no campaign nights and no
+scares. What it is *not* is listed at the end of that document.
+
+### The greybox testbed
+
+Stage 1's disposable test rig is still here, as `testbed`, because it is
+what the engine harness runs against — known coordinates, deliberately
+plain:
 
 | Space | What it is there to test |
 |---|---|
@@ -65,8 +92,9 @@ engine:
 
 It contains one set of double doors, two interior single doors, one
 exterior door, seven windows, one generic interactable, one light switch
-and one NPC test actor. **It is disposable.** It is not the Old Academy,
-it is not a bus terminal, and none of it should be kept.
+and one NPC test actor. **It is disposable** and none of it should be
+kept; it survives only so that `tools/play.mjs` has somewhere with known
+coordinates to test movement, stairs, doors and interaction.
 
 ### Controls
 
@@ -78,9 +106,14 @@ it is not a bus terminal, and none of it should be kept.
 | **Ctrl** | crouch |
 | **E** | use whatever you are looking at |
 | **Esc** | pause |
-| **F1** | cycle the developer read-out |
+| **F1** | cycle the developer read-out — off, one line, everything, **architecture mode** |
 | **F2** | draw the collision world |
 | **F3** | jump to the top of the stairs |
+
+Architecture mode is the fourth F1 position and reads out in feet and
+inches: where you are relative to the level origin, the current room's
+bounds and how much clear space is around you, the nearest doorway with
+its size and state, and the plan figures to check them against.
 
 Everything above can be rebound, on the keyboard and on a controller,
 from SETTINGS → CONTROLS. Xbox and PlayStation pads are both understood,
@@ -90,10 +123,10 @@ and a pad the browser will not describe can be laid out by hand.
 
 ## Scale
 
-**One world unit is one meter.** Stage 2 will supply real architectural
-measurements in feet and inches; convert them where they are written down,
-with the helpers in `src/engine/units.js`, so the source reads as the
-drawing does and the engine only ever sees meters.
+**One world unit is one meter.** Real architectural measurements are in
+feet and inches; convert them where they are written down, with the
+helpers in `src/engine/units.js`, so the source reads as the drawing does
+and the engine only ever sees meters.
 
 ```js
 import { ft, ftin, inch } from './engine/units.js';
@@ -104,6 +137,11 @@ const RISE = inch(7.5);     // a 7½ inch riser
 
 Axes: **+X east, +Y up, +Z north**, so a floor plan drawn with north up
 reads straight onto them. Yaw 0 faces +Z and increases toward +X.
+
+Storeys are numbered the American way: `room.floor` is **1** for the floor
+you walk in on, **2** for the one above it, and **0** for grade — the
+grounds, or a courtyard below the entrance level. Every level uses that
+numbering, so "upstairs" means the same thing in all of them.
 
 The numbers everything else is tuned against, all in `SCALE`:
 
@@ -151,7 +189,19 @@ src/
     lighting.js    baked vertex light
     materials.js   the developer greybox materials
     levels/        one module per level
-      testbed.js   the disposable test rig
+      testbed.js   the disposable greybox test rig
+      academy/     the Old Academy, in eleven modules
+        dimensions.js   THE single source of truth: every plan dimension
+        parts.js        parapet, drip mold, chair rail, colonnade, steps
+        shell.js        the exterior envelope, elevation by elevation
+        firstfloor.js   ground storey: slabs, rooms, partitions, doors
+        secondfloor.js  upper storey, laid around the two stairwells
+        stairs.js       the two switchback staircases
+        porches.js      front porch, the gallery over it, rear porch
+        roof.js         deck, parapet, chimneys
+        grounds.js      the garden, the site, the walks, the stoops
+        nav.js          the navigation graph
+        index.js        assembly, lighting, spawn, marks
 
   ui/              the front end, as DOM over the framebuffer
 ```
@@ -166,6 +216,14 @@ npm run lint         # house style, storage hygiene, module size, compat
 npm run build        # the production build, into dist/web
 npm run check:app    # the Electron build (needs a display; use xvfb-run)
 ```
+
+`npm test` includes `tools/academy.mjs`, which checks the Old Academy's
+architectural invariants — the footprint, that nothing is ever built over
+the garden or the rear porch, that the upper wings never bridge, that both
+staircases exist away from the center line — and then **walks routes A to
+K** with real key events, reporting which room it actually ended up in.
+`tools/unit.mjs` checks the dimensional arithmetic without a browser, so a
+station that stops closing fails in milliseconds.
 
 `npm run build` produces `dist/web`, which is what gets uploaded. A built
 page is marked as production and **withholds the developer hooks** — no
@@ -190,10 +248,17 @@ COUNTY_LINE_FIREFOX="/Applications/Firefox.app/Contents/MacOS/firefox" npm test
 
 ---
 
-## What Stage 1 is not
+## What Stage 2 is not
 
-No Old Academy. No bus terminal. No buses, tickets, baggage or manifests.
-No campaign, no story, no scares, no weather. The foundation is supposed
-to be boring; the game comes next.
+No bus terminal, ticket counters, coach bays, baggage or passengers. No
+buses. No job, no shift gameplay, no story, no campaign nights. No ghosts,
+no paranormal events, no scares. No final lighting and no final
+decorative props — the building is lit to be *read*, not to be
+atmospheric.
+
+The historic plan has been kept where it is inconvenient: the staircases
+have not been moved, the awkward rooms have not been merged, no real door
+has been closed and no fake one invented, the garden has not been
+enclosed, and the footprint has not been simplified into a rectangle.
 
 &copy; 2026 EM Software Innovators

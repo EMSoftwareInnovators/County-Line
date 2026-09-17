@@ -2,7 +2,7 @@
   "name": "county-line",
   "version": "0.1.0",
   "private": true,
-  "description": "COUNTY LINE - first-person horror. Stage 1: technical foundation.",
+  "description": "COUNTY LINE - first-person horror. Stage 2: the Old Academy of Richmond County.",
   "type": "module",
   "scripts": {
     "start": "node serve.cjs",
@@ -12,6 +12,8 @@
     "lint": "node tools/lint.mjs",
     "icon": "node tools/icon.mjs",
     "shots": "node tools/shots.mjs",
+    "shots:academy": "node tools/academy-shots.mjs",
+    "check:academy": "node tools/academy.mjs",
     "build": "node tools/build.mjs",
     "app": "electron .",
     "dist": "electron-builder --publish never",
@@ -20,7 +22,9 @@
     "dist:linux": "electron-builder --linux --publish never",
     "check:app": "node tools/electron.mjs"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "main": "electron/main.cjs",
   "productName": "County Line",
   "author": "EM Software Innovators",
@@ -34,7 +38,10 @@
     "appId": "com.emsoftwareinnovators.countyline",
     "productName": "County Line",
     "copyright": "(c) 2026 EM Software Innovators",
-    "directories": { "output": "dist", "buildResources": "build" },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
     "files": [
       "index.html",
       "src/**/*",
@@ -44,16 +51,38 @@
     ],
     "asar": true,
     "mac": {
-      "target": [{ "target": "zip", "arch": ["arm64", "x64"] }],
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
       "category": "public.app-category.games",
       "artifactName": "county-line-${version}-macos-${arch}.${ext}"
     },
     "win": {
-      "target": [{ "target": "zip", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "artifactName": "county-line-${version}-windows-${arch}.${ext}"
     },
     "linux": {
-      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "category": "Game",
       "artifactName": "county-line-${version}-linux-${arch}.${ext}"
     }

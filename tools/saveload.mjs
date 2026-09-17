@@ -23,6 +23,17 @@ await page.evaluate(() => {
 await press('Enter', 600);
 check('a shift is running', (await page.evaluate(() => window.__game.state)) === 'PLAY');
 
+/* These harnesses test the ENGINE against the greybox testbed -- known
+   coordinates, known door ids. Stage 2 moved the campaign's own shift
+   onto the Old Academy, so the level is asked for by name rather than
+   taken from whatever the campaign opens. The academy has its own
+   harness, tools/academy.mjs. */
+await page.evaluate(() => { window.__game.loadLevel('testbed'); });
+await page.waitForTimeout(400);
+check('the save harness runs on the greybox testbed',
+  (await page.evaluate(() => window.__game.level.id)) === 'testbed',
+  await page.evaluate(() => window.__game.level.id));
+
 await page.evaluate(() => {
   const p = window.__game.player;
   p.x = 11.25; p.y = 0; p.z = 6.75; p.yaw = 1.25; p.pitch = -0.1;

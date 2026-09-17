@@ -46,6 +46,7 @@ import { graphFromLevel } from './nav.js';
 import { buildMaterials } from '../world/materials.js';
 import { buildLevel } from '../world/level.js';
 import { testbed } from '../world/levels/testbed.js';
+import { academy } from '../world/levels/academy/index.js';
 
 export const ST = {
   BOOT: 'BOOT',
@@ -55,8 +56,16 @@ export const ST = {
   PAUSE: 'PAUSE',
 };
 
-/** Every level this build knows how to load. */
-const LEVELS = { testbed };
+/**
+ * Every level this build knows how to load.
+ *
+ * `testbed` is Stage 1's disposable engine rig. It is kept because the
+ * engine harnesses under tools/ still exercise the collider, the doors
+ * and the interaction system against it, and because a neutral room is a
+ * better place to find an engine bug than a historic building is. It is
+ * not part of the game.
+ */
+const LEVELS = { testbed, academy };
 
 export class Game {
   constructor(canvas) {
@@ -152,7 +161,9 @@ export class Game {
       if (!document.hidden) this.audio.resume();
     });
 
-    this.loadLevel('testbed');
+    /* The title screen drifts over the level the campaign would start on,
+       so the first thing anybody sees is the building rather than a rig. */
+    this.loadLevel(this.campaign.def.shift(0).level);
     this.toTitle(true);
 
     this.last = performance.now();
@@ -588,8 +599,12 @@ export class Game {
   checkObjectives() {
     if (this.campaign.phase !== PHASE.ACTIVE) return;
     const p = this.player;
-    if (p.y > SCALE.stairRise * 18) this.completeObjective('walk-upstairs');
     const room = this.level.roomAt(p.x, p.y, p.z);
+    /* Read the floor off the room rather than off a height: levels do not
+       agree about where the first floor's ceiling is, and a threshold in
+       meters that means "upstairs" in one building means "halfway up the
+       stairs" in the next. */
+    if (room && room.floor >= 2) this.completeObjective('walk-upstairs');
     if (room && room.outdoor) this.completeObjective('go-outside');
   }
 

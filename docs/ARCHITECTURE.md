@@ -162,6 +162,37 @@ rather than re-baking. Baked light cannot be re-lit cheaply; scaling the
 shade of that room's geometry is what a light going out looks like on
 hardware that bakes its lighting.
 
+`room.floor` is numbered the American way in every level: **1** for the
+floor you walk in on, **2** for the one above it, **0** for grade. A level
+that numbers its floors any other way makes `room.floor` mean nothing
+across levels, which is how "upstairs" comes to mean two different things
+in two buildings.
+
+### A big level, in modules
+
+The Old Academy is what the split above exists for. It is eleven files
+under `src/world/levels/academy/`, and the rule that makes it maintainable
+is narrower than "split it up":
+
+> **Every plan dimension is named once, in `dimensions.js`, and no other
+> academy module contains one.** If a number is needed somewhere it is
+> named there first.
+
+That is what lets the whole building's arithmetic be checked in
+milliseconds without a browser (`tools/unit.mjs`), and it is why moving
+one station moves everything that depends on it instead of half of it. The
+building's own documentation — sources, reconciliations, origin, room and
+door schedule — is [docs/OLD-ACADEMY.md](OLD-ACADEMY.md).
+
+Chunking follows the same idea one level up: one chunk per room, plus one
+per envelope segment, so the frustum culler has something smaller than a
+94-foot wall to reject. The academy builds 63.
+
+A building-specific vocabulary lives in the level's own `parts.js`, not in
+`prefabs.js`. A crenellated parapet, a drip mold and a cast-iron
+colonnade are not things a general prefab library has any business
+knowing about; walls with openings, stairs, railings and glazing are.
+
 ---
 
 ## Interaction

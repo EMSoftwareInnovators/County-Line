@@ -79,7 +79,11 @@ if (BUILT) {
   check('and every module it imports came through', booted.modules >= 10,
     `${booted.modules} modules on the dev hook`);
   check('running from the repository is NOT production', !booted.marked);
-  check('and the test level built', booted.level === 'testbed', String(booted.level));
+  /* Which level the campaign opens with is not this harness's business
+     -- Stage 2 moved it to the Old Academy. What matters here is that a
+     level was built at all inside the shell, from modules served over
+     game://. */
+  check('and a level built', !!booted.level, String(booted.level));
 }
 
 /* ---------- it plays ---------- */

@@ -108,7 +108,7 @@ export const testbed = {
     /* ============================================================
        THE HALL -- the very-high-ceiling room
        ============================================================ */
-    b.room({ id: 'hall', name: 'Hall', x0: hi.x0, x1: hi.x1, z0: hi.z0, z1: hi.z1, y0: 0, y1: HALL_H });
+    b.room({ id: 'hall', name: 'Hall', x0: hi.x0, x1: hi.x1, z0: hi.z0, z1: hi.z1, y0: 0, y1: HALL_H, floor: 1 });
     b.detail(1.4);
     b.floor({ ...hf, y: 0, material: M.floor, tag: 'hall-floor' });
     b.ceiling({ ...hf, y: HALL_H, material: M.ceiling });
@@ -191,7 +191,7 @@ export const testbed = {
     /* ============================================================
        THE GALLERY and THE OFFICE -- first floor
        ============================================================ */
-    b.room({ id: 'gallery', name: 'Gallery', x0: hi.x0, x1: OFFICE_X, z0: GALLERY_Z, z1: hi.z1, y0: UPPER, y1: HALL_H, floor: 1 });
+    b.room({ id: 'gallery', name: 'Gallery', x0: hi.x0, x1: OFFICE_X, z0: GALLERY_Z, z1: hi.z1, y0: UPPER, y1: HALL_H, floor: 2 });
     b.detail(1.1);
     b.floor({
       x0: WEST, x1: P1, z0: GALLERY_Z, z1: NORTH, y: UPPER,
@@ -209,7 +209,7 @@ export const testbed = {
       b.barrier({ x0, x1, z0: GALLERY_Z - 0.1, z1: GALLERY_Z + 0.1, y0: UPPER, y1: UPPER + 1.1 });
     }
 
-    b.room({ id: 'office', name: 'Upper Room', x0: OFFICE_X, x1: hi.x1, z0: GALLERY_Z, z1: hi.z1, y0: UPPER, y1: OFFICE_H, floor: 1 });
+    b.room({ id: 'office', name: 'Upper Room', x0: OFFICE_X, x1: hi.x1, z0: GALLERY_Z, z1: hi.z1, y0: UPPER, y1: OFFICE_H, floor: 2 });
     b.detail(1.0);
     b.ceiling({ x0: OFFICE_X, x1: hi.x1, z0: GALLERY_Z, z1: hi.z1, y: OFFICE_H, material: M.ceiling });
     // the office's south wall, closing it off from the drop into the hall
@@ -236,7 +236,7 @@ export const testbed = {
     /* ============================================================
        THE CORRIDOR -- the narrow one
        ============================================================ */
-    b.room({ id: 'corridor', name: 'Corridor', x0: ci.x0, x1: ci.x1, z0: ci.z0, z1: ci.z1, y0: 0, y1: ROOM_H });
+    b.room({ id: 'corridor', name: 'Corridor', x0: ci.x0, x1: ci.x1, z0: ci.z0, z1: ci.z1, y0: 0, y1: ROOM_H, floor: 1 });
     b.detail(0.9);
     b.floor({ ...cf, y: 0, material: M.floor, tag: 'corridor-floor' });
     b.ceiling({ ...cf, y: ROOM_H, material: M.ceiling });
@@ -257,7 +257,7 @@ export const testbed = {
     /* ============================================================
        THE WORKROOM -- the moderately large one
        ============================================================ */
-    b.room({ id: 'workroom', name: 'Workroom', x0: wi.x0, x1: wi.x1, z0: wi.z0, z1: wi.z1, y0: 0, y1: ROOM_H });
+    b.room({ id: 'workroom', name: 'Workroom', x0: wi.x0, x1: wi.x1, z0: wi.z0, z1: wi.z1, y0: 0, y1: ROOM_H, floor: 1 });
     b.detail(1.3);
     b.floor({ ...wf, y: 0, material: M.boards, tag: 'workroom-floor' });
     b.ceiling({ ...wf, y: ROOM_H, material: M.ceiling });

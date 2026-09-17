@@ -50,7 +50,7 @@ const FILES = [...walk('src'), ...walk('tools'), ...walk('electron'), 'index.htm
    ============================================================ */
 const BRITISH = [
   ['till', 'register (or "until")', { skip: ['until', 'still', 'tilt'] }],
-  ['shop', 'store', { skip: ['workshop', 'shopping'] }],
+  ['shop', 'store', { skip: ['workshop', 'shopping', 'gift shop'] }],
   ['queue', 'line', { skip: ['a queue it has to walk', 'queue of', 'render quantum'] }],
   ['pavement', 'sidewalk'],
   ['kerb', 'curb'],

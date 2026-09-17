@@ -207,6 +207,12 @@ export class LevelBuilder {
       x0: spec.x0, x1: spec.x1, z0: spec.z0, z1: spec.z1,
       y0: spec.y0 === undefined ? 0 : spec.y0,
       y1: spec.y1 === undefined ? (spec.y0 || 0) + SCALE.roomHeight : spec.y1,
+      /* THE HOUSE CONVENTION, and it is American: floor 1 is the floor
+         you walk in on, floor 2 is the one above it. 0 means grade --
+         outdoors, the grounds, a courtyard below the entrance level. A
+         level that numbers its floors any other way makes `room.floor`
+         mean nothing across levels, which is how "upstairs" came to mean
+         two different things in two buildings. */
       floor: spec.floor === undefined ? 0 : spec.floor,
       outdoor: !!spec.outdoor,
       material: spec.material || 'stone',

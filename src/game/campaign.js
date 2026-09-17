@@ -209,13 +209,12 @@ export const TEST_CAMPAIGN = new CampaignDef({
     {
       id: 'test-shift',
       name: 'Test Shift',
-      level: 'testbed',
+      level: 'academy',
       durationSeconds: 0,            // runs until the player stops it
       clock: { startHour: 21, endHour: 24 },
       objectives: [
         { id: 'walk-upstairs', text: 'Get to the upper floor' },
         { id: 'go-outside', text: 'Step outside' },
-        { id: 'use-something', text: 'Use the test interactable', optional: true },
       ],
     },
   ],

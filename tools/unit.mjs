@@ -454,10 +454,15 @@ section('campaign');
 {
   const c = new Campaign(TEST_CAMPAIGN);
   check('a campaign starts idle', c.phase === PHASE.IDLE);
-  check('the test campaign has one shift on the testbed',
-    TEST_CAMPAIGN.length === 1 && TEST_CAMPAIGN.shift(0).level === 'testbed');
+  /* Stage 2 moved the technical shift onto the Old Academy, which is the
+     level there now is. It still carries no story: the objectives are
+     "get upstairs" and "step outside", which are tests of the
+     architecture and nothing else. */
+  check('the test campaign has one shift, on the Old Academy',
+    TEST_CAMPAIGN.length === 1 && TEST_CAMPAIGN.shift(0).level === 'academy',
+    `${TEST_CAMPAIGN.length} shift(s) on ${TEST_CAMPAIGN.shift(0).level}`);
   check('and no story in it',
-    !JSON.stringify(TEST_CAMPAIGN).match(/bus|academy|ghost|passenger|ticket/i));
+    !JSON.stringify(TEST_CAMPAIGN).match(/bus|coach|ghost|passenger|ticket|baggage|scare/i));
 
   c.start(0, {});
   check('starting makes it active', c.phase === PHASE.ACTIVE);
@@ -563,6 +568,97 @@ section('save');
   const p3 = new Profile();
   p3.load();
   check('and survives the save being wiped', p3.hasSeen('thing'));
+}
+
+/* ============================================================
+   THE OLD ACADEMY'S DIMENSIONS
+
+   dimensions.js is the single source of truth for the building, and it
+   is arithmetic: every station is derived from the measured plan's
+   printed figures. So it can be checked without a browser, a renderer or
+   a collider, and it is checked here rather than only in the walking
+   harness -- because the number that silently stops closing is the one
+   that ruins the reconstruction, and it should fail in milliseconds.
+
+   These are the invariants the Stage 2 brief asks for, in the form the
+   references state them.
+   ============================================================ */
+{
+  section("the Old Academy's dimensions");
+  const D = await import('../src/world/levels/academy/dimensions.js');
+  const F = (m) => m / 0.3048;
+  const isFt = (label, m, feet, tol = 0.002) =>
+    check(label, Math.abs(F(m) - feet) < tol, `${F(m).toFixed(4)} ft, wanted ${feet}`);
+
+  /* ---- the footprint the measured plan prints ---- */
+  isFt('the building is 112 ft 9 in across', D.WIDTH, 112.75);
+  isFt('and 94 ft deep', D.DEPTH, 94);
+  isFt('each rear wing is 34 ft 3 in wide', D.WING, 34.25);
+  isFt('which leaves a 44 ft 3 in central bay', D.BAY, 44.25);
+
+  /* ---- reconciliation A: a 19.5 in exterior wall is what makes a
+         34 ft 3 in wing come out at the 31 ft interior printed three
+         times on the plan. If either number moves, this stops closing. ---- */
+  isFt('the exterior wall is 19.5 in', D.EXT, 1.625);
+  isFt('so the clear interior of a wing is exactly 31 ft', D.WING_IN, 31);
+  check('and that is the wing less two exterior walls',
+    near(D.WING_IN, D.WING - 2 * D.EXT, 1e-9));
+
+  /* ---- both wings close on 94 ft, band by band ---- */
+  const bands = D.EXT + D.FRONT_BLOCK + D.CROSS + D.MID_BAND + D.CROSS + D.NORTH_BAND + D.EXT;
+  isFt('19.5in + 37ft10 + 12in + 13ft + 12in + 37ft11 + 19.5in closes on 94 ft', bands, 94);
+  check('the north band ends exactly at the inner face of the north wall',
+    near(D.Z_NB_S + D.NORTH_BAND, D.Z_N_IN, 1e-9),
+    `${F(D.Z_NB_S + D.NORTH_BAND).toFixed(4)} vs ${F(D.Z_N_IN).toFixed(4)}`);
+  check('and the façade to the north end is the full depth',
+    near(D.Z_N_OUT - D.Z_FACADE, D.DEPTH, 1e-9));
+
+  /* ---- reconciliation B: the garden is as wide as the central room ---- */
+  check('the garden is exactly as wide as the central room',
+    near(D.X_BAY_E - D.X_BAY_W, D.BAY, 1e-9));
+  check('and the central bay is the width less the two wings',
+    near(D.BAY, D.WIDTH - 2 * D.WING, 1e-9));
+
+  /* ---- the origin is the center of the first-floor central room ---- */
+  check('the origin is on the building center line', near(D.X_BAY_W, -D.X_BAY_E, 1e-9));
+  check('and on the central room center line', near(D.Z_CENTRAL_S, -D.Z_CENTRAL_N, 1e-9));
+  isFt('the front façade stands 31 ft 4.5 in south of it', -D.Z_FACADE, 31.375);
+  isFt('the front porch is 13 ft 6 in deep', D.FRONT_PORCH_DEPTH, 13.5);
+  isFt('the rear porch 15 ft', D.REAR_PORCH_DEPTH, 15);
+
+  /* ---- the staircase governs the story height, not the reverse ---- */
+  isFt('the second floor is at 16 ft', D.FLOOR2, 16);
+  check('which is 24 risers', D.STAIR_RISERS === 24, String(D.STAIR_RISERS));
+  check('of exactly 8 in', Math.abs(D.STAIR_RISE * 39.3700787 - 8) < 1e-6,
+    `${(D.STAIR_RISE * 39.3700787).toFixed(6)} in`);
+  check('and the ceiling plus the floor structure is that height',
+    near(D.FLOOR1_CEIL + D.FLOOR_STRUCTURE, D.FLOOR2, 1e-9));
+  check('a step up is deliberately shorter than a riser, so stairs are stairs',
+    SCALE.stepHeight < D.STAIR_RISE, `${F(SCALE.stepHeight).toFixed(3)} < ${F(D.STAIR_RISE).toFixed(3)} ft`);
+
+  /* ---- the whole switchback has to fit the middle band ---- */
+  const switchback = D.STAIR_LANDING + (D.STAIR_RISERS / 2) * D.STAIR_RUN;
+  const available = D.REAR_HALL_W === undefined ? 0 : (D.WING_IN - D.REAR_HALL_W);
+  check('the switchback fits between the outer wall and the rear hall',
+    switchback <= available + 1e-9,
+    `${F(switchback).toFixed(3)} ft in ${F(available).toFixed(3)} ft`);
+
+  /* ---- the things the brief says must never happen ---- */
+  check('the two rear wings do not meet: there is a bay between them',
+    D.X_WING_W_IN < D.X_WING_E_IN - ft(40),
+    `${F(D.X_WING_E_IN - D.X_WING_W_IN).toFixed(2)} ft apart`);
+  /* North to south the depth divides up exactly: front porch, central
+     block, rear porch, garden. What is left over IS the garden, and if
+     any of the four changes the garden is what absorbs it. */
+  const stack = D.FRONT_PORCH_DEPTH + D.EXT + D.CENTRAL_DEPTH + D.EXT + D.REAR_PORCH_DEPTH;
+  check('the garden is what the depth has left after the porches and the center',
+    near(D.Z_N_OUT - D.Z_PORCH_N, D.DEPTH - stack, 1e-9),
+    `${F(D.Z_N_OUT - D.Z_PORCH_N).toFixed(3)} ft deep, ${F(D.BAY).toFixed(3)} ft wide`);
+  check('the garden floor is above the exterior grade but below the porch',
+    D.GRADE < D.GARDEN_LEVEL && D.GARDEN_LEVEL < 0,
+    `${F(D.GRADE)} < ${F(D.GARDEN_LEVEL)} < 0 ft`);
+  check('the parapet stands above the roof deck', D.PARAPET_TOP > D.ROOF);
+  check('a merlon is wider than the crenel beside it', D.MERLON > D.CRENEL);
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nall good');

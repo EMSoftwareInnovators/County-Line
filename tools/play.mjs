@@ -36,6 +36,19 @@ await page.keyboard.press('Enter');
 await page.waitForTimeout(500);
 check('ENTER on the title starts the test shift', (await state()) === 'PLAY', await state());
 
+/* This harness tests the ENGINE -- movement, collision, stairs, doors,
+   interaction -- and it does that against the greybox testbed, which is
+   what the testbed is for: known coordinates, a 9 m hall, one staircase,
+   one plinth, one set of double doors. Stage 2 moved the campaign's own
+   shift onto the Old Academy, so the level is asked for by name here
+   rather than taken from whatever the campaign happens to open. The
+   academy has its own harness, tools/academy.mjs. */
+await page.evaluate(() => { window.__game.loadLevel('testbed'); });
+await page.waitForTimeout(400);
+check('the engine harness runs on the greybox testbed',
+  (await page.evaluate(() => window.__game.level.id)) === 'testbed',
+  await page.evaluate(() => window.__game.level.id));
+
 const spawn = await pos();
 check('the player spawns on the floor', Math.abs(spawn.y) < 0.01 && spawn.grounded, JSON.stringify(spawn));
 
@@ -247,9 +260,10 @@ check('the yard is fenced', p.z > -12.4, `z ${p.z.toFixed(2)}`);
 const obj = await page.evaluate(() => ({
   up: window.__game.campaign.objectiveDone('walk-upstairs'),
   out: window.__game.campaign.objectiveDone('go-outside'),
-  use: window.__game.campaign.objectiveDone('use-something'),
+  left: window.__game.campaign.remainingObjectives().map((o) => o.id),
 }));
-check('the shift tracked all three objectives', obj.up && obj.out && obj.use, JSON.stringify(obj));
+check('the shift tracked both objectives', obj.up && obj.out, JSON.stringify(obj));
+check('and has none left outstanding', obj.left.length === 0, obj.left.join(',') || 'none');
 
 /* ---- the NPC ---- */
 const npc0 = await page.evaluate(() => {
