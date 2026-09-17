@@ -53,12 +53,14 @@ export function buildNav(b) {
   at('west.offices.s', ft(-32), F1, D.Z_NB_S + ft(3));
   at('west.door', D.X_W_OUT - ft(6), D.GRADE, ft(43));
 
-  /* ---- east wing, ground ---- */
-  at('americana.inner', ft(39), F1, ft(-5));
-  at('americana.inner.n', ft(32), F1, D.Z_FB_N - ft(3));
-  at('americana.inner.s', ft(38), F1, D.Z_INDIANS_S + ft(3));
-  at('americana.main', ft(30), F1, ft(-25));
-  at('giftshop', ft(46), F1, ft(-25));
+  /* ---- east wing, ground ----
+     The east front block is two full-depth columns: the Gift Shop against
+     the central bay, Americana against the outer wall. */
+  at('giftshop', ft(30), F1, ft(-12.5));
+  at('giftshop.s', ft(30), F1, ft(-25));
+  at('giftshop.n', ft(32), F1, D.Z_FB_N - ft(3));
+  at('americana.main', ft(46), F1, ft(-12.5));
+  at('americana.s', ft(46), F1, ft(-25));
   at('east.rearhall', ft(32), F1, ft(15.5));
   at('east.stairhall', ft(48), F1, ft(13));
   at('east.stair.foot', ft(42.5), F1, ft(11.9));
@@ -68,8 +70,10 @@ export function buildNav(b) {
   at('east.service', ft(48), F1, ft(30));
   at('east.vestibule', ft(48), F1, ft(43));
   at('east.council', ft(48), F1, ft(54));
+  at('east.entry', ft(48), F1, ft(19.5));
   at('east.door.n', D.X_E_OUT + ft(6), D.GRADE, ft(43));
-  at('east.door.s', D.X_E_OUT + ft(6), D.GRADE, ft(15.58));
+  at('east.door.s', D.X_E_OUT + ft(6), D.GRADE, ft(19.5));
+  at('west.restroom', ft(-48), F1, ft(19.5));
 
   /* ---- rear porch and garden ---- */
   at('porch.rear', 0, F1, D.Z_CENTRAL_N_OUT + ft(7));
@@ -97,35 +101,35 @@ export function buildNav(b) {
   const E = [
     ['street', 'front.walk'], ['front.walk', 'front.steps'], ['front.steps', 'porch.front'],
     ['porch.front', 'porch.front.w'], ['porch.front', 'porch.front.e'],
-    ['porch.front.w', 'docent'], ['porch.front.e', 'giftshop'],
+    ['porch.front.w', 'docent'], ['porch.front.e', 'giftshop.s'],
     ['porch.front', 'central.s'], ['central.s', 'central'],
 
     ['central', 'central.n'], ['central.n', 'porch.rear'],
     ['central', 'central.sw'], ['central.sw', 'indians'],
-    ['central', 'central.se'], ['central.se', 'americana.inner'],
+    ['central', 'central.se'], ['central.se', 'giftshop'],
     ['central', 'central.nw'], ['central.nw', 'west.rearhall'],
     ['central', 'central.ne'], ['central.ne', 'east.rearhall'],
 
     ['indians', 'indians.n'], ['indians', 'indians.s'],
     ['indians.s', 'docent'], ['indians.s', 'west.store'],
-    ['indians.n', 'west.rearhall'], ['indians.n', 'west.stairhall'],
+    ['indians.n', 'west.rearhall'],
     ['docent', 'west.store'],
-    ['west.rearhall', 'west.stairhall'],
+    ['west.rearhall', 'west.stairhall'], ['west.rearhall', 'west.restroom'],
     ['west.stairhall', 'west.stair.foot'], ['west.stair.foot', 'west.stair.top'],
-    ['west.stairhall', 'west.offices.s'], ['west.rearhall', 'west.offices.s'],
+    ['west.rearhall', 'west.offices.s'],
     ['west.offices.s', 'west.offices'], ['west.offices', 'west.door'],
 
-    ['americana.inner', 'americana.inner.n'], ['americana.inner', 'americana.inner.s'],
-    ['americana.inner.s', 'americana.main'], ['americana.inner.s', 'giftshop'],
-    ['americana.main', 'giftshop'],
-    ['americana.inner.n', 'east.rearhall'], ['americana.inner.n', 'east.stairhall'],
-    ['east.rearhall', 'east.stairhall'],
+    ['giftshop', 'giftshop.n'], ['giftshop', 'giftshop.s'],
+    ['giftshop.s', 'americana.s'], ['giftshop', 'americana.main'],
+    ['americana.main', 'americana.s'],
+    ['giftshop.n', 'east.rearhall'],
+    ['east.rearhall', 'east.stairhall'], ['east.rearhall', 'east.entry'],
     ['east.stairhall', 'east.stair.foot'], ['east.stair.foot', 'east.stair.top'],
-    ['east.stairhall', 'east.service'], ['east.rearhall', 'east.animal'],
+    ['east.rearhall', 'east.animal'],
     ['east.animal', 'east.service'], ['east.animal', 'east.staff'],
     ['east.animal', 'east.vestibule'], ['east.service', 'east.vestibule'],
     ['east.vestibule', 'east.council'], ['east.staff', 'east.council'],
-    ['east.vestibule', 'east.door.n'], ['east.stairhall', 'east.door.s'],
+    ['east.vestibule', 'east.door.n'], ['east.entry', 'east.door.s'],
 
     ['west.rearhall', 'porch.rear.w'], ['east.rearhall', 'porch.rear.e'],
     ['porch.rear.w', 'porch.rear'], ['porch.rear.e', 'porch.rear'],

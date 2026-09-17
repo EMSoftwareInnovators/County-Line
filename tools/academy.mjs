@@ -127,6 +127,7 @@ const plan = await page.evaluate(() => {
     floor2: m.floor2, facade: m.facade, north: m.north,
     rooms: g.level.rooms.map((r) => ({ id: r.id, x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, y0: r.y0, floor: r.floor, outdoor: r.outdoor })),
     doors: g.level.doors.map((d) => d.id),
+    openings: g.level.openings.length,
     chunks: g.level.chunks.map((c) => ({ id: c.id, b: c.bounds })),
     floors: g.level.collision.floors.map((f) => ({ x0: f.x0, x1: f.x1, z0: f.z0, z1: f.z1, y: f.y, tag: f.tag })),
     ceilings: g.level.collision.ceilings.map((c) => ({ x0: c.x0, x1: c.x1, z0: c.z0, z1: c.z1, y: c.y, tag: c.tag })),
@@ -171,8 +172,8 @@ check('and an east upper wing', upE.length >= 2, upE.map((r) => r.id).join(','))
 
 console.log('\n-- the rooms the brief names --');
 const want = [
-  'academy.central', 'academy.indians', 'academy.americana.inner', 'academy.west.offices',
-  'academy.west.restroom', 'academy.east.restroom',
+  'academy.central', 'academy.indians', 'academy.giftshop', 'academy.west.offices',
+  'academy.west.restroom', 'academy.east.entry',
   'academy.west.stairhall', 'academy.east.stairhall',
   'academy.east.staff', 'academy.east.animal', 'academy.east.rearhall',
   'academy.west.rearhall', 'academy.porch.front', 'academy.porch.rear', 'academy.garden',
@@ -204,6 +205,33 @@ const leaves = await page.evaluate(() => ({
 }));
 check('the front central doors are a real double', leaves.front === 2, String(leaves.front));
 check('and so are the rear central doors', leaves.rear === 2, String(leaves.rear));
+
+/* THE FOUR SIDE DOORWAYS ARE SYMMETRICAL. This building is, and Stage 2
+   gave the exhibit pair a different size from the hall pair at a
+   different distance from the room's center. */
+const four = await page.evaluate(() => ['central-indians', 'central-americana',
+  'central-westhall', 'central-easthall'].map((id) => {
+  const d = window.__game.level.doorById(id);
+  return { id, w: d.width, h: d.height, x: d.x, z: d.z };
+}));
+check('all four side doorways are one size',
+  four.every((d) => Math.abs(d.w - four[0].w) < 1e-6 && Math.abs(d.h - four[0].h) < 1e-6),
+  four.map((d) => `${M(d.w).toFixed(2)}x${M(d.h).toFixed(2)}`).join(' '));
+check('and stand at mirrored stations about the room center',
+  four.every((d) => four.some((o) => Math.abs(o.z + d.z) < 1e-6 && Math.abs(o.x - d.x) < 1e-6))
+  && four.every((d) => four.some((o) => Math.abs(o.x + d.x) < 1e-6 && Math.abs(o.z - d.z) < 1e-6)),
+  four.map((d) => `${M(d.x).toFixed(1)},${M(d.z).toFixed(1)}`).join(' '));
+
+/* And there is ONE restroom in the building. */
+const restrooms = plan.rooms.filter((r) => /restroom/i.test(r.id));
+check('there is exactly one restroom, in the west wing',
+  restrooms.length === 1 && restrooms[0].x1 < 0,
+  restrooms.map((r) => r.id).join(',') || 'none');
+
+/* Neither staircase has a door in front of it. */
+const stairDoors = plan.doors.filter((d) => /stair/.test(d) && !/side/.test(d));
+check('neither staircase has a door in front of it', stairDoors.length === 0,
+  stairDoors.join(',') || 'none');
 
 console.log('\n-- both staircases --');
 const flights = plan.ramps.filter((r) => r.tag === 'stair');
@@ -273,14 +301,14 @@ p = await advance(inRoom('academy.central'));
 check('A3 the front doors lead into the central room', p.room === 'academy.central', where(p));
 
 console.log('\n-- route B: central -> Indians of the Southeast --');
-await put(0, 0, ft(-6), W);
+await put(0, 0, -ft(12.5), W);
 p = await advance(inRoom('academy.indians'));
 check('B the west doorway reaches Indians', p.room === 'academy.indians', where(p));
 
-console.log('\n-- route C: central -> inner Americana --');
-await put(0, 0, ft(-6), E);
-p = await advance(inRoom('academy.americana.inner'));
-check('C the east doorway reaches Americana', p.room === 'academy.americana.inner', where(p));
+console.log('\n-- route C: central -> the Gift Shop --');
+await put(0, 0, -ft(12.5), E);
+p = await advance(inRoom('academy.giftshop'));
+check('C the east doorway reaches the Gift Shop', p.room === 'academy.giftshop', where(p));
 
 console.log('\n-- route D: central -> west rear hall -> rear porch --');
 await put(0, 0, ft(12.5), W);
@@ -330,12 +358,12 @@ const legs = [
   [E, inRoom('academy.porch.rear'), 0],           // out onto the covered porch
   [E, inRoom('academy.east.rearhall'), 0],        // across it and in the other side
   [E, pastX(ft(32), 1), 1],                       // east to the matching arch
-  [S, inRoom('academy.americana.inner'), 0],      // south through it
-  [S, pastZ(ft(-5.2), -1), 1],                    // down to the doorway line
+  [S, inRoom('academy.giftshop'), 0],             // south through it
+  [S, pastZ(-ft(11.7), -1), 1],                   // down to the doorway line
   [W, inRoom('academy.central'), 0],              // and back in where we started
 ];
 const loop = [];
-await put(0, 0, ft(-6), W);
+await put(0, 0, -ft(12.5), W);
 for (const [yaw, done, slow] of legs) {
   await face(yaw);
   loop.push(await (slow ? step(done) : advance(done)));
@@ -345,7 +373,7 @@ const ring = [0, 2, 4, 5, 7, 9].map((i) => loop[i].room);
 check('G Indians -> west hall -> porch -> east hall -> Americana -> central closes',
   ring[0] === 'academy.indians' && ring[1] === 'academy.west.rearhall'
   && ring[2] === 'academy.porch.rear' && ring[3] === 'academy.east.rearhall'
-  && ring[4] === 'academy.americana.inner' && ring[5] === 'academy.central',
+  && ring[4] === 'academy.giftshop' && ring[5] === 'academy.central',
   ring.join(' -> '));
 
 console.log('\n-- routes H and I: both staircases --');
@@ -402,7 +430,7 @@ p = await advance(inRoom('academy.upper.center.war'));
 check('J1 the west landing reaches the War Room',
   p.room === 'academy.upper.center.war', where(p));
 await face(S);
-await step(belowZ(0));
+await step(belowZ(ft(4)));
 await face(E);
 p = await advance(inRoom('academy.upper.center.mammals'));
 check('J2 the meeting room carries across its spine wall',

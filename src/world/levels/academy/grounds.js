@@ -157,7 +157,7 @@ export function buildGrounds(b) {
     y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
   b.floor({
-    x0: D.X_E_OUT, x1: D.X_E_OUT + ftin(8, 0), z0: ft(13), z1: ft(19),
+    x0: D.X_E_OUT, x1: D.X_E_OUT + ftin(8, 0), z0: ft(16.5), z1: ft(22.5),
     y: D.GRADE + inch(1), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
   });
 
@@ -223,7 +223,7 @@ export function buildGrounds(b) {
   stoop(D.X_W_OUT, ft(43), -1);
   b.chunk('academy.grounds.east');
   stoop(D.X_E_OUT, ft(43), 1);
-  stoop(D.X_E_OUT, ft(15.58), 1);
+  stoop(D.X_E_OUT, ftin(19, 6), 1);
 
   /* ============================================================
      EXTERIOR DETAILS

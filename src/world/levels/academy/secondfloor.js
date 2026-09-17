@@ -15,10 +15,31 @@
    Rocks & Minerals and Natural History east, and the War Room / Modern
    Mammals pair across the center, which the same map annotates as the
    common meeting room.
+
+   ------------------------------------------------------------
+   STAGE 2.1, SECOND PASS
+   ------------------------------------------------------------
+   This story was finished to a different standard from the one below it
+   and it showed. Three things were wrong with it:
+
+     * it was trimmed with a DARK chair rail and a dark cornice while the
+       floor below had painted beadboard wainscot and a painted cornice,
+       so the two stories did not look like the same building;
+     * that chair rail ran straight across the stairwell and across every
+       doorway, because it was drawn as a band round a rectangle rather
+       than as a board on a wall;
+     * the east wing's north band left a strip of floor belonging to no
+       room at all -- Rocks & Minerals was a corner and Archives was laid
+       over the rest of the band, and between them was a piece of second
+       floor that `roomAt` returned nothing for.
+
+   All three are fixed here, and the four doorways out of the upper
+   central room are now the same size at the same station as the four
+   below them, mirrored about Z = 0.
    ============================================================ */
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
-import { chairRail, trimBox } from './parts.js';
+import { openingsAround, trimBox, wainscot } from './parts.js';
 import { partition } from './firstfloor.js';
 import { stairWells } from './stairs.js';
 
@@ -88,8 +109,11 @@ export function buildSecondFloor(b) {
   /* ============================================================
      ROOMS
      ============================================================ */
-  const MIN_X = D.X_WING_E_IN + ftin(13, 6);
-  const MIN_Z = D.Z_NB_S + ft(8);
+  /* The east wing's north band, split by ONE cross wall: the smaller room
+     south, the Archives filling the rest. Two rectangles covering the
+     whole band, rather than a corner room with an orphan strip beside
+     it. */
+  const MIN_Z = D.Z_NB_S + ftin(13, 6);
 
   const rooms = [
     ['academy.upper.west.rotating', 'Rotating Exhibits', D.X_W_IN, D.X_WING_W_IN, D.Z_S_IN, D.Z_FB_N],
@@ -101,16 +125,19 @@ export function buildSecondFloor(b) {
 
     ['academy.upper.east.natural', 'Natural History', D.X_WING_E_IN, D.X_E_IN, D.Z_S_IN, D.Z_FB_N],
     ['academy.upper.east.landing', 'East Upper Landing', D.X_WING_E_IN, D.X_E_IN, D.Z_MID_S, D.Z_MID_N],
-    ['academy.upper.east.minerals', 'Rocks & Minerals', D.X_WING_E_IN, MIN_X, D.Z_NB_S, MIN_Z],
+    ['academy.upper.east.minerals', 'Rocks & Minerals', D.X_WING_E_IN, D.X_E_IN, D.Z_NB_S, MIN_Z],
     ['academy.upper.east.archives', 'Archives', D.X_WING_E_IN, D.X_E_IN, MIN_Z + D.PART, D.Z_N_IN],
   ];
 
   for (const [id, name, x0, x1, z0, z1] of rooms) {
     b.room({ id, name, x0, x1, z0, z1, y0: D.FLOOR2, y1: D.FLOOR2_CEIL, floor: 2, material: 'wood' });
     b.detail(2.2);
-    chairRail(b, { x0, x1, z0, z1, y: D.FLOOR2 }, M.trimDark);
-    trimBox(b, x0, D.FLOOR2_CEIL - inch(7), z0, x1, D.FLOOR2_CEIL, z0 + inch(2), M.trimDark);
-    trimBox(b, x0, D.FLOOR2_CEIL - inch(7), z1 - inch(2), x1, D.FLOOR2_CEIL, z1, M.trimDark);
+    /* A PAINTED cornice, the same as downstairs. The dark one this used
+       to have made the upper story read as a different building. */
+    trimBox(b, x0, D.FLOOR2_CEIL - inch(9), z0, x1, D.FLOOR2_CEIL, z0 + inch(3), M.paintWhite);
+    trimBox(b, x0, D.FLOOR2_CEIL - inch(9), z1 - inch(3), x1, D.FLOOR2_CEIL, z1, M.paintWhite);
+    trimBox(b, x0, D.FLOOR2_CEIL - inch(9), z0, x0 + inch(3), D.FLOOR2_CEIL, z1, M.paintWhite);
+    trimBox(b, x1 - inch(3), D.FLOOR2_CEIL - inch(9), z0, x1, D.FLOOR2_CEIL, z1, M.paintWhite);
   }
 
   /* ---- ceilings ---- */
@@ -151,12 +178,15 @@ export function buildSecondFloor(b) {
       axis: 'z', line: west ? D.X_BAY_W - D.EXT / 2 : D.X_BAY_E + D.EXT / 2,
       from: D.Z_CENTRAL_S_OUT, to: D.Z_CENTRAL_N_OUT,
       thickness: D.EXT, material: M.plasterOchre, ...up,
+      /* Same size, same station, mirrored about Z = 0 -- and the same
+         size and station as the four on the floor below, so the two
+         stories line up when you walk between them. */
       openings: [
-        upDoor(ft(-6), west ? 'upper-war-rotating' : 'upper-mammals-natural',
-          { name: 'exhibit door', width: ftin(4, 0), height: ftin(8, 6),
+        upDoor(-D.CENTRAL_DOOR_Z, west ? 'upper-war-rotating' : 'upper-mammals-natural',
+          { name: 'exhibit door', width: D.CENTRAL_DOOR_W, height: D.CENTRAL_DOOR_H,
             hinge: west ? 'x0' : 'x1', swing: west ? 1 : -1 }),
-        upDoor(ft(12.5), west ? 'upper-war-landing' : 'upper-mammals-landing',
-          { name: 'landing door', width: ftin(3, 8), height: ftin(8, 0),
+        upDoor(D.CENTRAL_DOOR_Z, west ? 'upper-war-landing' : 'upper-mammals-landing',
+          { name: 'landing door', width: D.CENTRAL_DOOR_W, height: D.CENTRAL_DOOR_H,
             hinge: west ? 'x1' : 'x0', swing: west ? -1 : 1 }),
       ],
     });
@@ -196,26 +226,40 @@ export function buildSecondFloor(b) {
     partition(b, {
       chunk: `academy.upper.${side}.landing`,
       axis: 'x', line: D.Z_MID_N + D.CROSS / 2, from: x0, to: x1, ...P, ...up,
-      openings: west
-        ? [upArch(inner, { width: ftin(5, 0) })]
-        : [upDoor(inner, 'upper-landing-minerals', { name: 'minerals door' }),
-          upDoor(outer, 'upper-landing-archives', { name: 'archives door' })],
+      openings: [upArch(inner, { width: ftin(5, 0) })],
     });
+    void outer;
   }
 
-  /* Rocks & Minerals: a small room carved from the south-west corner of
-     the Archives band, as the visitor map shows it. */
+  /* Rocks & Minerals and the Archives: the east wing's north band divided
+     by one cross wall, the smaller room south. Two rectangles covering
+     the whole band -- Stage 2 had a corner room and left the floor beside
+     it belonging to nothing. */
   partition(b, {
-    chunk: 'academy.upper.east.minerals',
-    axis: 'z', line: MIN_X + D.PART / 2, from: D.Z_NB_S, to: MIN_Z + D.PART,
-    ...light, ...up, openings: [],
-  });
-  partition(b, {
-    chunk: 'academy.upper.east.minerals',
-    axis: 'x', line: MIN_Z + D.PART / 2, from: D.X_WING_E_IN, to: MIN_X + D.PART,
+    chunk: 'academy.upper.east.archives',
+    axis: 'x', line: MIN_Z + D.PART / 2, from: D.X_WING_E_IN, to: D.X_E_IN,
     ...light, ...up,
-    openings: [upDoor(D.X_WING_E_IN + ftin(7, 0), 'upper-minerals-archives', { name: 'archives door' })],
+    openings: [upDoor(D.X_WING_E_IN + ftin(9, 0), 'upper-minerals-archives',
+      { name: 'archives door', width: D.DOOR_W, height: D.DOOR_H })],
   });
+
+  /* ============================================================
+     WAINSCOT
+
+     LAST, for the same reason as downstairs: it has to know where the
+     doorways and the archways are, and it asks the level rather than a
+     second list of its own. Same boards, same cap, same baseboard as the
+     first floor, because it is the same building.
+     ============================================================ */
+  for (const [id, , x0, x1, z0, z1] of rooms) {
+    b.chunk(id);
+    b.detail(2.2);
+    const r = { x0, x1, z0, z1, y: D.FLOOR2 };
+    wainscot(b, r, {
+      height: D.WAINSCOT_H, cap: D.WAINSCOT_CAP, base: D.BASE_H,
+      gaps: openingsAround(b.level, r),
+    });
+  }
 
   /* ============================================================
      EDGE PROTECTION

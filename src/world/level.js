@@ -51,6 +51,12 @@ export class Level {
     this.collision = new CollisionWorld();
     this.interact = new InteractionSystem(this.collision);
     this.doors = [];
+    /** Cased openings: a doorway with no leaf in it. Recorded for the
+        same reason doors are -- anything that wants to know where a wall
+        is interrupted (the wainscot, the navigation graph, a later fit-out)
+        has to see these too, and an archway it cannot see is an archway it
+        runs a chair rail across. */
+    this.openings = [];
     this.lights = [];
     this.rooms = [];
     this.props = [];
@@ -352,6 +358,17 @@ export class LevelBuilder {
           depth: spec.thickness,
           ...h.door,
         });
+      } else if (h.kind === 'arch' || (!h.window && h.kind !== 'window')) {
+        /* A CASED OPENING IS STILL AN OPENING. It gets the same architrave
+           a door does -- every doorway in the building is cased, whether
+           or not something hangs in it -- and it goes on the level's
+           opening list so the trim knows to stop at it. */
+        this.cased({
+          x: cx, z: cz, yaw,
+          y: h._y[0], width: h.width, height: h._y[1] - h._y[0],
+          depth: spec.thickness,
+          material: h.frameMaterial,
+        });
       } else if (h.window) {
         this.window({
           x0: alongX ? cx - h.width / 2 : cx - (spec.thickness || SCALE.wallThickness) / 2,
@@ -367,6 +384,27 @@ export class LevelBuilder {
   }
 
   /* ---------------- doors ---------------- */
+
+  /**
+   * A doorway with nothing hanging in it: the architrave, and a record of
+   * where the wall stops.
+   */
+  cased(spec) {
+    const m = spec.material || this.M.trim;
+    /* buildDoorFrame wants something door-shaped. A cased opening is a
+       door minus the leaf, so it is handed the same five numbers. */
+    const like = {
+      x: spec.x, z: spec.z, y: spec.y, yaw: spec.yaw,
+      width: spec.width, height: spec.height,
+      get right() { return [Math.cos(this.yaw), -Math.sin(this.yaw)]; },
+    };
+    buildDoorFrame(this.mb, like, m, { depth: spec.depth });
+    this.level.openings.push({
+      x: spec.x, z: spec.z, y: spec.y, yaw: spec.yaw,
+      width: spec.width, height: spec.height,
+    });
+    return like;
+  }
 
   door(spec) {
     const d = new Door(spec);

@@ -75,7 +75,7 @@ substantive ones:
 | **Window rhythm** — *assumed from photographs* | Bay positions are spaced to match elevation photographs, not measured. Sill and head heights are chosen once and applied consistently. |
 | **Roof form** — *simplified* | A flat deck behind the parapet. The parapet silhouette is the recognisable thing; what is behind it is not visible from the ground and is not reconstructed. The **central block stands clear of the two front blocks** with its own band and its own crenellations, which the historic front photograph shows plainly and Stage 2 had the wrong way round. |
 | **The portico** — *from photographs, Stage 2.1* | ONE story of slender columns, a **crenellated masonry terrace** on top of them at second-floor level, and the central block's own upper wall standing solid behind that with three tall openings in it. Stage 2 built a two-story open loggia, which is the single thing that made the front read as a generic castellated block. |
-| **Central-room columns** — *from photographs, count uncertain* | Slender white painted structural columns, floor to ceiling, with a stepped base and a molded capital. They are certainly there. How many and exactly where is NOT established — see below. |
+| **Central-room columns** — *from photographs* | Four slender white painted structural columns, floor to ceiling, with a stepped base and a molded capital. Where exactly they stand is read off one oblique photograph rather than measured — see below. |
 | **Grade** — *assumed* | The site stands about 3 feet above the street. The front steps are sized from that. |
 
 Nothing here is traced from a photograph, and no reference image is used
@@ -189,24 +189,27 @@ slender white painted structural columns running floor to ceiling, with a
 stepped base and a simple molded capital. They are certainly there and
 they are certainly slender.
 
-**What is not established is how many, or exactly where.** One oblique
-photograph shows four of them in what reads as two receding lines, but it
-does not show the room's corners and it cannot be counted from.
+**There are four of them**, in two pairs. Exactly where they stand is
+still read off one oblique photograph rather than measured, so their
+positions live in **one table**, `CENTRAL_ROOM_COLUMNS` in
+`dimensions.js`, in room coordinates: x = ±11'0", z = ±10'6" — a wide
+22'0" center bay with an 11'0" aisle each side. When a better photograph
+or a measured plan turns up, that array changes and nothing else does.
 
-So their positions live in **one table**, `CENTRAL_ROOM_COLUMNS` in
-`dimensions.js`, in room coordinates. Two rows of three at x = ±11'0" and
-z = −10'6", 0, +10'6" is the most restrained arrangement consistent with
-the view — a wide center bay with an aisle each side. When a better
-photograph or a measured plan turns up, that array changes and nothing
-else does.
+(Stage 2.1's first pass put six there, reading the photograph as two rows
+of three. It is two pairs.)
 
 ---
 
 ## What is in it
 
-36 rooms, 37 doors, 65 render chunks, 57 navigation nodes on 77 edges,
-about 16,600 triangles, and a collision world of solids, floors, 9 ramps
-and ceilings.
+35 rooms, 32 doors, 64 render chunks, 57 navigation nodes on 77 edges,
+about 17,100 triangles.
+
+**Every opening in the building is cased**, whether or not anything hangs
+in it, and the trim stops at every one of them — the wainscot asks the
+level where its walls are interrupted rather than keeping a second list
+that can drift away from the first.
 
 ### First floor
 
@@ -218,17 +221,17 @@ and ceilings.
 | `academy.indians` | Indians of the Southeast | visitor map |
 | `academy.west.stairhall` | West Stair Hall | both plans |
 | `academy.west.rearhall` | West Rear Hall | measured plan (the 226.9 ft² space) |
-| `academy.west.restroom` | Restroom | visitor map |
+| `academy.west.restroom` | Restroom | visitor map — **the only one in the building** |
 | `academy.west.offices` | Offices | visitor map |
+| `academy.giftshop` | Gift Shop | visitor map; reached from the portico AND the central room |
 | `academy.americana.main` | Americana | visitor map |
-| `academy.giftshop` | Gift Shop | visitor map |
-| `academy.americana.inner` | Inner Americana | visitor map |
 | `academy.east.rearhall` | East Rear Hall / USS Augusta | visitor map |
 | `academy.east.stairhall` | East Stair Hall | both plans |
 | `academy.east.animal` | Animal Room | visitor map |
 | `academy.east.staff` | Staff | visitor map |
 | `academy.east.service` | East Service Room | visitor map |
 | `academy.east.vestibule` | East Vestibule | visitor map |
+| `academy.east.entry` | East Entrance | the lobby the east side door opens into |
 | `academy.east.council` | Council Room | visitor map |
 
 ### Second floor
@@ -280,7 +283,8 @@ through Americana, and the short one straight across the rear porch.
 
 Three historic side entrances are modeled, each on its own stoop:
 `west-side` (the visitor map's "Entrance to Railroad", facing the railroad
-cut), `east-side-vestibule`, and `east-side-stair`.
+cut), `east-side-vestibule` (into the East Vestibule), and
+`east-side-entry` (into the East Entrance lobby beside the east stair).
 
 ---
 

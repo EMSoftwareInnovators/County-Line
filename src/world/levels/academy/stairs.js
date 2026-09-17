@@ -134,9 +134,12 @@ function staircase(b, side) {
   const upper = D.FLOOR2;
   const edgeX = well.foot;
   const headZ0 = well.zB - D.STAIR_WIDTH / 2;
+  /* Painted, not stained. The guard round a stairwell is joinery in the
+     same room as the wainscot and the cornice, and a heavy dark balustrade
+     was the loudest thing on the upper floor. */
   b.railing({
     x0: edgeX, z0: well.z0, x1: edgeX, z1: headZ0,
-    y: upper, height: D.RAIL_H, material: M.trimDark,
+    y: upper, height: D.RAIL_H, material: M.paintWhite,
   });
   b.barrier({
     x0: edgeX - inch(3), x1: edgeX + inch(3), z0: well.z0, z1: headZ0,
@@ -147,7 +150,7 @@ function staircase(b, side) {
      cross wall and needs nothing. */
   b.railing({
     x0: well.x0, z0: well.z1, x1: well.x1, z1: well.z1,
-    y: upper, height: D.RAIL_H, material: M.trimDark,
+    y: upper, height: D.RAIL_H, material: M.paintWhite,
   });
   b.barrier({
     x0: well.x0, x1: well.x1, z0: well.z1 - inch(3), z1: well.z1 + inch(3),

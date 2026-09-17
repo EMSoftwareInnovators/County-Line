@@ -382,13 +382,15 @@ export const PICTURE_RAIL = ftin(11, 6);       // where the plaster stops
    side, is the most restrained arrangement consistent with the view.
    ============================================================ */
 export const COLUMN_ROW_X = ftin(11, 0);
+export const COLUMN_ROW_Z = ftin(10, 6);
+/** FOUR, not six. The photograph shows two pairs; Stage 2.1's first pass
+    read it as two rows of three and put a pair on the room's cross axis
+    that is not there. */
 export const CENTRAL_ROOM_COLUMNS = [
-  { x: -COLUMN_ROW_X, z: -ftin(10, 6) },
-  { x: -COLUMN_ROW_X, z: 0 },
-  { x: -COLUMN_ROW_X, z: +ftin(10, 6) },
-  { x: +COLUMN_ROW_X, z: -ftin(10, 6) },
-  { x: +COLUMN_ROW_X, z: 0 },
-  { x: +COLUMN_ROW_X, z: +ftin(10, 6) },
+  { x: -COLUMN_ROW_X, z: -COLUMN_ROW_Z },
+  { x: -COLUMN_ROW_X, z: +COLUMN_ROW_Z },
+  { x: +COLUMN_ROW_X, z: -COLUMN_ROW_Z },
+  { x: +COLUMN_ROW_X, z: +COLUMN_ROW_Z },
 ];
 /** Slender: the photograph's columns are structural posts, not classical
     orders. Roughly a foot through, with a stepped base and a molded cap. */
@@ -408,6 +410,25 @@ export const REAR_GROUND = ft(50);             // ground north of the wings
 
 /** The garden floor is a step below the porch, not down at street grade. */
 export const GARDEN_LEVEL = -ftin(1, 6);
+
+/* ============================================================
+   THE CENTRAL ROOM'S FOUR SIDE DOORWAYS
+
+   THIS BUILDING IS SYMMETRICAL AND ITS DOORS SHOULD BE TOO. The central
+   room opens four ways through its two long walls -- south-west and
+   south-east into the exhibit rooms, north-west and north-east into the
+   rear halls -- and Stage 2 gave the first pair a different size from the
+   second and put them at different distances from the room's center.
+
+   All four are now one size at one station, mirrored about Z = 0. The
+   station is fixed by the rear halls: a hall door cannot sit further
+   south than the cross wall at Z = 9'1" allows, so 12'6" is as near the
+   middle as the plan will let it come, and the exhibit doors take -12'6"
+   to match.
+   ============================================================ */
+export const CENTRAL_DOOR_Z = ftin(12, 6);
+export const CENTRAL_DOOR_W = DOOR_W;
+export const CENTRAL_DOOR_H = DOOR_H;
 
 /* ============================================================
    THE STAIR HALL ZONE -- REBUILT IN STAGE 2.1

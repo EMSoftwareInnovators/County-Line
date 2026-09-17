@@ -222,11 +222,18 @@ export function buildShell(b) {
     chunk: 'ext.east.mid', axis: 'z', line: EAST_CL,
     from: D.Z_FB_N, to: D.Z_MID_N + D.CROSS / 2, face: 'east',
     outer: M.stucco, inner: M.plaster,
-    lower: [DOOR(ft(15.58), {
-      width: D.EXT_DOOR_W, sill: 0, head: D.EXT_DOOR_H,
-      door: { id: 'east-side-stair', name: 'east door', hinge: 'x0', swing: 1 },
-    })],
-    upper: [w2(ft(15.58))],
+    /* The east side entrance. It opens into the entrance lobby across the
+       north end of the stair band -- NOT down beside the staircase, which
+       is where Stage 2.1 first put it and where there is no floor to step
+       onto, because the switchback fills that hall completely. */
+    lower: [
+      w1(ft(12)),
+      DOOR(D.Z_SERVICE_S + (D.Z_SERVICE_N - D.Z_SERVICE_S) / 2, {
+        width: D.EXT_DOOR_W, sill: 0, head: D.EXT_DOOR_H,
+        door: { id: 'east-side-entry', name: 'east door', hinge: 'x0', swing: 1 },
+      }),
+    ],
+    upper: [w2(ft(12)), w2(ft(19.5))],
   });
   elevation(b, {
     chunk: 'ext.east.north', axis: 'z', line: EAST_CL,

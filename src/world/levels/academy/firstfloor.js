@@ -121,48 +121,59 @@ function stairHallZone(b, side) {
   const stair = west ? 'academy.west.stairhall' : 'academy.east.stairhall';
   const rear = west ? 'academy.west.rearhall' : 'academy.east.rearhall';
 
-  /* The rear hall's west (or east) wall: the door at the foot of the
-     flight, and the restroom door north of it. */
+  const x0 = Math.min(inner, outerWall), x1 = Math.max(inner, outerWall);
+
+  /* The rear hall's west (or east) wall.
+
+     THERE IS NO DOOR IN FRONT OF EITHER STAIRCASE. The real building
+     does not have one and neither does this: what is at the foot of the
+     flight is a cased opening the width of the stair, which is what a
+     stair hall off a circulation hall actually looks like. The leaf that
+     used to hang there also had its jamb on the flight's stringer.
+
+     Beside it, the door into the room across the north end of the band:
+     the restroom in the west wing, the east entrance in the east. */
   partition(b, {
     chunk: rear,
     axis: 'z', line: hallLine,
     from: D.Z_MID_S, to: D.Z_MID_N,
     ...light,
     openings: [
-      /* Narrower than the flight, not equal to it: a doorway exactly as
-         wide as the stair puts its jamb on the stringer, and the closed
-         string of the flight then stands in the opening. Three feet clear
-         between the two stringers is an ordinary stair-hall door. */
-      door(D.Z_FLIGHT_A, west ? 'weststair-westhall' : 'easthall-eaststair',
-        { name: 'stair hall door', width: D.STAIR_WIDTH - inch(8),
-          hinge: west ? 'x1' : 'x0', swing: west ? -1 : 1 }),
-      door((D.Z_SERVICE_S + D.Z_SERVICE_N) / 2, west ? 'restroom' : 'restroom-east',
-        { name: 'restroom door', width: D.SERVICE_DOOR_W, height: D.SERVICE_DOOR_H }),
+      arch(D.Z_FLIGHT_A, { width: D.STAIR_WIDTH, height: ftin(9, 0) }),
+      door((D.Z_SERVICE_S + D.Z_SERVICE_N) / 2, west ? 'restroom' : 'east-entry-hall',
+        west
+          ? { name: 'restroom door', width: D.SERVICE_DOOR_W, height: D.SERVICE_DOOR_H }
+          : { name: 'entrance door', width: D.DOOR_W, height: D.DOOR_H }),
     ],
   });
 
-  /* The partition across the stair hall, between the well and the
-     restroom band. It is a wall, not a leftover. */
+  /* The partition across the stair hall, between the well and the room
+     north of it. It is a wall, not a leftover. */
   b.chunk(stair);
   partition(b, {
     axis: 'x', line: D.Z_STAIR_N + D.PART / 2,
-    from: Math.min(inner, outerWall), to: Math.max(inner, outerWall),
-    ...light, y1: D.CEIL_SECONDARY, openings: [],
+    from: x0, to: x1,
+    ...light, y1: west ? D.CEIL_SERVICE : D.CEIL_SECONDARY, openings: [],
   });
 
+  /* ---- and the room itself ----
+     THERE IS ONE RESTROOM IN THE BUILDING and it is in the west wing.
+     The matching space in the east wing is not a second restroom: it is
+     the entrance lobby the east side door opens into, which is why that
+     door is here and not down beside the staircase where Stage 2.1 first
+     put it -- there is no floor beside a staircase that fills its hall. */
+  const id = west ? 'academy.west.restroom' : 'academy.east.entry';
   b.room({
-    id: west ? 'academy.west.restroom' : 'academy.east.restroom',
-    name: 'Restroom',
-    x0: Math.min(inner, outerWall), x1: Math.max(inner, outerWall),
-    z0: D.Z_SERVICE_S + D.PART, z1: D.Z_SERVICE_N,
-    y0: 0, y1: D.CEIL_SERVICE, floor: 1,
+    id, name: west ? 'Restroom' : 'East Entrance',
+    x0, x1, z0: D.Z_SERVICE_S + D.PART, z1: D.Z_SERVICE_N,
+    y0: 0, y1: west ? D.CEIL_SERVICE : D.CEIL_SECONDARY, floor: 1,
   });
-  b.chunk(west ? 'academy.west.restroom' : 'academy.east.restroom');
+  b.chunk(id);
   b.detail(2.2);
   b.ceiling({
-    x0: Math.min(inner, outerWall), x1: Math.max(inner, outerWall),
-    z0: D.Z_SERVICE_S + D.PART, z1: D.Z_SERVICE_N,
-    y: D.CEIL_SERVICE, material: M.beadboard, thickness: inch(6),
+    x0, x1, z0: D.Z_SERVICE_S + D.PART, z1: D.Z_SERVICE_N,
+    y: west ? D.CEIL_SERVICE : D.CEIL_SECONDARY,
+    material: west ? M.beadboard : M.plasterCeiling, thickness: inch(6),
     tag: 'service-ceiling',
   });
 }
@@ -224,10 +235,18 @@ export function buildFirstFloor(b) {
     ['academy.west.rearhall', 'West Rear Hall', D.X_W_HALL_W, D.X_WING_W_IN, D.Z_MID_S, D.Z_MID_N, S_],
     ['academy.west.offices', 'Offices', D.X_W_IN, D.X_WING_W_IN, D.Z_NB_S, D.Z_N_IN, S_],
 
-    /* ---- east wing, south to north ---- */
-    ['academy.americana.main', 'Americana', D.X_WING_E_IN, X_SHOP_W, D.Z_S_IN, D.Z_DOCENT_N, S_],
-    ['academy.giftshop', 'Gift Shop', X_SHOP_W + D.PART, D.X_E_IN, D.Z_S_IN, D.Z_DOCENT_N, S_],
-    ['academy.americana.inner', 'Inner Americana', D.X_WING_E_IN, D.X_E_IN, D.Z_INDIANS_S, D.Z_FB_N, S_],
+    /* ---- east wing, south to north ----
+       THE GIFT SHOP IS ONE ROOM, and it is the room the front porch opens
+       into AND the room the central room opens into. Stage 2 had those as
+       two separate spaces in two bands with the porch door landing in one
+       and the central room's door in the other, so the Gift Shop was
+       somewhere you could not reach from the hall. The east front block is now two
+       full-depth columns instead of two bands, which is the only way the
+       two doors can share a room. The west keeps the visitor map's own
+       arrangement, because Indians of the Southeast runs the full width
+       of that wing, and a gift shop by the entrance has no mirror image. */
+    ['academy.giftshop', 'Gift Shop', D.X_WING_E_IN, X_SHOP_W, D.Z_S_IN, D.Z_FB_N, S_],
+    ['academy.americana.main', 'Americana', X_SHOP_W + D.PART, D.X_E_IN, D.Z_S_IN, D.Z_FB_N, S_],
     ['academy.east.rearhall', 'East Rear Hall / USS Augusta', D.X_WING_E_IN, D.X_E_HALL_E, D.Z_MID_S, D.Z_MID_N, S_],
     ['academy.east.stairhall', 'East Stair Hall', D.X_E_HALL_E, D.X_E_IN, D.Z_MID_S, D.Z_STAIR_N, P_],
     ['academy.east.animal', 'Animal Room', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_NB_S, D.Z_ANIMAL_N, S_],
@@ -266,12 +285,22 @@ export function buildFirstFloor(b) {
       from: D.Z_CENTRAL_S_OUT, to: D.Z_CENTRAL_N_OUT,
       thickness: D.EXT, material: M.plasterOchre,
       innerMaterial: M.plasterOchre,
+      /* FOUR DOORWAYS, ONE SIZE, MIRRORED ABOUT THE ROOM'S CENTER. See
+         the note in dimensions.js: this building is symmetrical and its
+         openings were not.
+
+         The south-east one leads to the GIFT SHOP -- the same room the
+         front porch opens into on that side -- which is why its id says
+         americana and its name does not. The id is what the Stage 2 door
+         schedule enumerates and what the tests and the save format refer
+         to, so it stays; the destination is what changed. */
       openings: [
-        door(ft(-6), west ? 'central-indians' : 'central-americana',
-          { name: west ? 'door to Indians of the Southeast' : 'door to Americana',
-            width: ftin(4, 6), height: ftin(10, 0), hinge: west ? 'x0' : 'x1', swing: west ? 1 : -1 }),
-        door(ft(12.5), west ? 'central-westhall' : 'central-easthall',
-          { name: 'hall door', width: D.DOOR_W, height: D.DOOR_H,
+        door(-D.CENTRAL_DOOR_Z, west ? 'central-indians' : 'central-americana',
+          { name: west ? 'door to Indians of the Southeast' : 'door to the Gift Shop',
+            width: D.CENTRAL_DOOR_W, height: D.CENTRAL_DOOR_H,
+            hinge: west ? 'x0' : 'x1', swing: west ? 1 : -1 }),
+        door(D.CENTRAL_DOOR_Z, west ? 'central-westhall' : 'central-easthall',
+          { name: 'hall door', width: D.CENTRAL_DOOR_W, height: D.CENTRAL_DOOR_H,
             hinge: west ? 'x1' : 'x0', swing: west ? -1 : 1 }),
       ],
     });
@@ -333,20 +362,16 @@ export function buildFirstFloor(b) {
   /* ============================================================
      EAST WING -- the south half mirrors the west
      ============================================================ */
+  /* The one partition in the east front block: between the Gift Shop and
+     Americana, running the whole depth, with a door at each end. */
   partition(b, {
     chunk: 'academy.giftshop',
     axis: 'z', line: X_SHOP_W + D.PART / 2,
-    from: D.Z_S_IN, to: D.Z_DOCENT_N,
+    from: D.Z_S_IN, to: D.Z_FB_N,
     ...light,
-    openings: [door(ft(-24.5), 'americana-shop', { name: 'gift shop door', hinge: 'x1', swing: -1 })],
-  });
-  partition(b, {
-    chunk: 'academy.americana.inner',
-    axis: 'x', line: D.Z_DOCENT_N + D.CROSS / 2,
-    from: D.X_WING_E_IN, to: D.X_E_IN, ...P,
     openings: [
-      door(ft(30), 'americana-inner', { name: 'exhibit door' }),
-      door(ft(45), 'shop-inner', { name: 'gift shop door' }),
+      door(ft(-24.5), 'americana-south', { name: 'Americana door', hinge: 'x1', swing: -1 }),
+      door(ft(-6), 'americana-north', { name: 'Americana door' }),
     ],
   });
   partition(b, {

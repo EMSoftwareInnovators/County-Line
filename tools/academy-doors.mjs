@@ -207,7 +207,7 @@ const CANON = [
   ['central-front', 'the front doors'],
   ['central-rear', 'the rear doors'],
   ['central-indians', 'central to Indians'],
-  ['central-americana', 'central to Americana'],
+  ['central-americana', 'central to the Gift Shop'],
   ['central-westhall', 'central to the west rear hall'],
   ['central-easthall', 'central to the east rear hall'],
   ['west-hall-porch', 'the west hall onto the rear porch'],

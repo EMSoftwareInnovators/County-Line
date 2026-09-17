@@ -608,7 +608,18 @@ export function openingsAround(level, r, pad) {
   const p = pad === undefined ? inch(7) : pad;
   const out = [];
   const near = (a, b2) => Math.abs(a - b2) < ftin(1, 6);
-  for (const d of level.doors) {
+  /* The band the trim actually occupies. AN OPENING ON ANOTHER FLOOR IS
+     NOT AN OPENING IN THIS ROOM: the two stories share their wall lines,
+     so without this every doorway downstairs punched a gap in the
+     wainscot directly above it, and vice versa. */
+  const ry = r.y === undefined ? 0 : r.y;
+  const lo = ry, hi = ry + ftin(4, 0);
+  /* DOORS AND CASED OPENINGS BOTH. Looking only at the door list is how
+     a chair rail ends up running across an eight-foot archway, which it
+     did until Stage 2.1 -- the arch is a hole in the wall whether or not
+     anything hangs in it. */
+  for (const d of [...level.doors, ...level.openings]) {
+    if (d.y >= hi || d.y + d.height <= lo) continue;
     const hw = d.width / 2 + p;
     const alongX = Math.abs(Math.cos(d.yaw)) > 0.5;   // the door's leaf runs along X
     if (alongX) {
