@@ -129,12 +129,18 @@ export class Game {
       if (this.state !== ST.PLAY) return;
       this.grabLock();
     };
-    this.input.onCaptured = (act, what) => {
+    this.input.onCaptured = (act, what, res) => {
       this.rebinding = null;
       this.rebindDevice = null;
       if (what !== null) {
         this.settings.captureBinds(this.input);
         this.persistSettings();
+      } else if (res && !res.ok && !res.cancelled && res.reason) {
+        /* Refused rather than cancelled. The player pressed a key and
+           nothing happened, so say what and why -- silence here reads as
+           a broken controls screen. */
+        this.ui.toast(res.reason, 'warn');
+        this.sfx.uiError();
       }
       this.menu.render();
     };
@@ -301,6 +307,9 @@ export class Game {
     this.dropLock();
     this.wantLock = false;
     this.titleSel = 0;
+    /* Worked out here rather than in titleItems(), which is asked for the
+       list every frame the title is up. */
+    this._canContinue = this.save.resumable(this.known());
     this.campaign.phase = PHASE.IDLE;
     this.renderTitle();
     this.fadeTo = 0;
@@ -311,7 +320,7 @@ export class Game {
     const items = [
       { id: 'new', label: 'NEW TEST GAME', sub: 'the technical testbed' },
     ];
-    if (SaveGame.exists()) items.push({ id: 'continue', label: 'CONTINUE', sub: 'resume the saved shift' });
+    if (this._canContinue) items.push({ id: 'continue', label: 'CONTINUE', sub: 'resume the saved shift' });
     items.push({ id: 'settings', label: 'SETTINGS' });
     items.push({ id: 'controls', label: 'CONTROLS' });
     items.push({ id: 'howto', label: 'HOW TO PLAY' });
@@ -404,9 +413,13 @@ export class Game {
     this.ui.toast('Test shift started');
   }
 
+  /** What this build can open: anything else in a save is a refusal. */
+  known() {
+    return { campaigns: new Set([TEST_CAMPAIGN.id]), levels: new Set(Object.keys(LEVELS)) };
+  }
+
   continueGame() {
-    const known = { campaigns: new Set([TEST_CAMPAIGN.id]), levels: new Set(Object.keys(LEVELS)) };
-    const r = this.save.load(known);
+    const r = this.save.load(this.known());
     if (!r.ok) {
       this.ui.toast(`Could not load: ${r.reason}`, 'warn');
       this.renderTitle();
@@ -470,7 +483,13 @@ export class Game {
     this.raster.setFog(outside ? f.near * 1.6 : f.near, outside ? f.far * 1.5 : f.far);
 
     if (!this.input.locked && this.input.scheme === 'kbm' && this.wantLock) {
-      this.ui.notice('Click to look around');
+      /* Telling a player to click when clicking cannot work is worse than
+         saying nothing. A page that has refused pointer lock outright --
+         an iframe embed without allow="pointer-lock" is the usual one --
+         gets the truth and the way round it instead. */
+      this.ui.notice(this.input.lockBlocked
+        ? 'This page will not let the game take the mouse. Open it in its own tab, or use a controller.'
+        : 'Click to look around');
     } else this.ui.notice('');
 
     // F3: put the player on the gallery, for testing the upper floor fast
@@ -634,9 +653,23 @@ export class Game {
     this.ui.toast(ok ? 'Saved.' : 'Could not save -- storage is unavailable.', ok ? 'good' : 'warn');
   }
 
+  /**
+   * Save without being asked. Used at every objective and on the way out.
+   *
+   * A failure here is not worth interrupting play for -- the shift carries
+   * on in memory -- but it must not be silent either, or the player finds
+   * out at the title screen that the last hour did not stick. Said once per
+   * session, then left alone.
+   */
   autosave() {
     this.profile.addPlaytime(0);
-    return this.save.autosave(this.campaign, this.player, this.level, this.playtime);
+    const ok = this.save.autosave(this.campaign, this.player, this.level, this.playtime);
+    if (!ok && !this._saveWarned) {
+      this._saveWarned = true;
+      this.ui.toast('This browser will not let the game save. Progress is kept until you close the tab.', 'warn');
+    }
+    if (ok) this._saveWarned = false;
+    return ok;
   }
 
   /* ---------------- pointer lock ---------------- */

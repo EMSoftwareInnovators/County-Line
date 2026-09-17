@@ -154,6 +154,39 @@ const backAfter = await page.evaluate(() => window.__game.input.keysFor('back'))
 check('ESC cancels a rebind instead of binding ESC',
   backAfter.join() === backBefore.join() && !backAfter.includes('Escape'), backAfter.join(','));
 
+/* A rebind that would strand the player is refused, with a reason.
+
+   Note the deliberate use of E rather than Enter below: two of uiConfirm's
+   three keys have just been spent, so E is the only key that can still work
+   a menu at all -- which is exactly the state the guard exists for. */
+await page.evaluate(() => {
+  const g = window.__game;
+  g.input.resetKeyBinds();
+  g.input.bindKey('forward', 'Enter');
+  g.input.bindKey('back', 'Space');
+  const i = g.menu.rows().findIndex((r) => r.label === 'Step left');
+  g.menu.sel = i; g.menu.render();
+  document.getElementById('toasts').innerHTML = '';
+});
+await press('KeyE', 250);            // E confirms: start the capture
+check('a capture starts even with only one confirm key left',
+  await page.evaluate(() => window.__game.rebinding === 'left'),
+  await page.evaluate(() => String(window.__game.rebinding)));
+await press('KeyE', 350);            // and try to spend that last key
+const strandedLeft = await page.evaluate(() => window.__game.input.keysFor('left'));
+const confirmLeft = await page.evaluate(() => window.__game.input.keysFor('uiConfirm'));
+check('binding the last menu-select key away is refused',
+  !strandedLeft.includes('KeyE') && confirmLeft.includes('KeyE'),
+  `left ${strandedLeft.join(',')} / uiConfirm ${confirmLeft.join(',')}`);
+check('and the capture ends rather than hanging',
+  await page.evaluate(() => window.__game.rebinding === null));
+check('and the player is told why',
+  await page.evaluate(() => /only key left/i.test(document.getElementById('toasts').textContent)),
+  await page.evaluate(() => document.getElementById('toasts').textContent.trim()));
+check('so the menu still responds afterwards',
+  await page.evaluate(() => window.__game.input.keysFor('uiConfirm').length > 0));
+await page.evaluate(() => { window.__game.input.resetKeyBinds(); });
+
 /* reset */
 await page.evaluate(() => {
   const g = window.__game;

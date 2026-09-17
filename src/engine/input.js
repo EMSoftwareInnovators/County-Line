@@ -57,11 +57,39 @@ export const ACTIONS = {
   uiBack: { group: 'ui', label: 'Back', keys: ['Backspace'], pad: [1], cap: 'BKSP' },
 };
 
+/**
+ * The actions a player has to keep in order to work a menu at all.
+ *
+ * Every action in County Line is rebindable and stays that way. What is NOT
+ * allowed is for one of these to end up with no key on it, because the only
+ * route back -- the controls screen's own "reset to defaults" row -- is a
+ * menu row, and selecting a menu row needs uiConfirm. A player who moves
+ * Enter, then Space, then E onto three movement actions has bound themselves
+ * out of their own settings screen with no way back but clearing site data.
+ *
+ * Final Rental's later work solved this by making the menu keys unbindable
+ * outright. That is heavier than it needs to be: the guarantee wanted is not
+ * "you may not touch these", it is "you may not end up with none".
+ */
+export const ESSENTIAL = ['uiConfirm', 'uiUp', 'uiDown', 'pause'];
+
 /** The order a controls screen lists them in. */
 export const BINDABLE = [
   'forward', 'back', 'left', 'right', 'run', 'crouch', 'interact', 'pause',
   'uiUp', 'uiDown', 'uiLeft', 'uiRight', 'uiConfirm', 'uiBack',
 ];
+
+/** What is printed on a key, for a message a player has to act on. */
+export function keyName(code) {
+  if (!code) return 'that key';
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  return ({
+    Escape: 'ESC', Enter: 'ENTER', Space: 'SPACE', Tab: 'TAB', Backspace: 'BACKSPACE',
+    ShiftLeft: 'SHIFT', ShiftRight: 'RIGHT SHIFT', ControlLeft: 'CTRL',
+    ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT',
+  })[code] || code.toUpperCase();
+}
 
 /** Keys the page must not act on itself while the game has focus. */
 const BLOCK = new Set(['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -89,6 +117,13 @@ export function sanitizeKeyBinds(b) {
   for (const id of Object.keys(out)) {
     const v = b[id];
     if (Array.isArray(v)) out[id] = v.filter((k) => typeof k === 'string' && k).slice(0, 4);
+  }
+  /* A stored map that leaves a menu-critical action with nothing on it --
+     hand-edited, or written by a build from before that was refused -- gets
+     that one action's defaults back. Repairing the file is the only way a
+     player already in that state can reach a menu again. */
+  for (const id of ESSENTIAL) {
+    if (!out[id] || !out[id].length) out[id] = ACTIONS[id].keys.slice();
   }
   return out;
 }
@@ -166,6 +201,20 @@ export class Input {
     this.mouse = [false, false, false];
     this.mousePressed = [false, false, false];
     this.locked = false;
+    /**
+     * Set once the page has made clear it is never handing over the mouse.
+     *
+     * A single refusal means nothing: a request made at the wrong moment --
+     * without a fresh user gesture, or too soon after the last lock was
+     * released -- is denied as a matter of course, and the next click fixes
+     * it. But the page AROUND the game can refuse outright. An iframe embed
+     * without allow="pointer-lock" is the common one, and it is exactly how
+     * a browser build gets shipped to itch.io. In that case the camera never
+     * moves and "Click to look around" is advice the player can follow all
+     * night without it ever working.
+     */
+    this.lockBlocked = false;
+    this.refusals = 0;
 
     this.sensitivity = 0.0022;          // radians per mouse count
     /**
@@ -254,8 +303,8 @@ export class Input {
         /* Escape gets out of a capture rather than being bound. There has
            to be one key that always means "never mind", or a player who
            opens the capture by accident has no way back. */
-        if (k !== 'Escape') this.bindKey(act, k);
-        if (this.onCaptured) this.onCaptured(act, k === 'Escape' ? null : k);
+        const res = k === 'Escape' ? { ok: false, cancelled: true } : this.bindKey(act, k);
+        if (this.onCaptured) this.onCaptured(act, res.ok ? k : null, res);
         return;
       }
       if (!this.keysDown.has(k)) this.keysPressed.add(k);
@@ -273,8 +322,12 @@ export class Input {
 
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.target;
+      if (this.locked) { this.refusals = 0; this.lockBlocked = false; }
       if (this.onLockChange) this.onLockChange(this.locked);
     });
+    /* Firefox and Safari only fire the bare error event; Chromium also
+       rejects the promise with a reason. Both routes land here. */
+    document.addEventListener('pointerlockerror', () => this.lockRefused());
     addEventListener('resize', () => this._measurePointerScale());
     this.target.addEventListener('mousemove', (e) => {
       if (!this.locked || !this.enabled) return;
@@ -522,7 +575,20 @@ export class Input {
    * keys; menu movement, on the arrows and on WASD.
    */
   bindKey(action, code) {
-    if (!ACTIONS[action] || !code) return;
+    if (!ACTIONS[action] || !code) return { ok: false, reason: 'unknown action' };
+    /* Taking this key away from whoever has it must not leave a menu-critical
+       action with nothing. Checked BEFORE anything is changed, so a refused
+       rebind leaves the map exactly as it was. */
+    const stranded = ESSENTIAL.find((id) => id !== action
+      && (this.keyBinds[id] || []).length === 1
+      && this.keyBinds[id][0] === code);
+    if (stranded) {
+      return {
+        ok: false,
+        reason: `${keyName(code)} is the only key left for "${ACTIONS[stranded].label}"`,
+        stranded,
+      };
+    }
     for (const id of Object.keys(this.keyBinds)) {
       this.keyBinds[id] = this.keyBinds[id].filter((k) => k !== code);
     }
@@ -530,12 +596,17 @@ export class Input {
     list.unshift(code);
     while (list.length > 2) list.pop();
     this.keyBindsAreUser = true;
+    return { ok: true };
   }
 
   clearKeys(action) {
-    if (!ACTIONS[action]) return;
+    if (!ACTIONS[action]) return { ok: false, reason: 'unknown action' };
+    if (ESSENTIAL.includes(action)) {
+      return { ok: false, reason: `"${ACTIONS[action].label}" has to keep a key`, stranded: action };
+    }
     this.keyBinds[action] = [];
     this.keyBindsAreUser = true;
+    return { ok: true };
   }
 
   /**
@@ -591,8 +662,23 @@ export class Input {
     if (this.locked || !this.target.requestPointerLock) return;
     try {
       const p = this.target.requestPointerLock();
-      if (p && typeof p.catch === 'function') p.catch(() => {});
-    } catch (err) { /* refused; the next gesture will try again */ }
+      if (p && typeof p.catch === 'function') p.catch((e) => this.lockRefused(e && e.message));
+    } catch (err) { this.lockRefused(err && err.message); }
+  }
+
+  /**
+   * The browser said no. Twice is bad luck; three times is a policy.
+   *
+   * Chromium says why, and when the reason is the frame's permissions there
+   * is no point waiting for a better moment -- that is decided once, by the
+   * page doing the embedding, and it will not change. Other engines fire only
+   * the bare error event, so a run of refusals counts for the same thing.
+   */
+  lockRefused(why) {
+    this.refusals = (this.refusals || 0) + 1;
+    if (this.refusals >= 3 || /sandbox|permission|disallow|not allowed|denied/i.test(why || '')) {
+      this.lockBlocked = true;
+    }
   }
   exitLock() { if (this.locked && document.exitPointerLock) document.exitPointerLock(); }
 }

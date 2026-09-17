@@ -167,6 +167,13 @@ npm run build        # the production build, into dist/web
 npm run check:app    # the Electron build (needs a display; use xvfb-run)
 ```
 
+`npm run build` produces `dist/web`, which is what gets uploaded. A built
+page is marked as production and **withholds the developer hooks** — no
+`window.__game`, no module namespace, nothing to reach into a level with
+from the console. The development server and an unpackaged `npm run app`
+keep them, which is how every harness here still works. A packaged desktop
+build is marked the same way.
+
 `npm test` runs the browser suite once **per installed engine**, and
 reports an engine it cannot find as SKIPPED rather than quietly not
 running it. Chromium and Gecko disagree about pointer-lock deltas, about

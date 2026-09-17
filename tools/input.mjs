@@ -116,6 +116,44 @@ const spike = await page.evaluate(() => window.__game.player.yaw);
 check('one absurd mouse event cannot spin the camera round',
   Math.abs(spike) < 1.2, `yaw ${spike.toFixed(3)}`);
 
+/* ---- a page that will not hand over the mouse ---- */
+
+/* An iframe embed without allow="pointer-lock" refuses every request. The
+   game has to stop telling the player to click, because clicking is never
+   going to work, and say what will. */
+await page.evaluate(() => { window.__game.input.locked = false; });
+const beforeBlocked = await page.evaluate(() => ({
+  blocked: window.__game.input.lockBlocked,
+  notice: document.getElementById('notice').textContent,
+}));
+check('one refusal is just bad timing', beforeBlocked.blocked === false, String(beforeBlocked.blocked));
+
+await page.evaluate(() => {
+  const g = window.__game;
+  g.wantLock = true;
+  for (let i = 0; i < 3; i++) document.dispatchEvent(new Event('pointerlockerror'));
+});
+await page.waitForTimeout(300);
+const blocked = await page.evaluate(() => ({
+  blocked: window.__game.input.lockBlocked,
+  notice: document.getElementById('notice').textContent,
+}));
+check('three in a row is a policy', blocked.blocked === true, String(blocked.blocked));
+check('and the player is told the truth instead of "click to look around"',
+  /will not let the game take the mouse/.test(blocked.notice), blocked.notice);
+
+/* and it clears itself the moment the lock is granted after all */
+await page.evaluate(() => {
+  const g = window.__game;
+  g.input.locked = true;
+  g.input.refusals = 0;
+  g.input.lockBlocked = false;
+});
+await page.waitForTimeout(200);
+check('getting the mouse clears it again',
+  await page.evaluate(() => window.__game.input.lockBlocked === false));
+await page.evaluate(() => { window.__game.input.locked = false; });
+
 /* ============================================================
    THE CONTROLLER
    ============================================================ */

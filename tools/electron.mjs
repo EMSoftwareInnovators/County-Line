@@ -54,31 +54,63 @@ check('and the game is served over its own scheme, not file://',
   page.url().startsWith('game://app/'), page.url());
 
 /* ---------- the modules ran ---------- */
+/* A PACKAGED build is a shipped build: it withholds the developer hooks, so
+   the checks below cannot reach into it and must not try. Everything they
+   need is observable from outside -- the title, the stylesheet, the marker
+   on the page, and whether the canvas has anything on it. */
 const booted = await page.evaluate(() => ({
   game: typeof window.__game === 'object' && !!window.__game,
   modules: window.__cl ? Object.keys(window.__cl).length : 0,
   canvas: (() => { const c = document.querySelector('#screen'); return c ? [c.width, c.height] : null; })(),
   styled: getComputedStyle(document.querySelector('#cabinet')).position === 'relative',
   title: document.title,
+  marked: !!document.querySelector('script[type="module"][data-prod="1"]'),
   level: window.__game && window.__game.level ? window.__game.level.id : null,
 }));
-check('the game booted', booted.game);
-check('and every module it imports came through', booted.modules >= 10,
-  `${booted.modules} modules on the dev hook`);
 check('the stylesheet arrived too', booted.styled);
 check('the window is called COUNTY LINE', booted.title === 'COUNTY LINE', booted.title);
-check('and the test level built', booted.level === 'testbed', String(booted.level));
+
+if (BUILT) {
+  check('a packaged build is marked as production', booted.marked);
+  check('and exposes no handle on the simulation', !booted.game && booted.modules === 0,
+    `__game ${booted.game}, __cl ${booted.modules}`);
+} else {
+  check('the game booted', booted.game);
+  check('and every module it imports came through', booted.modules >= 10,
+    `${booted.modules} modules on the dev hook`);
+  check('running from the repository is NOT production', !booted.marked);
+  check('and the test level built', booted.level === 'testbed', String(booted.level));
+}
 
 /* ---------- it plays ---------- */
 await page.keyboard.press('Enter');
-await page.waitForTimeout(1200);
-const running = await page.evaluate(() => {
-  const g = window.__game;
-  g.audio.setMuted(true);
-  return { state: g.state, tris: g.level.stats.tris };
+await page.waitForTimeout(1500);
+
+/* Whether the renderer is actually drawing, read off the canvas rather than
+   off the game object -- so the packaged build is checked the same way a
+   player would check it. */
+const painted = await page.evaluate(() => {
+  const c = document.querySelector('#screen');
+  const g = c.getContext('2d');
+  const d = g.getImageData(0, 0, c.width, c.height).data;
+  let lit = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] > 12 || d[i + 1] > 12 || d[i + 2] > 12) lit++;
+  }
+  return { lit, total: d.length / 4 };
 });
-check('a shift starts', running.state === 'PLAY', running.state);
-check('and the renderer is drawing the level', running.tris > 500, `${running.tris} triangles`);
+check('and the renderer is drawing something', painted.lit > painted.total * 0.2,
+  `${painted.lit} of ${painted.total} pixels lit`);
+
+if (!BUILT) {
+  const running = await page.evaluate(() => {
+    const g = window.__game;
+    g.audio.setMuted(true);
+    return { state: g.state, tris: g.level.stats.tris };
+  });
+  check('a shift starts', running.state === 'PLAY', running.state);
+  check('and the level is submitted', running.tris > 500, `${running.tris} triangles`);
+}
 
 /* ---------- the mouse ---------- */
 await page.mouse.click(400, 300);

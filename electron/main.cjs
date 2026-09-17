@@ -124,7 +124,23 @@ function serveGameFiles() {
         'content-type': TYPES[path.extname(file)] || 'application/octet-stream',
         'cache-control': 'no-cache',
       };
-      if (path.extname(file) === '.html') headers['content-security-policy'] = CSP;
+      if (path.extname(file) === '.html') {
+        headers['content-security-policy'] = CSP;
+        /* A PACKAGED app is a shipped build and gets the production marker,
+           so the renderer withholds the developer hooks. Running unpackaged
+           from the repository is development and keeps them, which is what
+           the test harnesses and the console rely on.
+
+           An attribute on the existing script tag, not an inline script:
+           the policy above allows no inline script, and adding a hash for
+           one would have to be kept in step by hand forever. */
+        if (!DEV) {
+          const html = body.toString('utf8').replace(
+            /<script type="module" src="src\/main\.js">/,
+            '<script type="module" data-prod="1" src="src/main.js">');
+          return new Response(Buffer.from(html, 'utf8'), { headers });
+        }
+      }
       return new Response(body, { headers });
     } catch {
       return new Response(`not found: ${pathname}`, { status: 404 });

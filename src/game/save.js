@@ -97,8 +97,26 @@ export class SaveGame {
     this.lastError = null;
   }
 
-  /** Is there something to continue? */
+  /** Is there anything stored at all? */
   static exists() { return saveRecord.exists(); }
+
+  /**
+   * Is there a save worth offering CONTINUE for?
+   *
+   * Not the same question as "is there a save". A campaign that has been
+   * FINISHED is stored -- the result is worth keeping -- but resuming it
+   * would drop the player back into a shift that is already over. Offering
+   * it is how a player ends up replaying an ending they have seen, or
+   * standing in a level with nothing left to do and no way to tell why.
+   */
+  resumable(known) {
+    if (!saveRecord.exists()) return false;
+    const probe = new SaveGame();
+    if (!probe.load(known).ok) return false;
+    const st = probe.data.state;
+    if (!st) return false;
+    return st.phase !== 'COMPLETE' && st.finished !== true;
+  }
 
   /**
    * @param known { campaigns: Set<string>, levels: Set<string> }

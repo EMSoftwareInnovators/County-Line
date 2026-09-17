@@ -88,6 +88,22 @@ const manifest = [];
 for (const f of SHIP) {
   const dest = join(OUT, f);
   mkdirSync(dirname(dest), { recursive: true });
+  if (f === 'index.html') {
+    /* Mark the shipped page as production. src/main.js reads this attribute
+       and withholds the developer hooks, so nothing in a downloaded build
+       hands out a handle on the simulation. An attribute rather than an
+       inline script: the desktop build serves the page under a policy that
+       allows no inline script at all. */
+    const html = readFileSync(f, 'utf8');
+    const marked = html.replace(
+      /<script type="module" src="src\/main\.js">/,
+      '<script type="module" data-prod="1" src="src/main.js">');
+    if (marked === html) fail('index.html: could not mark the build as production');
+    writeFileSync(dest, marked);
+    bytes += Buffer.byteLength(marked);
+    manifest.push({ path: f, bytes: Buffer.byteLength(marked) });
+    continue;
+  }
   copyFileSync(f, dest);
   const n = statSync(f).size;
   bytes += n;
@@ -107,6 +123,14 @@ console.log('      largest:');
 for (const m of manifest.slice(0, 5)) {
   console.log(`        ${String((m.bytes / 1024).toFixed(1)).padStart(7)} KB  ${m.path}`);
 }
+
+/* ---------- the shipped page withholds the developer hooks ---------- */
+const shipped = readFileSync(join(OUT, 'index.html'), 'utf8');
+if (!/data-prod="1"/.test(shipped)) fail('the built page is not marked as production');
+if (!/IS_PRODUCTION/.test(readFileSync(join(OUT, 'src/main.js'), 'utf8'))) {
+  fail('the built main.js does not check the production marker');
+}
+console.log(' ok   the built page withholds the developer hooks');
 
 /* ---------- and it still parses from the output ---------- */
 for (const f of walk(OUT).filter((p) => p.endsWith('.js'))) {

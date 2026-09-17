@@ -74,6 +74,33 @@ check('story flags survive', restored.flag === 'kept', String(restored.flag));
 check('door states survive', restored.officeLocked === true && restored.workroomOpen === true,
   `${restored.officeLocked} / ${restored.workroomOpen}`);
 
+/* ---- a finished shift is not offered as CONTINUE ---- */
+/* It is still saved -- the result is worth keeping -- but resuming it would
+   drop the player into a shift that is already over. */
+const finished = await page.evaluate(() => {
+  const g = window.__game;
+  g.campaign.end('objectives', g.ctx());
+  g.autosave();
+  g.toTitle();
+  return {
+    stored: !!localStorage.getItem('countyline.save'),
+    items: g.titleItems().map((i) => i.id),
+  };
+});
+check('a finished shift is still saved', finished.stored === true);
+check('but CONTINUE is not offered for it', !finished.items.includes('continue'),
+  finished.items.join(','));
+
+/* and an unfinished one comes back */
+const unfinished = await page.evaluate(() => {
+  const g = window.__game;
+  g.newGame();
+  g.autosave();
+  g.toTitle();
+  return g.titleItems().map((i) => i.id);
+});
+check('an unfinished one is offered again', unfinished.includes('continue'), unfinished.join(','));
+
 /* ---- a corrupt save is refused, not crashed on ---- */
 await page.evaluate(() => {
   localStorage.setItem('countyline.save', 'this is not JSON at all');

@@ -219,6 +219,19 @@ A press is taken from the key **event**, not from comparing this frame's
 held set with last frame's — a tap that goes down and up between two
 frames never appears in the held set at all.
 
+Everything is rebindable and stays that way, with one guarantee: an action
+in `ESSENTIAL` can never be left with **no** key on it. Selecting a menu row
+needs `uiConfirm`, and the row that would undo the damage — "reset keyboard
+to defaults" — is a menu row. A rebind that would strand one is refused and
+says which action it would have stranded; a stored map that is already in
+that state repairs that one action on load.
+
+`Input.lockBlocked` is set when the page refuses pointer lock three times, or
+once with a reason naming permissions. A page can refuse outright — an iframe
+embed without `allow="pointer-lock"` is the usual one, and that is exactly how
+a browser build reaches itch.io — and telling the player to click when
+clicking can never work is worse than saying nothing.
+
 Carried over from Final Rental, and hard-won there: the deadzone curves
 (squared for moving, gentler for looking), the stick-as-menu-arrows edge
 detector, the hat switch that must prove it is a hat before it is
@@ -264,6 +277,23 @@ lose that build's state.
 
 `npm run lint` fails if anything outside `src/engine/storage.js` touches
 `localStorage`, or if anything in `src/` names `finalrental`.
+
+`SaveGame.resumable()`, not `exists()`, decides whether CONTINUE appears. A
+finished shift is still stored — the result is worth keeping — but resuming
+it drops the player into a shift that is already over.
+
+**When County Line does a desktop release stage**, the thing to take from
+Final Rental's later work is its storage *backend seam*: one singleton with
+`getItem`/`setItem`/`removeItem`, a web backend that passes through to
+`localStorage` and a desktop backend that hydrates a cache from real JSON
+files at boot and writes through synchronous IPC. Its host side is worth
+copying closely — atomic write (temp file, `fsync`, rename), one
+last-known-good backup per domain, a recovery ladder that falls back to the
+backup and resets only the failing domain, and unreadable files preserved
+with a timestamp rather than deleted. County Line's `Record` already gives
+each domain its own key, its own version and its own migration chain, which
+is what that design needs underneath it; what it does not yet have is the
+seam. Deliberately not built in Stage 1 — there is nothing to protect yet.
 
 ---
 

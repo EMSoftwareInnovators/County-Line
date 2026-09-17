@@ -293,6 +293,45 @@ section('bindings');
   check('a good one is kept', dirty.forward[0] === 'KeyI');
   check('and a malformed one falls back', dirty.back.join() === 'KeyS');
 
+  /* A player must not be able to bind themselves out of their own menus.
+     Stripping every key off uiConfirm leaves no way to select a row --
+     including the "reset to defaults" row that would undo it. */
+  {
+    /* The binding table on its own, without a DOM: Input's constructor wires
+       listeners, and none of that is what is under test here. */
+    const I = Object.create(input.Input.prototype);
+    I.keyBinds = input.defaultKeyBinds();
+    I.keyBindsAreUser = false;
+    check('uiConfirm ships with three keys', I.keyBinds.uiConfirm.length === 3,
+      I.keyBinds.uiConfirm.join(','));
+    check('taking the first is allowed', I.bindKey('forward', 'Enter').ok);
+    check('taking the second is allowed', I.bindKey('back', 'Space').ok);
+    const last = I.bindKey('left', 'KeyE');
+    check('taking the LAST one is refused', last.ok === false, String(last.reason));
+    check('and says which action it would have stranded', last.stranded === 'uiConfirm', String(last.stranded));
+    check('so a menu can always still be worked', I.keyBinds.uiConfirm.length > 0,
+      I.keyBinds.uiConfirm.join(','));
+    check('and the refused rebind changed nothing', I.keysFor('left').join() === 'KeyA',
+      I.keysFor('left').join(','));
+    check('clearing a menu-critical action is refused too',
+      I.clearKeys('uiConfirm').ok === false);
+    check('but clearing an ordinary one is fine', I.clearKeys('crouch').ok === true);
+  }
+
+  /* A stored map that is already broken repairs itself on load -- the only
+     route back for a player who got into that state under an older build. */
+  {
+    const broken = input.sanitizeKeyBinds({ uiConfirm: [], uiUp: [], forward: ['KeyI'] });
+    check('a stored map with no confirm key is repaired', broken.uiConfirm.length > 0,
+      broken.uiConfirm.join(','));
+    check('and so is menu movement', broken.uiUp.length > 0, broken.uiUp.join(','));
+    check('without disturbing the rest of it', broken.forward.join() === 'KeyI');
+  }
+
+  check('a key name is something a player could act on',
+    input.keyName('Enter') === 'ENTER' && input.keyName('KeyF') === 'F',
+    `${input.keyName('Enter')} / ${input.keyName('KeyF')}`);
+
   const known = input.knownLayout('Xbox Wireless Controller', 'MacIntel');
   check('the macOS Xbox layout is recognized', !!known && known.id === 'xbox-macos');
   check('and is not applied off a Mac', input.knownLayout('Xbox Wireless Controller', 'Win32') === null);
@@ -491,6 +530,29 @@ section('save');
   check('a save from another campaign is refused',
     s3.load({ campaigns: new Set(['test']), levels: new Set(['testbed']) }).ok === false);
 
+  /* CONTINUE is for a shift that is not over. A finished campaign is still
+     worth storing -- the result is a record -- but resuming it drops the
+     player into a shift with nothing left to do. */
+  {
+    store.clear();
+    storage._reset();
+    const known = { campaigns: new Set(['test']), levels: new Set(['testbed']) };
+    const live = new Campaign(TEST_CAMPAIGN);
+    live.start(0, {});
+    const sg = new SaveGame();
+    sg.autosave(live, { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 }, { id: 'testbed', doors: [] }, 1);
+    check('an unfinished shift is offered as CONTINUE', sg.resumable(known) === true);
+    live.end('objectives', {});
+    sg.autosave(live, { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 }, { id: 'testbed', doors: [] }, 1);
+    check('a finished one is not', sg.resumable(known) === false);
+    check('even though it is still saved', SaveGame.exists() === true);
+    store.clear();
+    storage._reset();
+    check('and nothing at all is not either', new SaveGame().resumable(known) === false);
+  }
+
+  store.clear();
+  storage._reset();
   const p = new Profile();
   p.load();
   p.markSeen('thing');

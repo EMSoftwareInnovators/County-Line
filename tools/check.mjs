@@ -45,6 +45,7 @@ const BROWSER = [
   ['save and load', 'tools/saveload.mjs'],
   ['audio routing', 'tools/audio.mjs'],
   ['performance', 'tools/perf.mjs'],
+  ['the shipped web build', 'tools/production.mjs'],
 ];
 
 const server = spawn(process.execPath, ['serve.cjs'], {
