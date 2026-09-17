@@ -132,29 +132,47 @@ function elevation(b, seg) {
   story(b, seg, 1, seg.lower || []);
   story(b, seg, 2, seg.upper || []);
 
-  /* The band course at first-floor ceiling level, carried right round the
-     building. It is what stops a two-story elevation reading as one very
-     tall one. */
-  const alongX = seg.axis === 'x';
-  const p = inch(3);
-  trimBox(b,
-    alongX ? seg.from : seg.line - D.EXT / 2 - p,
-    D.FLOOR2 - ftin(1, 2),
-    alongX ? seg.line - D.EXT / 2 - p : seg.from,
-    alongX ? seg.to : seg.line + D.EXT / 2 + p,
-    D.FLOOR2 - ftin(0, 6),
-    alongX ? seg.line + D.EXT / 2 + p : seg.to,
-    b.M.granite);
+  /* ------------------------------------------------------------
+     THE TWO HORIZONTAL BANDS: the string course at first-floor ceiling
+     level, which is what stops a two-story elevation reading as one very
+     tall one, and the water table at the base, which reads as the plinth
+     the whole mass sits on.
 
-  /* And the water table at the base, which reads as the plinth the whole
-     mass sits on. */
-  trimBox(b,
-    alongX ? seg.from : seg.line - D.EXT / 2 - inch(4),
-    D.GRADE, alongX ? seg.line - D.EXT / 2 - inch(4) : seg.from,
-    alongX ? seg.to : seg.line + D.EXT / 2 + inch(4),
-    D.GRADE + ftin(2, 2),
-    alongX ? seg.line + D.EXT / 2 + inch(4) : seg.to,
-    b.M.granite);
+     WHO OWNS A CORNER, AGAIN, AND MORE CAREFULLY THAN THE WALLS DO. A
+     band drawn from `from` to `to` shares both of its end planes with
+     the wall it is stuck to, and a band that projects four inches past
+     the masonry meets the band round the corner in a block with all four
+     of its long faces coincident. Both showed as a flickering square at
+     every corner of the building, at both band heights.
+
+     So: the runs along X return round their corners, past the end of
+     their own wall by the projection, and the runs along Z are cut back
+     by the same amount wherever their end lands on a corner -- and only
+     there, because an end that lands on the next segment of the same
+     elevation has to meet it flush.
+     ------------------------------------------------------------ */
+  const alongX = seg.axis === 'x';
+  /* The Z stations at which an elevation turns a corner: the inner faces
+     of the front and north walls, and of the central block's two. */
+  const CORNER = [D.Z_S_IN, D.Z_N_IN, D.Z_CENTRAL_S_OUT, D.Z_CENTRAL_N_OUT];
+  const isCorner = (v) => CORNER.some((c) => Math.abs(v - c) < 1e-6);
+  const band = (proj, y0, y1) => {
+    const a0 = alongX ? seg.from - proj : seg.from + (isCorner(seg.from) ? proj : 0);
+    const a1 = alongX ? seg.to + proj : seg.to - (isCorner(seg.to) ? proj : 0);
+    if (a1 - a0 < 1e-6) return;
+    trimBox(b,
+      alongX ? a0 : seg.line - D.EXT / 2 - proj, y0,
+      alongX ? seg.line - D.EXT / 2 - proj : a0,
+      alongX ? a1 : seg.line + D.EXT / 2 + proj, y1,
+      alongX ? seg.line + D.EXT / 2 + proj : a1,
+      b.M.granite,
+      /* Bedded in the ground: its underside is not a surface, and drawn
+         as one it is a face with nothing in front of it, coplanar with
+         the underside of every other thing sitting on the same grade. */
+      y0 <= D.GRADE + 1e-6 ? { ny: null } : undefined);
+  };
+  band(inch(3), D.FLOOR2 - ftin(1, 2), D.FLOOR2 - ftin(0, 6));
+  band(inch(4), D.GRADE, D.GRADE + ftin(2, 2));
 }
 
 /* ============================================================
@@ -365,7 +383,7 @@ function chimney(b, x, z) {
   const w = ftin(4, 6), d = ftin(2, 6);
   const top = D.PARAPET_TOP + ftin(5, 0);
   b.mb.box(x - w / 2, D.GRADE, z - d / 2, x + w / 2, top - ftin(1, 0), z + d / 2,
-    { all: { tex: M.stuccoWorn.tex, density: M.stuccoWorn.density } });
+    { all: { tex: M.stuccoWorn.tex, density: M.stuccoWorn.density }, ny: null });
   // a corbelled cap
   b.mb.box(x - w / 2 - inch(5), top - ftin(1, 0), z - d / 2 - inch(5),
     x + w / 2 + inch(5), top, z + d / 2 + inch(5),

@@ -91,9 +91,18 @@ export function buildRoof(b) {
   const GARDEN_W_CL = D.X_BAY_W - D.EXT / 2;
   const GARDEN_E_CL = D.X_BAY_E + D.EXT / 2;
 
+  /* WHO OWNS A CORNER. The same rule as the walls below: the runs along
+     X own the corners and the runs along Z are trimmed to the inner face
+     of what they abut. Taken corner to corner both ways, every corner of
+     the building had two parapets overlapping in a block twelve inches
+     deep with all four of their long faces coplanar. */
+  const PT = P.thickness;
+  const Z_PARA_S = FACADE_CL + PT / 2;
+  const Z_PARA_N = NORTH_CL - PT / 2;
+
   // the two side elevations, full depth
-  crenellate(b, { ...P, x0: WEST_CL, z0: D.Z_FACADE, x1: WEST_CL, z1: D.Z_N_OUT });
-  crenellate(b, { ...P, x0: EAST_CL, z0: D.Z_FACADE, x1: EAST_CL, z1: D.Z_N_OUT });
+  crenellate(b, { ...P, x0: WEST_CL, z0: Z_PARA_S, x1: WEST_CL, z1: Z_PARA_N });
+  crenellate(b, { ...P, x0: EAST_CL, z0: Z_PARA_S, x1: EAST_CL, z1: Z_PARA_N });
 
   // the front of each projecting block
   crenellate(b, { ...P, x0: D.X_W_OUT, z0: FACADE_CL, x1: D.X_BAY_W, z1: FACADE_CL });
@@ -104,18 +113,18 @@ export function buildRoof(b) {
   crenellate(b, { ...P, x0: D.X_BAY_E, z0: NORTH_CL, x1: D.X_E_OUT, z1: NORTH_CL });
 
   // and the garden faces, which is what you look up at from the courtyard
-  crenellate(b, { ...P, x0: GARDEN_W_CL, z0: D.Z_CENTRAL_N_OUT, x1: GARDEN_W_CL, z1: D.Z_N_OUT });
-  crenellate(b, { ...P, x0: GARDEN_E_CL, z0: D.Z_CENTRAL_N_OUT, x1: GARDEN_E_CL, z1: D.Z_N_OUT });
+  crenellate(b, { ...P, x0: GARDEN_W_CL, z0: D.Z_CENTRAL_N_OUT, x1: GARDEN_W_CL, z1: Z_PARA_N });
+  crenellate(b, { ...P, x0: GARDEN_E_CL, z0: D.Z_CENTRAL_N_OUT, x1: GARDEN_E_CL, z1: Z_PARA_N });
 
   /* ---- the corbel table, under every run of parapet above ---- */
-  corbels('z', D.Z_FACADE, D.Z_N_OUT, WEST_CL, P.base, -1);
-  corbels('z', D.Z_FACADE, D.Z_N_OUT, EAST_CL, P.base, 1);
+  corbels('z', Z_PARA_S, Z_PARA_N, WEST_CL, P.base, -1);
+  corbels('z', Z_PARA_S, Z_PARA_N, EAST_CL, P.base, 1);
   corbels('x', D.X_W_OUT, D.X_BAY_W, FACADE_CL, P.base, -1);
   corbels('x', D.X_BAY_E, D.X_E_OUT, FACADE_CL, P.base, -1);
   corbels('x', D.X_W_OUT, D.X_BAY_W, NORTH_CL, P.base, 1);
   corbels('x', D.X_BAY_E, D.X_E_OUT, NORTH_CL, P.base, 1);
-  corbels('z', D.Z_CENTRAL_N_OUT, D.Z_N_OUT, GARDEN_W_CL, P.base, 1);
-  corbels('z', D.Z_CENTRAL_N_OUT, D.Z_N_OUT, GARDEN_E_CL, P.base, -1);
+  corbels('z', D.Z_CENTRAL_N_OUT, Z_PARA_N, GARDEN_W_CL, P.base, 1);
+  corbels('z', D.Z_CENTRAL_N_OUT, Z_PARA_N, GARDEN_E_CL, P.base, -1);
 
   /* ---- the central block ----
      Standing clear of the two front blocks, with its own band and its own
@@ -132,7 +141,7 @@ export function buildRoof(b) {
   crenellate(b, { ...C, x0: D.X_BAY_W, z0: CS, x1: D.X_BAY_E, z1: CS });
   crenellate(b, { ...C, x0: D.X_BAY_W, z0: CN, x1: D.X_BAY_E, z1: CN });
   for (const sx of [D.X_BAY_W - D.EXT / 2, D.X_BAY_E + D.EXT / 2]) {
-    crenellate(b, { ...C, x0: sx, z0: CS, x1: sx, z1: CN });
+    crenellate(b, { ...C, x0: sx, z0: CS + PT / 2, x1: sx, z1: CN - PT / 2 });
   }
   corbels('x', D.X_BAY_W, D.X_BAY_E, CS, C.base, -1);
   corbels('x', D.X_BAY_W, D.X_BAY_E, CN, C.base, 1);
@@ -140,7 +149,12 @@ export function buildRoof(b) {
   /* The band the historic photograph carries THE LIBRARY on. Blank here:
      the lettering belongs to a period this reconstruction is not set in,
      and a guessed inscription is worse than none. */
-  b.mb.box(D.X_BAY_W - D.EXT / 2 - ftin(0, 3), C.base - ftin(3, 0), CS - ftin(0, 3),
-    D.X_BAY_E + D.EXT / 2 + ftin(0, 3), C.base - ftin(0, 6), CS,
-    { all: { tex: M.ashlarWorn.tex, density: M.ashlarWorn.density } });
+  /* Proud of the SOUTH FACE of that wall, not buried in the middle of
+     it: `CS` is the wall's center line, so a band three inches deep
+     ending there was three inches of masonry inside nineteen and a half
+     inches of masonry, visible from nowhere. */
+  const BAND_Z = D.Z_CENTRAL_S_OUT;
+  b.mb.box(D.X_BAY_W - D.EXT / 2 - ftin(0, 3), C.base - ftin(3, 0), BAND_Z - ftin(0, 3),
+    D.X_BAY_E + D.EXT / 2 + ftin(0, 3), C.base - ftin(0, 6), BAND_Z,
+    { all: { tex: M.ashlarWorn.tex, density: M.ashlarWorn.density }, pz: null });
 }

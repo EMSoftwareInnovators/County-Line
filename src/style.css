@@ -162,6 +162,12 @@ body{
   flex:1 1 auto;min-height:0;overflow-y:auto;
   scrollbar-width:thin;scrollbar-color:var(--dim) transparent;
 }
+.pad ul.menu.more-above{box-shadow:inset 0 1.4cqw 1.2cqw -1.1cqw rgba(0,0,0,.95)}
+.pad ul.menu.more-below{box-shadow:inset 0 -1.4cqw 1.2cqw -1.1cqw rgba(0,0,0,.95)}
+.pad ul.menu.more-above.more-below{
+  box-shadow:inset 0 1.4cqw 1.2cqw -1.1cqw rgba(0,0,0,.95),
+             inset 0 -1.4cqw 1.2cqw -1.1cqw rgba(0,0,0,.95);
+}
 .pad ul.menu::-webkit-scrollbar{width:0.8cqw}
 .pad ul.menu::-webkit-scrollbar-thumb{background:var(--dim)}
 .pad ul.menu li{font-size:2.4cqw;padding:.22cqw 0;display:flex;gap:1cqw;color:var(--dim)}

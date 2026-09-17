@@ -39,13 +39,13 @@
    ============================================================ */
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
-import { openingsAround, trimBox, wainscot } from './parts.js';
+import { trimBox } from './parts.js';
 import { partition } from './firstfloor.js';
 import { stairWells } from './stairs.js';
 
 /** A second-floor slab: walkable on top, beadboard underneath, and the
     headroom it gives the story below. */
-function slab(b, chunk, x0, x1, z0, z1) {
+function slab(b, chunk, x0, x1, z0, z1, pad) {
   if (x1 - x0 < 1e-6 || z1 - z0 < 1e-6) return;
   b.chunk(chunk);
   /* See the note on the first floor's slabs: big horizontal planes are
@@ -59,9 +59,9 @@ function slab(b, chunk, x0, x1, z0, z1) {
        static at 320x240 -- the answer to that was a wider board, which
        the texture now has, not a different ceiling. */
     material: b.M.heartPine, soffit: b.M.beadboard,
-    thickness: D.FLOOR_STRUCTURE, tag: 'floor2',
+    thickness: D.FLOOR_STRUCTURE, pad: pad || 0, tag: 'floor2',
   });
-  b.headroom({ x0, x1, z0, z1, y: D.FLOOR1_CEIL, tag: 'floor2-soffit' });
+  b.headroom({ x0, x1, z0, z1, y: D.FLOOR1_CEIL, pad: pad || 0, tag: 'floor2-soffit' });
 }
 
 /** A ceiling over the top story. */
@@ -70,7 +70,10 @@ function ceil(b, chunk, x0, x1, z0, z1) {
   b.detail(1.5);
   b.ceiling({
     x0, x1, z0, z1, y: D.FLOOR2_CEIL,
-    material: b.M.beadboard, thickness: ftin(1, 0), tag: 'ceiling2',
+    /* Six inches, not twelve: a foot of it reached up into the roof deck
+       above, and the two shared both of their long faces over the half
+       foot they had in common. */
+    material: b.M.beadboard, thickness: inch(6), pad: D.EXT, tag: 'ceiling2',
   });
 }
 
@@ -91,12 +94,18 @@ export function buildSecondFloor(b) {
      ============================================================ */
   for (const side of ['west', 'east']) {
     const west = side === 'west';
-    const wx0 = west ? D.X_W_OUT : D.X_BAY_E;
-    const wx1 = west ? D.X_BAY_W : D.X_E_OUT;
+    /* THE INTERIOR, NOT THE FOOTPRINT -- the same rule the roof decks
+       follow and for the same reason. A slab taken out to the outer face
+       of the masonry puts its own edge in the plane of the wall's outer
+       face, with a foot and a half of it inside the wall, and every
+       elevation of the building then shimmers along the floor line. The
+       collider reaches under the walls; the boards do not. */
+    const wx0 = west ? D.X_W_IN : D.X_WING_E_IN;
+    const wx1 = west ? D.X_WING_W_IN : D.X_E_IN;
     const well = wells[side];
 
-    slab(b, `floor2.${side}.front`, wx0, wx1, D.Z_FACADE, MID_S_CL);
-    slab(b, `floor2.${side}.north`, wx0, wx1, MID_N_CL, D.Z_N_OUT);
+    slab(b, `floor2.${side}.front`, wx0, wx1, D.Z_S_IN, MID_S_CL);
+    slab(b, `floor2.${side}.north`, wx0, wx1, MID_N_CL, D.Z_N_IN);
 
     // the middle band, in four pieces round the well
     const c = `floor2.${side}.mid`;
@@ -108,7 +117,16 @@ export function buildSecondFloor(b) {
       slab(b, c, wx0, well.x0, well.z0, well.z1);
     }
   }
-  slab(b, 'floor2.central', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S_OUT, D.Z_CENTRAL_N_OUT);
+  /* ONLY THE CENTRAL SLAB IS PADDED, and it is padded all round.
+     Reaching one wall thickness past its own edge it meets both wing
+     slabs under the walls that carry the four upper doorways, and it
+     carries the threshold of the terrace door on the south -- which is
+     everywhere on this story that a doorway crosses masonry. Padding the
+     WING slabs as well put a foot and a half of invisible floor, and a
+     foot and a half of ceiling, out over both stairwells: the player
+     climbed nine risers into a soffit and slid back down. A hole in a
+     floor is a hole on every side of it. */
+  slab(b, 'floor2.central', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N, D.EXT);
 
   /* ============================================================
      ROOMS
@@ -145,13 +163,13 @@ export function buildSecondFloor(b) {
   }
 
   /* ---- ceilings ---- */
-  ceil(b, 'floor2.west.front', D.X_W_OUT, D.X_BAY_W, D.Z_FACADE, MID_S_CL);
-  ceil(b, 'floor2.west.mid', D.X_W_OUT, D.X_BAY_W, MID_S_CL, MID_N_CL);
-  ceil(b, 'floor2.west.north', D.X_W_OUT, D.X_BAY_W, MID_N_CL, D.Z_N_OUT);
-  ceil(b, 'floor2.east.front', D.X_BAY_E, D.X_E_OUT, D.Z_FACADE, MID_S_CL);
-  ceil(b, 'floor2.east.mid', D.X_BAY_E, D.X_E_OUT, MID_S_CL, MID_N_CL);
-  ceil(b, 'floor2.east.north', D.X_BAY_E, D.X_E_OUT, MID_N_CL, D.Z_N_OUT);
-  ceil(b, 'floor2.central', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S_OUT, D.Z_CENTRAL_N_OUT);
+  ceil(b, 'floor2.west.front', D.X_W_IN, D.X_WING_W_IN, D.Z_S_IN, MID_S_CL);
+  ceil(b, 'floor2.west.mid', D.X_W_IN, D.X_WING_W_IN, MID_S_CL, MID_N_CL);
+  ceil(b, 'floor2.west.north', D.X_W_IN, D.X_WING_W_IN, MID_N_CL, D.Z_N_IN);
+  ceil(b, 'floor2.east.front', D.X_WING_E_IN, D.X_E_IN, D.Z_S_IN, MID_S_CL);
+  ceil(b, 'floor2.east.mid', D.X_WING_E_IN, D.X_E_IN, MID_S_CL, MID_N_CL);
+  ceil(b, 'floor2.east.north', D.X_WING_E_IN, D.X_E_IN, MID_N_CL, D.Z_N_IN);
+  ceil(b, 'floor2.central', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N);
 
   /* ============================================================
      PARTITIONS
@@ -196,24 +214,23 @@ export function buildSecondFloor(b) {
     });
   }
 
-  /* The War Room and Modern Mammals are one meeting room with a spine
-     wall down it, pierced by a wide opening -- which is exactly how the
-     visitor map draws it, annotated across both halves as the common
-     meeting room.
+  /* THERE IS NO WALL DOWN THE MIDDLE OF THE UPPER CENTRAL ROOM.
 
-     IT STOPS SHORT OF THE SOUTH WALL. The terrace door is on the center
-     line, and a spine running the full depth walks straight into it: you
-     could open the door and find masonry behind it. The map's division is
-     a partition inside one room, not a structural wall, and it cannot run
-     into the wall that carries the door out onto the terrace. Seven feet
-     of clear passage across the south end is the least invasive way to
-     make both true. */
-  partition(b, {
-    chunk: 'academy.upper.center.war',
-    axis: 'z', line: 0, from: D.Z_CENTRAL_S + ftin(7, 0), to: D.Z_CENTRAL_N,
-    ...light, ...up,
-    openings: [upArch(ftin(3, 6), { width: ftin(8, 0), height: ftin(10, 6) })],
-  });
+     There was one, put there because the visitor map prints two names
+     across this space -- the War Room west and Modern Mammals east -- and
+     a line between two names was read as a partition. The same map
+     annotates both halves as the common meeting room, and a meeting room
+     forty-four feet across is one room: the two names are what the museum
+     calls the two ends of it, not two rooms. The wall also could not run
+     the full depth, because the terrace door is on the center line and
+     the wall walked into it, so it had to stop seven feet short of the
+     south wall -- a partition that cannot reach either end of the room it
+     divides is a partition that is not there.
+
+     Both names stay, as two room records over one open floor. That is
+     what `roomAt` is for, and route J still walks west landing, across
+     the meeting room, east landing -- now without a doorway in the
+     middle of it. */
 
   /* wing cross-walls, matching the ones below them */
   for (const side of ['west', 'east']) {
@@ -248,24 +265,6 @@ export function buildSecondFloor(b) {
   });
 
   /* ============================================================
-     WAINSCOT
-
-     LAST, for the same reason as downstairs: it has to know where the
-     doorways and the archways are, and it asks the level rather than a
-     second list of its own. Same boards, same cap, same baseboard as the
-     first floor, because it is the same building.
-     ============================================================ */
-  for (const [id, , x0, x1, z0, z1] of rooms) {
-    b.chunk(id);
-    b.detail(2.2);
-    const r = { x0, x1, z0, z1, y: D.FLOOR2 };
-    wainscot(b, r, {
-      height: D.WAINSCOT_H, cap: D.WAINSCOT_CAP, base: D.BASE_H,
-      gaps: openingsAround(b.level, r),
-    });
-  }
-
-  /* ============================================================
      EDGE PROTECTION
 
      Every place the upper floor stops and there is no wall: the two
@@ -274,4 +273,8 @@ export function buildSecondFloor(b) {
      stating because a two-story building with an open middle is exactly
      where a player expects to be able to fall.
      ============================================================ */
+
+  /* The wainscot is laid in trim.js, after every module that cuts a hole
+     in a wall has run. See the note on buildFirstFloor. */
+  return rooms.map(([id, , x0, x1, z0, z1]) => ({ chunk: id, x0, x1, z0, z1, y: D.FLOOR2 }));
 }

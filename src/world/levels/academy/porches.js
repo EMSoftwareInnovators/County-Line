@@ -65,7 +65,16 @@ export function buildPorches(b) {
       /* Behind the facade, not flush with it -- the runs along X own the
          corners. See the note in shell.js. */
       from: D.Z_S_IN, to: D.Z_CENTRAL_S_OUT,
-      thickness: D.EXT, material: M.ashlar, innerMaterial: M.plaster, flip: west,
+      /* `flip` says which long face carries the INNER material, and for a
+         wall running along Z that is the +X face. The portico is on the
+         +X side of the west flanking wall and the -X side of the east
+         one, so the west wall's outer face looks EAST -- which is the
+         opposite of what this read until now. Reversed, the plaster was
+         on the portico and the ashlar was inside the building: standing
+         upstairs in Rotating Exhibits, the east wall of the room was
+         coursed masonry. That is the bare stonework reported as showing
+         through the second floor. */
+      thickness: D.EXT, material: M.ashlar, innerMaterial: M.plaster, flip: !west,
       y0: D.GRADE - ft(2), y1: D.ROOF,
       openings: [{
         at: ft(-24.5), kind: 'door', width: D.EXT_DOOR_W, y0: 0, y1: D.EXT_DOOR_H,

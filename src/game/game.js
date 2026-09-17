@@ -32,7 +32,7 @@ import { UI } from '../ui/ui.js';
 import { MenuController, pauseScreen, settingsScreen, controlsScreen, infoScreen, action } from '../ui/menus.js';
 import { glyph, setScheme, setInput } from '../ui/glyphs.js';
 
-import { Settings, RESOLUTIONS } from './settings.js';
+import { Settings, RESOLUTIONS, defaultSettings } from './settings.js';
 import { SaveGame, Profile } from './save.js';
 import { Campaign, TEST_CAMPAIGN, PHASE } from './campaign.js';
 import { Sfx } from './sfx.js';
@@ -179,6 +179,27 @@ export class Game {
       input: this.input, audio: this.audio,
       raster: this.raster, post: this.post, game: this,
     };
+  }
+
+  /**
+   * Put every setting back to its default, keeping the bindings.
+   *
+   * There is a reason this exists: a menu row is one keypress from being
+   * toggled by accident while looking for another one, and "invert look"
+   * toggled by accident is a game that feels broken with no obvious
+   * cause. Bindings are deliberately excluded -- CONTROLS has its own
+   * two reset actions, and someone who has rebound the keyboard does not
+   * want it wiped because they wanted the volume back.
+   */
+  resetSettings() {
+    const v = this.settings.values;
+    const d = defaultSettings();
+    for (const k of Object.keys(d)) {
+      if (k === 'keyBinds' || k === 'padBinds') continue;
+      v[k] = d[k];
+    }
+    this.settings.apply(this.systems());
+    this.persistSettings();
   }
 
   onSettingsApplied(v) {

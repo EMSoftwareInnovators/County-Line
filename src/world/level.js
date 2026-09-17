@@ -57,6 +57,13 @@ export class Level {
         has to see these too, and an archway it cannot see is an archway it
         runs a chair rail across. */
     this.openings = [];
+    /** Things standing against a wall that the trim has to stop at: a
+        chimney breast, a built-in, a stair stringer. A chair rail stops at
+        one for exactly the reason it stops at a doorway -- something else
+        is already there -- and the alternative is a board running straight
+        through nine inches of masonry, which is what the central room's
+        wainscot did until it was recorded here. */
+    this.obstructions = [];
     this.lights = [];
     this.rooms = [];
     this.props = [];
@@ -254,6 +261,21 @@ export class LevelBuilder {
   /**
    * A walkable slab. `collide: false` for something purely decorative.
    * Thickness is geometry only; the collider is the top face.
+   *
+   * `pad` grows the COLLIDER, and only the collider, by that much on all
+   * four sides.
+   *
+   * THE SLAB YOU CAN SEE STOPS AT THE PLASTER; THE FLOOR YOU STAND ON
+   * REACHES UNDER IT. A slab drawn out to the outer face of the masonry
+   * puts its edge face in exactly the plane of the wall's own outer face,
+   * with its bottom foot and a half inside the wall -- two surfaces in one
+   * plane fighting for every pixel they share, right along the string
+   * course, the whole way round the building. Drawing it to the inner
+   * face fixes that and opens a different hole: an external doorway is a
+   * gap in the masonry nineteen inches deep with no floor under it, and
+   * the player drops through the threshold. So the geometry stops at the
+   * plaster and the collider goes under the wall, which is what a real
+   * floor structure does anyway.
    */
   floor(spec) {
     const m = spec.material;
@@ -262,11 +284,20 @@ export class LevelBuilder {
     this.mb.box(spec.x0, y - th, spec.z0, spec.x1, y, spec.z1, {
       all: { tex: m.tex, density: m.density },
       /* The underside of a first-floor slab is the ceiling of the room
-         below, and is usually a different material. */
-      ny: spec.soffit ? { tex: spec.soffit.tex, density: spec.soffit.density } : undefined,
+         below, and is usually a different material. `buried` is for a
+         slab bedded in the ground, which has no underside at all: drawn,
+         it is a face with nothing in front of it, lying in the same
+         plane as the underside of everything else sitting on the same
+         grade and fighting all of them for it. */
+      ny: spec.buried ? null
+        : spec.soffit ? { tex: spec.soffit.tex, density: spec.soffit.density } : undefined,
     });
     if (spec.collide !== false) {
-      this.col.addFloor({ x0: spec.x0, x1: spec.x1, z0: spec.z0, z1: spec.z1, y, tag: spec.tag || 'floor', material: m.material });
+      const p = spec.pad || 0;
+      this.col.addFloor({
+        x0: spec.x0 - p, x1: spec.x1 + p, z0: spec.z0 - p, z1: spec.z1 + p,
+        y, tag: spec.tag || 'floor', material: m.material,
+      });
     }
     this.extend({ x0: spec.x0, x1: spec.x1, y0: y - th, y1: y, z0: spec.z0, z1: spec.z1 });
     return this;
@@ -281,7 +312,11 @@ export class LevelBuilder {
       all: { tex: m.tex, density: m.density },
     });
     if (spec.collide !== false) {
-      this.col.addCeiling({ x0: spec.x0, x1: spec.x1, z0: spec.z0, z1: spec.z1, y, tag: spec.tag || 'ceiling' });
+      const p = spec.pad || 0;
+      this.col.addCeiling({
+        x0: spec.x0 - p, x1: spec.x1 + p, z0: spec.z0 - p, z1: spec.z1 + p,
+        y, tag: spec.tag || 'ceiling',
+      });
     }
     this.extend({ x0: spec.x0, x1: spec.x1, y0: y, y1: y + th, z0: spec.z0, z1: spec.z1 });
     return this;
@@ -293,7 +328,11 @@ export class LevelBuilder {
    * player stepping up into the floor above.
    */
   headroom(spec) {
-    this.col.addCeiling({ x0: spec.x0, x1: spec.x1, z0: spec.z0, z1: spec.z1, y: spec.y, tag: spec.tag || 'slab' });
+    const p = spec.pad || 0;
+    this.col.addCeiling({
+      x0: spec.x0 - p, x1: spec.x1 + p, z0: spec.z0 - p, z1: spec.z1 + p,
+      y: spec.y, tag: spec.tag || 'slab',
+    });
     return this;
   }
 

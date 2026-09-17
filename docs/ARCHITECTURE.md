@@ -170,7 +170,7 @@ in two buildings.
 
 ### A big level, in modules
 
-The Old Academy is what the split above exists for. It is eleven files
+The Old Academy is what the split above exists for. It is twelve files
 under `src/world/levels/academy/`, and the rule that makes it maintainable
 is narrower than "split it up":
 
@@ -192,6 +192,23 @@ A building-specific vocabulary lives in the level's own `parts.js`, not in
 `prefabs.js`. A crenellated parapet, a drip mold and a cast-iron
 colonnade are not things a general prefab library has any business
 knowing about; walls with openings, stairs, railings and glazing are.
+
+**Order is part of the interface.** The twelfth file is `trim.js`, and it
+exists because the wainscot needs to know where the finished building's
+walls are interrupted and where it has walls at all — questions no floor
+module can answer while it is still being built. So the floor modules
+return a list of rectangles and `index.js` lays the boards after the
+porches are up. The rule is written down in that file: **nothing built
+after the trim pass may cut a hole in a wall.**
+
+Two small additions to the builder serve the same separation. `floor()`
+and `headroom()` take a `pad` that grows the *collider* and not the
+geometry, so a slab can stop at the plaster while the floor you stand on
+runs under the masonry at an external threshold. And `level.obstructions`
+records the things standing against a wall that trim has to stop at — a
+chimney breast, a newel — alongside `level.doors` and `level.openings`,
+because "the wall is not available here" is one question with three
+answers.
 
 ---
 

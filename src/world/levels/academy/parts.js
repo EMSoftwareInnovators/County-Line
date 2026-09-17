@@ -25,10 +25,16 @@ function coarse(b, fn) {
   b.mb.maxEdge = was;
 }
 
-/** A box with no collision. The workhorse for everything below. */
-export function trimBox(b, x0, y0, z0, x1, y1, z1, m) {
+/**
+ * A box with no collision. The workhorse for everything below.
+ *
+ * `faces` overrides individual sides -- `{ ny: null }` for something
+ * bedded in the ground, whose underside is not a surface.
+ */
+export function trimBox(b, x0, y0, z0, x1, y1, z1, m, faces) {
   coarse(b, () => {
-    b.mb.box(x0, y0, z0, x1, y1, z1, { all: { tex: m.tex, density: m.density } });
+    b.mb.box(x0, y0, z0, x1, y1, z1,
+      { all: { tex: m.tex, density: m.density }, ...faces });
   });
 }
 
@@ -66,12 +72,13 @@ export function crenellate(b, spec) {
   const m = spec.material;
   const cap = spec.capMaterial || m;
 
-  const box = (a0, a1, y0, y1, mat) => {
+  const box = (a0, a1, y0, y1, mat, faces) => {
     const bx0 = alongX ? spec.x0 + a0 : spec.x0 - half;
     const bx1 = alongX ? spec.x0 + a1 : spec.x0 + half;
     const bz0 = alongX ? spec.z0 - half : spec.z0 + a0;
     const bz1 = alongX ? spec.z0 + half : spec.z0 + a1;
-    b.mb.box(bx0, y0, bz0, bx1, y1, bz1, { all: { tex: mat.tex, density: mat.density } });
+    b.mb.box(bx0, y0, bz0, bx1, y1, bz1,
+      { all: { tex: mat.tex, density: mat.density }, ...faces });
     return { bx0, bx1, bz0, bz1 };
   };
 
@@ -93,7 +100,15 @@ export function crenellate(b, spec) {
   const used = n * pitch - spec.crenel;
   let a = (len - used) / 2;
   for (let i = 0; i < n; i++) {
-    box(a, a + spec.merlon, spec.capTop - inch(2), spec.merlonTop, cap);
+    /* A MERLON STANDS ON THE CAP, IT IS NOT SUNK INTO IT. This used to
+       start two inches below `capTop`, so every merlon in the building
+       shared both of its long faces with the wall it sat on over a
+       two-inch band -- a hundred and thirty-two fighting pairs along the
+       roofline on their own. It now begins exactly where the cap stops,
+       and its underside is left undrawn because the cap is already
+       there: two coplanar faces back to back at the same depth fight
+       just as hard as two overlapping ones, and nobody can see either. */
+    box(a, a + spec.merlon, spec.capTop, spec.merlonTop, cap, { ny: null });
     a += pitch;
   }
 }
@@ -454,7 +469,11 @@ export function sashWindow(b, spec) {
   const mid = spec.sill + (spec.head - spec.sill) * 0.52;
   box(-half, -half + sashT, spec.sill, spec.head, -sashT / 2, sashT / 2, M.sashFrame);
   box(half - sashT, half, spec.sill, spec.head, -sashT / 2, sashT / 2, M.sashFrame);
-  box(-half, half, mid - inch(2), mid + inch(2), -sashT / 2, sashT / 2, M.sashFrame);
+  /* BETWEEN the stiles, not across them: run the full width it lies in
+     the same two planes as both of them over its own depth, which is
+     eighty-six windows' worth of flicker for nothing. */
+  box(-half + sashT, half - sashT, mid - inch(2), mid + inch(2),
+    -sashT / 2, sashT / 2, M.sashFrame);
 
   /* the sill, projecting past the reveal and past the opening */
   const so = inch(4);
@@ -572,14 +591,104 @@ export function wainscot(b, r, spec) {
      pixel of it -- which showed up as a flickering square in the corner
      of every room in the building. */
   const e = t + c;
-  const sides = [
-    { side: 'south', a0: r.x0, a1: r.x1, fix: [r.z0, r.z0 + t], along: 'x' },
-    { side: 'north', a0: r.x0, a1: r.x1, fix: [r.z1 - t, r.z1], along: 'x' },
-    { side: 'west', a0: r.z0 + e, a1: r.z1 - e, fix: [r.x0, r.x0 + t], along: 'z' },
-    { side: 'east', a0: r.z0 + e, a1: r.z1 - e, fix: [r.x1 - t, r.x1], along: 'z' },
+
+  /* ------------------------------------------------------------
+     A BOARD NEEDS A WALL BEHIND IT, AND IT IS NAILED TO ITS FACE.
+
+     Everything else here works the wainscot out from the shape of the
+     room, and a room's rectangle is not the same thing as four walls. It
+     is not even reliably in the same place as them: the upper central
+     room is two named halves of one open space, so its shared edge had
+     two runs of boards standing back to back in mid-air; a stair hall's
+     east boundary is the center line of the wall beside it, so its boards
+     were buried four inches inside the plaster; the Council Room's south
+     boundary is the far face of its own partition.
+
+     So each run is sampled against the collision world -- which by the
+     time trim.js calls this holds every wall in the building -- and the
+     board is laid only where a wall is standing within six inches of the
+     room's boundary, ON THE FACE THAT WALL PRESENTS TO THE ROOM. Both
+     halves matter: the first stops a chair rail crossing thin air, the
+     second stops it disappearing into masonry.
+
+     It also subsumes half the gap list, because at a doorway, at chair
+     height, there is nothing to nail to.
+     ------------------------------------------------------------ */
+  const probeY = y + h * 0.5;
+  const REACH = inch(6);
+  const STEP = inch(2);
+  const walls = b.col.solids.filter((w) => (
+    w.noOcclude !== true && w.tag !== 'door'
+    && w.y0 <= probeY - 0.02 && w.y1 >= probeY + 0.02
+  ));
+  /** The face the wall behind `a` presents to the room, or null. */
+  const faceAt = (s, a) => {
+    let best = null;
+    for (const w of walls) {
+      if (s.along === 'x') {
+        if (a < w.x0 - 1e-6 || a > w.x1 + 1e-6) continue;
+        if (w.z1 < s.bound - REACH || w.z0 > s.bound + REACH) continue;
+        const f = s.dir > 0 ? w.z1 : w.z0;
+        if (best === null || (s.dir > 0 ? f > best : f < best)) best = f;
+      } else {
+        if (a < w.z0 - 1e-6 || a > w.z1 + 1e-6) continue;
+        if (w.x1 < s.bound - REACH || w.x0 > s.bound + REACH) continue;
+        const f = s.dir > 0 ? w.x1 : w.x0;
+        if (best === null || (s.dir > 0 ? f > best : f < best)) best = f;
+      }
+    }
+    return best;
+  };
+  /** Stretches of a run with one wall face behind them, low to high. */
+  const supported = (s) => {
+    const out = [];
+    let open = null, face = null;
+    const n = Math.max(1, Math.ceil((s.a1 - s.a0) / STEP));
+    const close = (a) => { if (open !== null) out.push([open, a, face]); open = null; face = null; };
+    for (let i = 0; i <= n; i++) {
+      const a = s.a0 + (s.a1 - s.a0) * (i / n);
+      const f = faceAt(s, a);
+      if (f === null) { close(a); continue; }
+      if (open !== null && Math.abs(f - face) > 0.002) close(a);
+      if (open === null) { open = a; face = f; }
+    }
+    close(s.a1);
+    return out;
+  };
+
+  /* `dir` is which way the room lies from the wall: +1 means the room is
+     on the high side of it, so the wall's high face is the one to nail
+     to. `bound` is where to look for that wall. */
+  const xSides = [
+    { side: 'south', a0: r.x0, a1: r.x1, along: 'x', bound: r.z0, dir: 1 },
+    { side: 'north', a0: r.x0, a1: r.x1, along: 'x', bound: r.z1, dir: -1 },
   ];
 
-  for (const s of sides) {
+  const run = (s, from, to, face) => {
+    if (to - from < inch(3)) return;
+    const lo = s.dir > 0 ? face : face - t;
+    const hi = lo + t;
+    /* THE CAP PROJECTS INTO THE ROOM, NOT INTO THE WALL. It used to be
+       padded both ways, so two inches of every capping rail and every
+       baseboard in the building stood inside the plaster -- which is
+       both wrong and, where the floor slab stops at the same plaster, a
+       box with an exposed underside nobody will ever see. */
+    const box = (y0, y1, m, pad) => {
+      const p = pad || 0;
+      const a = s.dir > 0 ? lo : lo - p;
+      const c2 = s.dir > 0 ? hi + p : hi;
+      if (s.along === 'x') {
+        trimBox(b, from, y0, a, to, y1, c2, m);
+      } else {
+        trimBox(b, a, y0, from, c2, y1, to, m);
+      }
+    };
+    box(y, y + h - capH, board);
+    box(y + h - capH, y + h, paint, c);          // the cap
+    box(y, y + spec.base, paint, c);             // the baseboard
+  };
+
+  const lay = (s) => {
     /* WAINSCOT STOPS AT A DOORWAY. It is a board on a wall, not a band
        painted round the room, and running it across an opening hides the
        bottom three feet of every door in the building -- which is exactly
@@ -587,27 +696,36 @@ export function wainscot(b, r, spec) {
     const cuts = gaps.filter((g) => g.side === s.side)
       .map((g) => [g.a0, g.a1])
       .sort((p1, p2) => p1[0] - p2[0]);
-    let cursor = s.a0;
-    const run = (from, to) => {
-      if (to - from < inch(3)) return;
-      const box = (y0, y1, m, pad) => {
-        const p = pad || 0;
-        if (s.along === 'x') {
-          trimBox(b, from, y0, s.fix[0] - p, to, y1, s.fix[1] + p, m);
-        } else {
-          trimBox(b, s.fix[0] - p, y0, from, s.fix[1] + p, y1, to, m);
-        }
-      };
-      box(y, y + h - capH, board);
-      box(y + h - capH, y + h, paint, c);          // the cap
-      box(y, y + spec.base, paint, c);             // the baseboard
-    };
-    for (const [g0, g1] of cuts) {
-      run(cursor, Math.min(g0, s.a1));
-      cursor = Math.max(cursor, g1);
+    const spans = supported(s);
+    for (const [w0, w1, face] of spans) {
+      let cursor = w0;
+      for (const [g0, g1] of cuts) {
+        if (g1 <= w0 || g0 >= w1) continue;
+        run(s, cursor, Math.min(g0, w1), face);
+        cursor = Math.max(cursor, g1);
+      }
+      run(s, cursor, w1, face);
     }
-    run(cursor, s.a1);
+    return spans;
+  };
+
+  /* THE RUNS ALONG X OWN THE CORNERS. Four runs round a rectangle
+     overlap where they meet, and two boxes sharing a volume with
+     coincident faces fight for every pixel of it -- a flickering square
+     in the corner of every room in the building. So the two along X go
+     first and the two along Z are cut back to clear whatever face they
+     actually landed on, which is not always the room's own edge. */
+  let zLo = r.z0 + e, zHi = r.z1 - e;
+  for (const s of xSides) {
+    for (const [, , face] of lay(s)) {
+      if (s.dir > 0) zLo = Math.max(zLo, face + e);
+      else zHi = Math.min(zHi, face - e);
+    }
   }
+  for (const s of [
+    { side: 'west', a0: zLo, a1: zHi, along: 'z', bound: r.x0, dir: 1 },
+    { side: 'east', a0: zLo, a1: zHi, along: 'z', bound: r.x1, dir: -1 },
+  ]) lay(s);
 }
 
 /**
@@ -625,11 +743,14 @@ export function openingsAround(level, r, pad) {
      wainscot directly above it, and vice versa. */
   const ry = r.y === undefined ? 0 : r.y;
   const lo = ry, hi = ry + ftin(4, 0);
-  /* DOORS AND CASED OPENINGS BOTH. Looking only at the door list is how
-     a chair rail ends up running across an eight-foot archway, which it
-     did until Stage 2.1 -- the arch is a hole in the wall whether or not
-     anything hangs in it. */
-  for (const d of [...level.doors, ...level.openings]) {
+  /* DOORS, CASED OPENINGS AND OBSTRUCTIONS ALIKE. Looking only at the
+     door list is how a chair rail ends up running across an eight-foot
+     archway, which it did until Stage 2.1 -- the arch is a hole in the
+     wall whether or not anything hangs in it -- and looking only at
+     holes is how it ends up running through nine inches of chimney
+     breast, which it did until this pass. All three are "the wall is
+     not available here", and the trim treats them alike. */
+  for (const d of [...level.doors, ...level.openings, ...level.obstructions]) {
     if (d.y >= hi || d.y + d.height <= lo) continue;
     const hw = d.width / 2 + p;
     const alongX = Math.abs(Math.cos(d.yaw)) > 0.5;   // the door's leaf runs along X
@@ -663,6 +784,12 @@ export function chimneyBreast(b, spec) {
   /* the breast itself, in the room's own wall finish */
   trimBox(b, x0, 0, spec.at - half, x1, D_BREAST.ceil, spec.at + half,
     spec.breast || M.plaster);
+  /* THE TRIM HAS TO KNOW THIS IS HERE. Told nothing, the wainscot runs
+     its boards along the wall line and straight through the masonry. */
+  b.level.obstructions.push({
+    x: spec.line, z: spec.at, y: 0, yaw: Math.PI / 2,
+    width: D_BREAST.w, height: D_BREAST.ceil,
+  });
   mantel(b, {
     axis: 'z', line: spec.line + o * D_BREAST.proj, at: spec.at,
     outward: o, width: D_BREAST.mantelW, height: D_BREAST.mantelH,

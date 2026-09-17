@@ -248,23 +248,105 @@ check('every flight climbs a full half story',
   flights.every((r) => Math.abs(Math.abs(r.yHigh - r.yLow) - plan.floor2 / 2) < 0.02),
   flights.map((r) => M(Math.abs(r.yHigh - r.yLow)).toFixed(2)).join(', '));
 /* ---- nothing may share a face plane with anything it overlaps ----
-   This is the flicker check. Two boxes whose faces lie in the same plane
-   and whose other two axes overlap fight for every pixel they share, and
-   with integer vertex snapping on top of that the shared area shimmers as
-   the camera moves. It is invisible in a screenshot and impossible to
-   miss in motion, so it is checked arithmetically rather than by eye.
+   THE FLICKER CHECK. Two boxes whose faces lie in the same plane and
+   whose other two axes overlap fight for every pixel they share, and with
+   integer vertex snapping and a 1/z depth buffer on top of that the
+   shared area shimmers as the camera moves. It is invisible in a
+   screenshot and impossible to miss in motion, so it is checked
+   arithmetically rather than by eye.
 
-   At the last count this found 132 pairs: the roof decks laid over the
-   tops of the walls, every parapet overlapping the wall under it, and two
-   wall runs reaching the same plane at every corner of the building. */
-const fighting = await page.evaluate(() => {
-  const C = window.__game.level.collision;
-  /* `noOcclude` boxes are thin colliders for things like shrubs and
-     railings that carry no wall-sized geometry of their own. */
-  const S = C.solids.filter((x) => x.noOcclude !== true);
-  const EPS = 0.01, OVER = 0.06;
+   THIS SCANS EVERY BOX THAT IS DRAWN, not the colliders. The first
+   version of this check read `collision.solids`, found a hundred and
+   thirty-two pairs, and they were fixed -- and the building went on
+   shimmering, because trim is never solid and neither are floors,
+   ceilings or roof decks. Scanning the geometry instead found two
+   thousand four hundred square feet of contested surface: every floor
+   slab and every ceiling laid out over the walls, so its edge lay in the
+   plane of the masonry's outer face; the water table and the string
+   course sharing both ends with the wall they are stuck to, at every
+   corner, twice; every merlon sunk two inches into the cap under it;
+   every stringer step lapping the next one; the wainscot running through
+   both chimney breasts; the meeting rail of all eighty-six sash windows
+   lying in the same two planes as its own stiles.
+
+   Two refinements keep it honest rather than merely loud:
+
+     * A FACE THAT IS NOT DRAWN CANNOT FIGHT. Anything bedded in the
+       ground leaves its underside off, and two undersides in one plane
+       under the same lawn are not a flicker, they are nothing.
+     * A FACE THAT IS BURIED CANNOT FIGHT EITHER. Two abutting pieces of
+       a continuous run -- a wall built in three segments, a band course
+       running past it in three more -- share their end planes by
+       construction, and each end face is inside the piece that carries
+       on from it. So the plane is sampled: if solid geometry covers the
+       ground just past it, nothing there is visible.
+
+   The count to beat is zero. */
+const fighting = await page.evaluate(async () => {
+  const mesh = await import('/src/engine/mesh.js');
+  const level = await import('/src/world/level.js');
+  const g = window.__game;
+  const rec = [];
+  const origBox = mesh.MeshBuilder.prototype.box;
+  const origChunk = level.LevelBuilder.prototype.chunk;
+  mesh.MeshBuilder.prototype.box = function (x0, y0, z0, x1, y1, z1, f) {
+    /* Door leaves are built in their own MeshBuilder in local coordinates
+       with the hinge at the origin, so every leaf in the building sits on
+       top of every other one as far as these numbers go. Only a builder
+       that belongs to a chunk holds world-space geometry. */
+    if (this.__chunkName !== undefined) {
+      const off = [];
+      for (const k of ['px', 'nx', 'py', 'ny', 'pz', 'nz']) if (k in f && !f[k]) off.push(k);
+      rec.push({
+        c: this.__chunkName, off,
+        x0: Math.min(x0, x1), x1: Math.max(x0, x1),
+        y0: Math.min(y0, y1), y1: Math.max(y0, y1),
+        z0: Math.min(z0, z1), z1: Math.max(z0, z1),
+      });
+    }
+    return origBox.call(this, x0, y0, z0, x1, y1, z1, f);
+  };
+  level.LevelBuilder.prototype.chunk = function (n, bounds) {
+    const r = origChunk.call(this, n, bounds);
+    this.mb.__chunkName = n;
+    return r;
+  };
+  try {
+    g.loadLevel('academy');
+  } finally {
+    mesh.MeshBuilder.prototype.box = origBox;
+    level.LevelBuilder.prototype.chunk = origChunk;
+  }
+
+  const S = rec.filter((b) => b.x1 - b.x0 > 1e-5 && b.y1 - b.y0 > 1e-5 && b.z1 - b.z0 > 1e-5);
+  const EPS = 0.012, OVER = 0.05, CELL = 2.0;
   const ov = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
   const same = (p1, q1) => Math.abs(p1 - q1) < EPS;
+  const key = (i, j, k) => `${i},${j},${k}`;
+  const grid = new Map();
+  for (const b of S) {
+    for (let i = Math.floor(b.x0 / CELL); i <= Math.floor(b.x1 / CELL); i++) {
+      for (let j = Math.floor(b.y0 / CELL); j <= Math.floor(b.y1 / CELL); j++) {
+        for (let k = Math.floor(b.z0 / CELL); k <= Math.floor(b.z1 / CELL); k++) {
+          const kk = key(i, j, k);
+          if (!grid.has(kk)) grid.set(kk, []);
+          grid.get(kk).push(b);
+        }
+      }
+    }
+  }
+  const IN = 0.004;
+  const covered = (x, y, z, A, B) => {
+    const cell = grid.get(key(Math.floor(x / CELL), Math.floor(y / CELL), Math.floor(z / CELL)));
+    if (!cell) return false;
+    for (const c of cell) {
+      if (c === A || c === B) continue;
+      if (x > c.x0 + IN && x < c.x1 - IN && y > c.y0 + IN && y < c.y1 - IN
+        && z > c.z0 + IN && z < c.z1 - IN) return true;
+    }
+    return false;
+  };
+  const FACE = { x1: 'px', x0: 'nx', y1: 'py', y0: 'ny', z1: 'pz', z0: 'nz' };
   const out = [];
   for (let i = 0; i < S.length; i++) {
     for (let j = i + 1; j < S.length; j++) {
@@ -272,18 +354,33 @@ const fighting = await page.evaluate(() => {
       const ox = ov(A.x0, A.x1, B.x0, B.x1);
       const oy = ov(A.y0, A.y1, B.y0, B.y1);
       const oz = ov(A.z0, A.z1, B.z0, B.z1);
-      let axis = null;
-      if (oy > OVER && oz > OVER && (same(A.x0, B.x0) || same(A.x1, B.x1))) axis = 'x';
-      else if (oy > OVER && ox > OVER && (same(A.z0, B.z0) || same(A.z1, B.z1))) axis = 'z';
-      else if (ox > OVER && oz > OVER && (same(A.y0, B.y0) || same(A.y1, B.y1))) axis = 'y';
-      if (axis) out.push(`${A.tag || '?'}/${B.tag || '?'} on ${axis}`);
+      if (ox <= 1e-6 || oy <= 1e-6 || oz <= 1e-6) continue;
+      let axis = null, plane = 0, dir = 0;
+      if (oy > OVER && oz > OVER && same(A.x0, B.x0)) { axis = 'x'; plane = A.x0; dir = -1; }
+      else if (oy > OVER && oz > OVER && same(A.x1, B.x1)) { axis = 'x'; plane = A.x1; dir = 1; }
+      else if (oy > OVER && ox > OVER && same(A.z0, B.z0)) { axis = 'z'; plane = A.z0; dir = -1; }
+      else if (oy > OVER && ox > OVER && same(A.z1, B.z1)) { axis = 'z'; plane = A.z1; dir = 1; }
+      else if (ox > OVER && oz > OVER && same(A.y0, B.y0)) { axis = 'y'; plane = A.y0; dir = -1; }
+      else if (ox > OVER && oz > OVER && same(A.y1, B.y1)) { axis = 'y'; plane = A.y1; dir = 1; }
+      if (!axis) continue;
+      const fk = FACE[axis + (dir > 0 ? '1' : '0')];
+      if (A.off.includes(fk) || B.off.includes(fk)) continue;
+      const cx = (Math.max(A.x0, B.x0) + Math.min(A.x1, B.x1)) / 2;
+      const cy = (Math.max(A.y0, B.y0) + Math.min(A.y1, B.y1)) / 2;
+      const cz = (Math.max(A.z0, B.z0) + Math.min(A.z1, B.z1)) / 2;
+      const q = plane + dir * 0.03;
+      if (axis === 'x' ? covered(q, cy, cz, A, B)
+        : axis === 'z' ? covered(cx, cy, q, A, B) : covered(cx, q, cz, A, B)) continue;
+      out.push(`${A.c}/${B.c} on ${axis}`);
     }
   }
-  return out;
+  return { n: S.length, out };
 });
-check('nothing shares a face plane with anything it overlaps',
-  fighting.length === 0,
-  fighting.length ? `${fighting.length} pairs, e.g. ${fighting.slice(0, 3).join(', ')}` : 'none');
+check('nothing drawn shares a face plane with anything it overlaps',
+  fighting.out.length === 0,
+  fighting.out.length
+    ? `${fighting.out.length} pairs of ${fighting.n} boxes, e.g. ${fighting.out.slice(0, 3).join(', ')}`
+    : `none, of ${fighting.n} boxes`);
 
 /* A plaster ceiling was laid across both stairwells once, and the
    symptom was a player who climbed nine risers, hit their head and slid
@@ -461,11 +558,12 @@ check('the west stair comes back down to the first floor',
   p.floor === 1 && p.y < ft(0.3), `${where(p)} y ${M(p.y).toFixed(2)} ft`);
 
 console.log('\n-- route J: west upper -> meeting room -> east upper --');
-/* The upper central room is one meeting room with a spine wall down it,
-   and the opening in that spine is on the room's center line at Z = 0 --
-   not up at the landing doors. So the route goes in at the landing door,
-   down the room, across, and back up to the other door. That dog-leg is
-   the building's, not a compromise. */
+/* The upper central room is ONE OPEN ROOM. The visitor map prints two
+   names across it -- the War Room west, Modern Mammals east -- and
+   annotates both halves as the common meeting room; there is no wall
+   between them, and the one built here on the strength of that printed
+   line is gone. The dog-leg below is still walked, because it proves the
+   room is crossable on the diagonal as well as straight through. */
 await put(ft(-30), ft(17.34), ft(12.5), E);
 p = await advance(inRoom('academy.upper.center.war'));
 check('J1 the west landing reaches the War Room',
@@ -474,7 +572,7 @@ await face(S);
 await step(belowZ(ft(4)));
 await face(E);
 p = await advance(inRoom('academy.upper.center.mammals'));
-check('J2 the meeting room carries across its spine wall',
+check('J2 the meeting room is one open space across the center line',
   p.room === 'academy.upper.center.mammals', where(p));
 await face(N);
 await step(pastZ(ft(11.6)));

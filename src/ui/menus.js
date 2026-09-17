@@ -163,7 +163,7 @@ export class MenuController {
     this.ui.showPanel(
       `<h2>${s.title}</h2>`
       + (s.blurb ? `<p class="blurb">${s.blurb}</p>` : '')
-      + `<ul class="menu">${body}</ul>`
+      + `<ul class="menu" tabindex="-1">${body}</ul>`
       + `<p class="pad-foot">${s.footer || defaultFooter()}</p>`
     );
     /* A rebuilt panel starts scrolled to the top, so the highlight has to
@@ -181,39 +181,78 @@ const defaultFooter = () =>
    THE SCREENS
    ============================================================ */
 
+/*
+ * SETTINGS IS A MENU OF PAGES, NOT A PAGE.
+ *
+ * It used to be one list: five volume sliders, three look rows, four
+ * picture rows and two actions, sixteen deep. The panel clipped whatever
+ * did not fit without a scrollbar, so on a short window the picture
+ * settings were simply not there as far as the player was concerned --
+ * and even once the panel scrolled, a setting eleven rows down a list is
+ * a setting nobody finds.
+ *
+ * No page below is more than six rows. Everything is two keypresses from
+ * the pause menu.
+ */
 export function settingsScreen(game) {
-  const S = game.settings;
-  const v = S.values;
-  const touch = () => { S.apply(game.systems()); game.persistSettings(); };
   return {
     title: 'SETTINGS',
     rows: () => [
-      text('AUDIO'),
-      slider('Master', () => v.volMaster, (x) => { v.volMaster = x; touch(); }),
-      slider('Ambience', () => v.volAmbience, (x) => { v.volAmbience = x; touch(); }),
-      slider('Effects', () => v.volSfx, (x) => { v.volSfx = x; touch(); }),
-      slider('Voice', () => v.volVoice, (x) => { v.volVoice = x; touch(); }),
-      slider('Interface', () => v.volUi, (x) => { v.volUi = x; touch(); }),
-      text('LOOKING'),
-      slider('Mouse sensitivity', () => v.mouseSensitivity, (x) => { v.mouseSensitivity = x; touch(); }),
-      slider('Controller sensitivity', () => v.padSensitivity, (x) => { v.padSensitivity = x; touch(); }),
-      toggle('Invert look (Y)', () => v.invertY, (x) => { v.invertY = x; touch(); }),
+      action('Audio...', () => game.menu.show(audioScreen(game))),
+      action('Looking...', () => game.menu.show(lookScreen(game))),
       action('Picture...', () => game.menu.show(pictureScreen(game))),
       action('Controls...', () => game.menu.show(controlsScreen(game))),
+      action('Reset all settings', () => game.menu.show(confirmScreen(game,
+        'RESET ALL SETTINGS?',
+        'Volumes, sensitivity, invert look, resolution and the retro filter '
+        + 'go back to their defaults. Key and controller bindings are not touched.',
+        /* No `menu.back()` here: confirmScreen's Yes has already popped
+           itself, and a second pop threw the player out of SETTINGS
+           altogether -- which looks exactly like the reset having
+           closed the menu on them. */
+        () => { game.resetSettings(); }))),
       action('Back', () => game.menu.back()),
     ],
   };
 }
 
-/**
- * The picture settings, on their own page.
- *
- * They used to be the last four rows of SETTINGS, below five volume
- * sliders and three look rows, and the panel clipped them off the bottom
- * without a scrollbar -- so as far as the player was concerned the game
- * had no video options at all. A page of its own is the fix that does not
- * depend on how tall anybody's window is.
- */
+export function audioScreen(game) {
+  const S = game.settings;
+  const v = S.values;
+  const touch = () => { S.apply(game.systems()); game.persistSettings(); };
+  return {
+    title: 'AUDIO',
+    rows: () => [
+      slider('Master', () => v.volMaster, (x) => { v.volMaster = x; touch(); }),
+      slider('Ambience', () => v.volAmbience, (x) => { v.volAmbience = x; touch(); }),
+      slider('Effects', () => v.volSfx, (x) => { v.volSfx = x; touch(); }),
+      slider('Voice', () => v.volVoice, (x) => { v.volVoice = x; touch(); }),
+      slider('Interface', () => v.volUi, (x) => { v.volUi = x; touch(); }),
+      action('Back', () => game.menu.back()),
+    ],
+  };
+}
+
+export function lookScreen(game) {
+  const S = game.settings;
+  const v = S.values;
+  const touch = () => { S.apply(game.systems()); game.persistSettings(); };
+  return {
+    title: 'LOOKING',
+    blurb: 'Moving the mouse or the trackpad AWAY from you looks up. '
+      + 'Turn Invert look on if you want it the other way round.',
+    rows: () => [
+      slider('Mouse sensitivity', () => v.mouseSensitivity, (x) => { v.mouseSensitivity = x; touch(); }),
+      slider('Controller sensitivity', () => v.padSensitivity, (x) => { v.padSensitivity = x; touch(); }),
+      toggle('Invert look (Y)', () => v.invertY, (x) => { v.invertY = x; touch(); }),
+      slider('Field of view', () => (v.fieldOfView - 50) / 40,
+        (x) => { v.fieldOfView = Math.round(50 + x * 40); touch(); },
+        { value: () => `${v.fieldOfView}\u00b0` }),
+      action('Back', () => game.menu.back()),
+    ],
+  };
+}
+
 export function pictureScreen(game) {
   const S = game.settings;
   const v = S.values;
@@ -229,9 +268,6 @@ export function pictureScreen(game) {
         (i) => { v.retro = RETRO_LEVELS[i]; touch(); },
         { render: (r) => r.toUpperCase() }),
       toggle('Vertex snapping', () => v.vertexSnap, (x) => { v.vertexSnap = x; touch(); }),
-      slider('Field of view', () => (v.fieldOfView - 50) / 40,
-        (x) => { v.fieldOfView = Math.round(50 + x * 40); touch(); },
-        { value: () => `${v.fieldOfView}\u00b0` }),
       action('Back', () => game.menu.back()),
     ],
   };
@@ -281,6 +317,7 @@ export function pauseScreen(game) {
     title: 'PAUSED',
     rows: () => [
       action('Resume', () => game.resume()),
+      action('Picture', () => game.menu.show(pictureScreen(game))),
       action('Settings', () => game.menu.show(settingsScreen(game))),
       action('Controls', () => game.menu.show(controlsScreen(game))),
       action('Save', () => game.saveNow()),

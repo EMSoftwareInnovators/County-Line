@@ -64,15 +64,20 @@ export function buildGrounds(b) {
   });
   b.detail(3.0);
   b.floor({
-    x0: D.X_BAY_W, x1: D.X_BAY_E, z0: D.Z_PORCH_N, z1: D.Z_N_OUT + ft(1),
-    y: D.GARDEN_LEVEL, material: M.gardenGrass, thickness: ftin(1, 6), tag: 'garden',
+    /* Stopping at the face of the wall that closes the north end, not
+       running on under it: a slab and a wall that share two faces and a
+       volume fight over both. */
+    x0: D.X_BAY_W, x1: D.X_BAY_E, z0: D.Z_PORCH_N, z1: D.Z_N_OUT - inch(4),
+    y: D.GARDEN_LEVEL, material: M.gardenGrass, thickness: ftin(1, 6),
+    buried: true, tag: 'garden',
   });
   /* A gravel walk up the middle, from the porch steps to the far end,
      because a courtyard you cross on grass in the wet is a courtyard
      nobody crossed. */
   b.floor({
-    x0: -ftin(3, 0), x1: ftin(3, 0), z0: D.Z_PORCH_N, z1: D.Z_N_OUT,
-    y: D.GARDEN_LEVEL + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'garden-walk',
+    x0: -ftin(3, 0), x1: ftin(3, 0), z0: D.Z_PORCH_N, z1: D.Z_N_OUT - inch(4),
+    y: D.GARDEN_LEVEL + inch(3), material: M.walk, thickness: ftin(0, 8),
+    buried: true, tag: 'garden-walk',
   });
   bed(b, D.X_BAY_W + ftin(2, 0), D.Z_PORCH_N + ft(6), -ftin(5, 0), D.Z_PORCH_N + ftin(9, 6),
     D.GARDEN_LEVEL);
@@ -102,7 +107,10 @@ export function buildGrounds(b) {
       y0: D.GRADE, y1: D.GRADE + ft(60), floor: 0, outdoor: true,
     });
     b.detail(4.0);
-    b.floor({ x0, x1, z0, z1, y: D.GRADE, material: m, thickness: ft(2), tag: 'ground' });
+    b.floor({
+      x0, x1, z0, z1, y: D.GRADE, material: m,
+      thickness: ft(2), buried: true, tag: 'ground',
+    });
   };
 
   g('academy.grounds.front', 'Front Lawn',
@@ -124,15 +132,22 @@ export function buildGrounds(b) {
      enough that the building has a setting instead of standing on a lawn. */
   b.chunk('academy.grounds.front');
   b.detail(3.0);
+  /* Up to the cross walk and no further: laid the whole way to the
+     façade it ran THROUGH the cross walk, two slabs at one height
+     fighting over the square where they meet, and out under the portico
+     where nothing covers its end. The cross walk carries it across and
+     the steps take over from there. */
   b.floor({
-    x0: -ftin(3, 6), x1: ftin(3, 6), z0: SITE.z0 + ft(6), z1: D.Z_FACADE,
-    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    x0: -ftin(3, 6), x1: ftin(3, 6), z0: SITE.z0 + ft(6), z1: D.Z_FACADE - ftin(9, 0),
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8),
+    buried: true, tag: 'walk',
   });
   /* and a cross walk along the front of the building */
   b.floor({
     x0: D.X_W_OUT - ft(8), x1: D.X_E_OUT + ft(8),
     z0: D.Z_FACADE - ftin(9, 0), z1: D.Z_FACADE - ftin(5, 6),
-    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8),
+    buried: true, tag: 'walk',
   });
   /* Planting either side of the walk, kept well clear of it. */
   for (const s of [-1, 1]) {
@@ -154,16 +169,19 @@ export function buildGrounds(b) {
   b.chunk('academy.grounds.west');
   b.floor({
     x0: D.X_W_OUT - ftin(8, 0), x1: D.X_W_OUT, z0: ft(40), z1: ft(46),
-    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8),
+    buried: true, tag: 'walk',
   });
   b.chunk('academy.grounds.east');
   b.floor({
     x0: D.X_E_OUT, x1: D.X_E_OUT + ftin(8, 0), z0: ft(40), z1: ft(46),
-    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8),
+    buried: true, tag: 'walk',
   });
   b.floor({
     x0: D.X_E_OUT, x1: D.X_E_OUT + ftin(8, 0), z0: ft(16.5), z1: ft(22.5),
-    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8), tag: 'walk',
+    y: D.GRADE + inch(3), material: M.walk, thickness: ftin(0, 8),
+    buried: true, tag: 'walk',
   });
 
   /* Three-foot stoops at each side door, since the floor stands three

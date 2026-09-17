@@ -25,7 +25,7 @@
    ============================================================ */
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
-import { chimneyBreast, column, openingsAround, setBreast, trimBox, wainscot } from './parts.js';
+import { chimneyBreast, column, setBreast, trimBox } from './parts.js';
 
 /* Interior openings. `at` is an absolute coordinate along the wall. */
 const door = (at, id, opt = {}) => ({
@@ -99,7 +99,15 @@ function slab(b, chunk, x0, x1, z0, z1, m) {
      straight. Floors get 1.0 m: they are the one surface always seen at
      a grazing angle, and it is the cheapest place to spend triangles. */
   b.detail(1.0);
-  b.floor({ x0, x1, z0, z1, y: 0, material: m, thickness: ftin(1, 0), tag: 'floor1' });
+  /* `pad` is the exterior wall's thickness: the boards you can see stop
+     at the plaster, the structure you stand on runs on under the
+     masonry. See the note on LevelBuilder.floor -- drawn out to the
+     outer face, a slab's edge lands in the plane of the wall's own outer
+     face and the two fight for the whole string course. */
+  b.floor({
+    x0, x1, z0, z1, y: 0, material: m,
+    thickness: ftin(1, 0), pad: D.EXT, tag: 'floor1',
+  });
 }
 
 /* ============================================================
@@ -126,11 +134,16 @@ function stairHallZone(b, side) {
   const light = { material: M.plaster, thickness: D.PART };
   const hallLine = west ? D.X_W_HALL_W - D.PART / 2 : D.X_E_HALL_E + D.PART / 2;
   const inner = west ? D.X_W_IN : D.X_E_IN;
-  const outerWall = west ? D.X_W_HALL_W : D.X_E_HALL_E;
+  /* THE CLEAR SIDE OF THAT WALL, not its center line and not its far
+     face. `X_W_HALL_W` is where the REAR hall starts, so the stair band
+     runs up to the wall's other face -- and a room rectangle that
+     includes the thickness of its own boundary wall puts this band's
+     ceiling, its cornice and its wainscot inside the plaster. */
+  const clear = west ? D.X_W_HALL_W - D.PART : D.X_E_HALL_E + D.PART;
   const stair = west ? 'academy.west.stairhall' : 'academy.east.stairhall';
   const rear = west ? 'academy.west.rearhall' : 'academy.east.rearhall';
 
-  const x0 = Math.min(inner, outerWall), x1 = Math.max(inner, outerWall);
+  const x0 = Math.min(inner, clear), x1 = Math.max(inner, clear);
 
   /* The rear hall's west (or east) wall.
 
@@ -161,9 +174,10 @@ function stairHallZone(b, side) {
   b.chunk(stair);
   partition(b, {
     axis: 'x', line: D.Z_STAIR_N + D.PART / 2,
-    /* Stopping at the rear-hall wall's inner face, not at its center
-       line: run to the center and the two walls share an end plane. */
-    from: west ? x0 : x0 + D.PART, to: west ? x1 - D.PART : x1,
+    /* Wall face to wall face: x0 and x1 are already the clear span, so
+       this meets the masonry at both ends without sharing a plane with
+       it. */
+    from: x0, to: x1,
     ...light, y1: west ? D.CEIL_SERVICE : D.CEIL_SECONDARY, openings: [],
   });
 
@@ -189,6 +203,17 @@ function stairHallZone(b, side) {
   });
 }
 
+/**
+ * Build the first floor, and return the rooms that get wainscot.
+ *
+ * THE BOARDS GO ON LAST OF ALL, in trim.js, after every module that cuts
+ * a hole in a wall has run. Laid here, the wainscot asked the level where
+ * the doorways were before porches.js had built the two front-porch
+ * doors, so it ran straight across both of them -- which is exactly the
+ * fault it was moved to the end of this function to avoid, one module
+ * too early. A list of rectangles is the only thing this floor owes the
+ * trim pass.
+ */
 export function buildFirstFloor(b) {
   const M = b.M;
   /* parts.js is a vocabulary, not a second place the building is
@@ -207,17 +232,18 @@ export function buildFirstFloor(b) {
      that stops at the plaster leaves a gap under every doorway, and the
      collider then drops the player for the two frames it takes to cross
      one. Stage 1 learned that the hard way; this is the fix applied from
-     the start.
+     the start -- but applied to the COLLIDER, through `pad`, and not by
+     drawing the boards out over the walls.
      ============================================================ */
   const MID_S_CL = D.Z_FB_N + D.CROSS / 2;
   const MID_N_CL = D.Z_MID_N + D.CROSS / 2;
-  slab(b, 'floor1.west.front', D.X_W_OUT, D.X_BAY_W, D.Z_FACADE, MID_S_CL, M.heartPine);
-  slab(b, 'floor1.west.mid', D.X_W_OUT, D.X_BAY_W, MID_S_CL, MID_N_CL, M.heartPine);
-  slab(b, 'floor1.west.north', D.X_W_OUT, D.X_BAY_W, MID_N_CL, D.Z_N_OUT, M.heartPine);
-  slab(b, 'floor1.east.front', D.X_BAY_E, D.X_E_OUT, D.Z_FACADE, MID_S_CL, M.heartPine);
-  slab(b, 'floor1.east.mid', D.X_BAY_E, D.X_E_OUT, MID_S_CL, MID_N_CL, M.heartPine);
-  slab(b, 'floor1.east.north', D.X_BAY_E, D.X_E_OUT, MID_N_CL, D.Z_N_OUT, M.heartPine);
-  slab(b, 'floor1.central', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S_OUT, D.Z_CENTRAL_N_OUT, M.heartPine);
+  slab(b, 'floor1.west.front', D.X_W_IN, D.X_WING_W_IN, D.Z_S_IN, MID_S_CL, M.heartPine);
+  slab(b, 'floor1.west.mid', D.X_W_IN, D.X_WING_W_IN, MID_S_CL, MID_N_CL, M.heartPine);
+  slab(b, 'floor1.west.north', D.X_W_IN, D.X_WING_W_IN, MID_N_CL, D.Z_N_IN, M.heartPine);
+  slab(b, 'floor1.east.front', D.X_WING_E_IN, D.X_E_IN, D.Z_S_IN, MID_S_CL, M.heartPine);
+  slab(b, 'floor1.east.mid', D.X_WING_E_IN, D.X_E_IN, MID_S_CL, MID_N_CL, M.heartPine);
+  slab(b, 'floor1.east.north', D.X_WING_E_IN, D.X_E_IN, MID_N_CL, D.Z_N_IN, M.heartPine);
+  slab(b, 'floor1.central', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N, M.heartPine);
 
   /* ============================================================
      ROOMS
@@ -248,7 +274,7 @@ export function buildFirstFloor(b) {
        player's head at about the ninth riser and then drops them back
        down it. `P_` here means "reaches the structural floor", and over
        the well there is no structural floor to reach. */
-    ['academy.west.stairhall', 'West Stair Hall', D.X_W_IN, D.X_W_HALL_W, D.Z_MID_S, D.Z_STAIR_N, P_],
+    ['academy.west.stairhall', 'West Stair Hall', D.X_W_IN, D.X_W_HALL_W - D.PART, D.Z_MID_S, D.Z_STAIR_N, P_],
     ['academy.west.rearhall', 'West Rear Hall', D.X_W_HALL_W, D.X_WING_W_IN, D.Z_MID_S, D.Z_MID_N, S_],
     ['academy.west.offices', 'Offices', D.X_W_IN, D.X_WING_W_IN, D.Z_NB_S, D.Z_N_IN, S_],
 
@@ -265,7 +291,7 @@ export function buildFirstFloor(b) {
     ['academy.giftshop', 'Gift Shop', D.X_WING_E_IN, X_SHOP_W, D.Z_S_IN, D.Z_FB_N, S_],
     ['academy.americana.main', 'Americana', X_SHOP_W + D.PART, D.X_E_IN, D.Z_S_IN, D.Z_FB_N, S_],
     ['academy.east.rearhall', 'East Rear Hall / USS Augusta', D.X_WING_E_IN, D.X_E_HALL_E, D.Z_MID_S, D.Z_MID_N, S_],
-    ['academy.east.stairhall', 'East Stair Hall', D.X_E_HALL_E, D.X_E_IN, D.Z_MID_S, D.Z_STAIR_N, P_],
+    ['academy.east.stairhall', 'East Stair Hall', D.X_E_HALL_E + D.PART, D.X_E_IN, D.Z_MID_S, D.Z_STAIR_N, P_],
     ['academy.east.animal', 'Animal Room', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_NB_S, D.Z_ANIMAL_N, S_],
     ['academy.east.staff', 'Staff', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_STAFF_S, D.Z_N_IN, S_],
     ['academy.east.service', 'East Service Room', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_NB_S, D.Z_STRIP_S_N, S_],
@@ -443,7 +469,13 @@ export function buildFirstFloor(b) {
   });
   partition(b, {
     chunk: 'academy.east.council',
-    axis: 'x', line: D.Z_STRIP_N_S + D.PART / 2,
+    /* `Z_STRIP_M_N` is the vestibule's north face and `Z_STRIP_N_S` the
+       Council Room's south face, one partition thickness apart -- so the
+       wall between them is centered on the first, not the second. Set on
+       `Z_STRIP_N_S` it stood eight inches north of where both rooms
+       expected it: eight inches of vestibule with no wall round it, and
+       the Council Room's own ceiling and cornice laid over the wall. */
+    axis: 'x', line: D.Z_STRIP_M_N + D.PART / 2,
     from: D.X_EAST_STRIP_W, to: D.X_E_IN,
     ...light,
     openings: [door(ft(48.5), 'vestibule-council', { name: 'council door' })],
@@ -453,22 +485,6 @@ export function buildFirstFloor(b) {
      A beadboard ceiling line, expressed as the shadow gap at the wall
      head. The ceiling itself is the soffit of the second-floor slab.
      ============================================================ */
-  /* ---- wainscot ----
-     LAST, because it has to know where the doorways are, and it asks the
-     level rather than a second list of its own. Painted beadboard with a
-     capping rail and a substantial baseboard, which is what every
-     interior photograph of this building shows along the bottom of every
-     wall -- stopping, as a board on a wall does, at every opening. */
-  for (const [id, , x0, x1, z0, z1] of rooms) {
-    b.chunk(id);
-    b.detail(2.2);
-    const r = { x0, x1, z0, z1, y: 0 };
-    wainscot(b, r, {
-      height: D.WAINSCOT_H, cap: D.WAINSCOT_CAP, base: D.BASE_H,
-      gaps: openingsAround(b.level, r),
-    });
-  }
-
   for (const [id, , x0, x1, z0, z1, ceil] of rooms) {
     b.chunk(id);
     const y = ceil - inch(9);
@@ -537,4 +553,8 @@ export function buildFirstFloor(b) {
     trimBox(b, D.X_BAY_W, D.PICTURE_RAIL, zz - inch(1),
       D.X_BAY_E, D.PICTURE_RAIL + inch(2), zz + inch(1), M.trimDark);
   }
+
+  /* Every room on this floor takes wainscot, at floor level. trim.js
+     lays it once everything that cuts a wall has been built. */
+  return rooms.map(([id, , x0, x1, z0, z1]) => ({ chunk: id, x0, x1, z0, z1, y: 0 }));
 }

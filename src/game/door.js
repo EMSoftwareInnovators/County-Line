@@ -221,28 +221,54 @@ export class Door {
 export function buildDoorFrame(mb, door, material, opening) {
   const [rx, rz] = door.right;
   const hw = door.width / 2;
-  const jamb = 0.10;                 // architrave width, about four inches
   const depth = opening && opening.depth ? opening.depth : 0.16;
-  /* THE CASING STANDS PROUD OF THE WALL.
-
-     It used to be exactly as deep as the wall was thick, which put its two
-     long faces in precisely the same plane as the faces of the piers
-     either side of the opening. Two coplanar surfaces in a 1/z depth
-     buffer fight for every pixel they share, and with integer vertex
-     snapping on top of that the result shimmers as the camera moves --
-     which is why every doorway and archway in the building flickered
-     round its edges. An architrave projects in real joinery anyway. */
-  const PROUD = 0.022;               // about seven eighths of an inch
   const f = { tex: material.tex, density: material.density };
-  const put = (cx, cz, halfAlong, y0, y1) => {
-    const d = depth / 2 + PROUD;
-    const ax = Math.abs(rx) * halfAlong + Math.abs(rz) * d;
-    const az = Math.abs(rz) * halfAlong + Math.abs(rx) * d;
-    mb.box(cx - ax, y0, cz - az, cx + ax, y1, cz + az, { all: f });
+
+  /* ------------------------------------------------------------
+     AN ARCHITRAVE, NOT A BOX THROUGH THE WALL.
+
+     This was one box per jamb and one for the head, each as deep as the
+     wall was thick. Three separate depth-buffer fights came out of that,
+     and together they are why every doorway in the building shimmered
+     when you walked past it:
+
+       * the box's long faces were in exactly the plane of the piers
+         either side of the opening;
+       * its face toward the opening was in exactly the plane of the
+         pier's reveal, and its underside in the plane of the lintel's;
+       * and the jambs ran up THROUGH the head, so the two overlapped in
+         the corners with every face coincident.
+
+     What is built now is what a joiner would build: a flat band on each
+     face of the wall, standing a little proud of it, set back from the
+     opening edge by a margin, with the jambs stopping where the head
+     begins. Nothing lines the reveal, because the reveal is the end face
+     of the masonry and it is already there.
+     ------------------------------------------------------------ */
+  const JAMB = 0.105;               // width of the band, about four inches
+  const PROUD = 0.022;              // how far it stands off the wall face
+  const MARGIN = 0.008;             // set-back from the opening edge
+
+  /* `along` runs with the wall, `out` across it. A band is placed by its
+     span along the wall, its height, and which face of the wall it is on. */
+  const band = (a0, a1, y0, y1, side) => {
+    const near = side * depth / 2;
+    const far = near + side * PROUD;
+    const x0 = door.x + rx * a0 + Math.abs(rz) * Math.min(near, far);
+    const x1 = door.x + rx * a1 + Math.abs(rz) * Math.max(near, far);
+    const z0 = door.z + rz * a0 + Math.abs(rx) * Math.min(near, far);
+    const z1 = door.z + rz * a1 + Math.abs(rx) * Math.max(near, far);
+    mb.box(Math.min(x0, x1), y0, Math.min(z0, z1),
+      Math.max(x0, x1), y1, Math.max(z0, z1), { all: f });
   };
-  // the two jambs
-  put(door.x - rx * (hw + jamb / 2), door.z - rz * (hw + jamb / 2), jamb / 2, door.y, door.y + door.height + jamb);
-  put(door.x + rx * (hw + jamb / 2), door.z + rz * (hw + jamb / 2), jamb / 2, door.y, door.y + door.height + jamb);
-  // the head
-  put(door.x, door.z, hw + jamb, door.y + door.height, door.y + door.height + jamb);
+
+  const inner = hw + MARGIN;
+  const outer = inner + JAMB;
+  const headY = door.y + door.height + MARGIN;
+
+  for (const side of [-1, 1]) {
+    band(-outer, -inner, door.y, headY, side);            // jamb
+    band(inner, outer, door.y, headY, side);              // jamb
+    band(-outer, outer, headY, headY + JAMB, side);       // head, across both
+  }
 }

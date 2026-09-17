@@ -20,6 +20,27 @@ const st = () => page.evaluate(() => ({
   title: !document.getElementById('title').classList.contains('hidden'),
 }));
 const press = async (k, ms = 200) => { await page.keyboard.press(k); await page.waitForTimeout(ms); };
+/** Put the highlight on the row with this label. Selecting by label
+    rather than by counting keypresses: the pages have headings in them,
+    a heading is not selectable, and "two down from the top" stops being
+    true the moment a row moves. */
+const pick = (label) => page.evaluate((l) => {
+  const g = window.__game;
+  const i = g.menu.rows().findIndex((r) => r.label === l);
+  if (i < 0) throw new Error(`no row "${l}" on ${g.menu.screen.title}`);
+  g.menu.sel = i; g.menu.render();
+}, label);
+/** Walk into a sub-page the way a player does. */
+const open = async (label, ms = 300) => { await pick(label); await press('Enter', ms); };
+const rowsNow = () => page.evaluate(() => window.__game.menu.rows().map((r) => r.label));
+const pageTitle = () => page.evaluate(() => window.__game.menu.screen.title);
+const back = async () => {
+  await page.evaluate(() => {
+    const m = window.__game.menu;
+    m.sel = m.rows().length - 1; m.render();
+  });
+  await press('Enter', 250);
+};
 
 /* ---- the title ---- */
 let s = await st();
@@ -37,79 +58,106 @@ await press('Enter', 350);
 s = await st();
 check('SETTINGS opens', s.state === 'MENU' && /SETTINGS/.test(s.head), `${s.state} / ${s.head}`);
 
-/* ---- a slider ---- */
+/* ---- SETTINGS IS A MENU OF PAGES ----
+   It used to be one list of nineteen rows, and a panel that clipped
+   instead of scrolling cut it off at the twelfth -- so as far as a player
+   was concerned the game had no video options at all. Every page below is
+   short enough to fit whatever the panel is, and everything is two
+   keypresses from here. */
+const topRows = await rowsNow();
+for (const label of ['Audio...', 'Looking...', 'Picture...', 'Controls...', 'Reset all settings']) {
+  check(`SETTINGS offers ${label}`, topRows.includes(label), topRows.join(', '));
+}
+
+/* ---- a slider, on the audio page ---- */
+await open('Audio...');
+check('AUDIO opens', (await pageTitle()) === 'AUDIO', await pageTitle());
 const vol0 = await page.evaluate(() => window.__game.settings.values.volMaster);
-/* Select by label rather than by counting keypresses: the screen has
-   headings in it, and a heading is not selectable, so "two down from the
-   top" is not a stable way to name a row. */
-await page.evaluate(() => {
-  const g = window.__game;
-  g.menu.sel = g.menu.rows().findIndex((r) => r.label === 'Master');
-  g.menu.render();
-});
+await pick('Master');
 await press('ArrowLeft', 150);
 await press('ArrowLeft', 150);
 const vol1 = await page.evaluate(() => window.__game.settings.values.volMaster);
 check('a volume slider moves', vol1 < vol0, `${vol0} -> ${vol1}`);
 check('and reaches the audio engine',
   await page.evaluate(() => Math.abs(window.__game.audio.levels.master - window.__game.settings.values.volMaster) < 1e-6));
+await back();
+check('Back returns from AUDIO to SETTINGS', (await pageTitle()) === 'SETTINGS', await pageTitle());
 
-/* ---- invert Y ---- */
-const rows = await page.evaluate(() => window.__game.menu.rows().map((r) => r.label));
-const invertRow = rows.indexOf('Invert look (Y)');
-await page.evaluate((i) => { window.__game.menu.sel = i; window.__game.menu.render(); }, invertRow);
+/* ---- looking: invert Y, sensitivity, field of view ----
+   These are together on one short page with a line of prose over them,
+   because "the camera goes the wrong way when I move my finger" is a
+   thing a player has to be able to find and fix, not hunt for among
+   nineteen rows. */
+await open('Looking...');
+check('LOOKING opens', (await pageTitle()) === 'LOOKING', await pageTitle());
+const lookRows = await rowsNow();
+for (const label of ['Mouse sensitivity', 'Invert look (Y)', 'Field of view']) {
+  check(`  it has ${label}`, lookRows.includes(label), lookRows.join(', '));
+}
+
+await pick('Invert look (Y)');
 const inv0 = await page.evaluate(() => window.__game.input.invertY);
 await press('Enter', 200);
 const inv1 = await page.evaluate(() => window.__game.input.invertY);
 check('invert Y toggles and reaches the input layer', inv0 !== inv1, `${inv0} -> ${inv1}`);
 check('and is remembered in settings',
   await page.evaluate(() => window.__game.settings.values.invertY === window.__game.input.invertY));
+await press('Enter', 200);           // put it back
 
-/* ---- sensitivity ---- */
-const sensRow = rows.indexOf('Mouse sensitivity');
-await page.evaluate((i) => { window.__game.menu.sel = i; window.__game.menu.render(); }, sensRow);
+await pick('Mouse sensitivity');
 const sens0 = await page.evaluate(() => window.__game.input.sensitivity);
 await press('ArrowRight', 150);
 await press('ArrowRight', 150);
 const sens1 = await page.evaluate(() => window.__game.input.sensitivity);
 check('mouse sensitivity changes the input layer', sens1 > sens0, `${sens0} -> ${sens1}`);
+await back();
 
-/* ---- the picture page ----
-   Its rows used to be the tail of SETTINGS, where a panel shorter than
-   the list clipped them off the bottom with no scrollbar -- so as far as
-   a player was concerned the game had no video options. They are on their
-   own page now, and this walks to it the way a player does rather than
-   setting an index. */
-const picRow = rows.indexOf('Picture...');
-check('SETTINGS offers a picture page', picRow >= 0, `row ${picRow}`);
-await page.evaluate((i) => { window.__game.menu.sel = i; window.__game.menu.render(); }, picRow);
-await press('Enter', 250);
-check('and it opens', (await page.evaluate(() => window.__game.menu.screen.title)) === 'PICTURE',
-  await page.evaluate(() => window.__game.menu.screen.title));
-
-const picRows = await page.evaluate(() => window.__game.menu.rows().map((r) => r.label));
-for (const label of ['Resolution', 'Retro filter', 'Vertex snapping', 'Field of view']) {
+/* ---- the picture page ---- */
+await open('Picture...');
+check('PICTURE opens', (await pageTitle()) === 'PICTURE', await pageTitle());
+const picRows = await rowsNow();
+for (const label of ['Resolution', 'Retro filter', 'Vertex snapping']) {
   check(`  it has ${label}`, picRows.includes(label), picRows.join(', '));
 }
 
-const resRow = picRows.indexOf('Resolution');
-await page.evaluate((i) => { window.__game.menu.sel = i; window.__game.menu.render(); }, resRow);
+await pick('Resolution');
 const w0 = await page.evaluate(() => window.__game.raster.w);
 await press('ArrowRight', 250);
 const w1 = await page.evaluate(() => window.__game.raster.w);
 check('changing resolution resizes the framebuffer', w1 !== w0, `${w0} -> ${w1}`);
 
-/* Back to SETTINGS, which is where the rest of this harness expects to
-   be standing. */
+await back();
+check('Back returns from PICTURE to SETTINGS', (await pageTitle()) === 'SETTINGS', await pageTitle());
+
+/* ---- reset all settings ----
+   A menu row is one keypress from being toggled by accident while
+   hunting for another one, and "invert look" toggled by accident is a
+   game that feels broken with no obvious cause. This is the way back.
+   IT KEEPS THE BINDINGS: CONTROLS has its own two resets, and somebody
+   who has rebound the keyboard did not ask for that to go because they
+   wanted the volume back. */
+await page.evaluate(() => {
+  const g = window.__game;
+  g.settings.set('invertY', true);
+  g.input.bindKey('interact', 'KeyG');
+  /* The way a rebind actually arrives: CONTROLS persists it. */
+  g.persistSettings();
+});
+await open('Reset all settings', 300);
+check('resetting asks first', /RESET ALL SETTINGS/.test((await st()).head), (await st()).head);
 await page.evaluate(() => {
   const m = window.__game.menu;
-  m.sel = m.rows().length - 1; m.render();
+  m.sel = m.rows().findIndex((r) => /^Yes/.test(r.label)); m.render();
 });
-await press('Enter', 250);
-check('Back returns from PICTURE to SETTINGS',
-  (await page.evaluate(() => window.__game.menu.screen.title)) === 'SETTINGS',
-  await page.evaluate(() => window.__game.menu.screen.title));
-
+await press('Enter', 300);
+check('resetting puts invert look back to its default',
+  (await page.evaluate(() => window.__game.settings.values.invertY)) === false,
+  String(await page.evaluate(() => window.__game.settings.values.invertY)));
+check('and leaves the key bindings alone',
+  await page.evaluate(() => window.__game.input.keysFor('interact').includes('KeyG')),
+  (await page.evaluate(() => window.__game.input.keysFor('interact'))).join(','));
+await page.evaluate(() => { window.__game.input.resetKeyBinds(); });
+check('and lands back on SETTINGS', (await pageTitle()) === 'SETTINGS', await pageTitle());
 
 check('and the canvas with it',
   await page.evaluate(() => document.getElementById('screen').width === window.__game.raster.w));
@@ -129,12 +177,7 @@ check('every County Line key is inside its namespace',
   await page.evaluate(() => Object.keys(localStorage).join(',')));
 
 /* ---- controls and rebinding ---- */
-await page.evaluate(() => {
-  const g = window.__game;
-  const i = g.menu.rows().findIndex((r) => r.label === 'Controls...');
-  g.menu.sel = i; g.menu.render();
-});
-await press('Enter', 350);
+await open('Controls...', 350);
 s = await st();
 check('CONTROLS opens', /CONTROLS/.test(s.head), s.head);
 
@@ -244,10 +287,26 @@ await press('Escape', 350);
 s = await st();
 check('ESC pauses', s.state === 'PAUSE' && /PAUSED/.test(s.head), `${s.state} / ${s.head}`);
 
-await press('ArrowDown', 150);
-await press('Enter', 350);
+const pauseRows = await rowsNow();
+check('PAUSED offers Picture directly', pauseRows.includes('Picture'), pauseRows.join(', '));
+await open('Settings', 350);
 s = await st();
 check('settings open from the pause menu', /SETTINGS/.test(s.head), s.head);
+
+/* AND THE VIDEO OPTIONS ARE REACHABLE FROM IN HERE, which is the whole
+   complaint: pausing and looking for them is how a player actually
+   arrives, and PICTURE off the pause menu has to work exactly as it does
+   off the title. */
+await open('Picture...', 300);
+check('PICTURE opens from the pause menu too', (await pageTitle()) === 'PICTURE', await pageTitle());
+await pick('Resolution');
+const pw0 = await page.evaluate(() => window.__game.raster.w);
+await press('ArrowRight', 250);
+check('and resolution still changes from there',
+  (await page.evaluate(() => window.__game.raster.w)) !== pw0,
+  `${pw0} -> ${await page.evaluate(() => window.__game.raster.w)}`);
+await press('ArrowLeft', 250);
+await back();
 await press('Escape', 350);
 s = await st();
 check('and backing out returns to PAUSED, not the title',
@@ -255,12 +314,19 @@ check('and backing out returns to PAUSED, not the title',
 
 /* in and out repeatedly */
 for (let i = 0; i < 3; i++) {
-  await press('ArrowDown', 100);
-  await press('Enter', 200);
+  await open('Settings', 250);
   await press('Escape', 200);
 }
 s = await st();
 check('and survives doing it repeatedly', s.state === 'PAUSE' && /PAUSED/.test(s.head), `${s.state} / ${s.head}`);
+
+/* ---- Picture straight off the pause menu ---- */
+await open('Picture', 300);
+check('Picture on the pause menu opens the same page',
+  (await pageTitle()) === 'PICTURE', await pageTitle());
+await press('Escape', 300);
+s = await st();
+check('and ESC from it returns to PAUSED', /PAUSED/.test(s.head), s.head);
 
 await page.evaluate(() => { window.__game.menu.sel = 0; window.__game.menu.render(); });
 await press('Enter', 350);
@@ -285,8 +351,8 @@ check('and saying no goes back to the pause menu', /PAUSED/.test(s.head), s.head
    the fold of a panel that clipped instead of scrolling. So: for each
    settings page, walk the highlight through every row and check the
    highlighted element is inside the scrolling list's visible box. */
-for (const [name, fn] of [['SETTINGS', 'settingsScreen'], ['PICTURE', 'pictureScreen'],
-  ['CONTROLS', 'controlsScreen']]) {
+for (const [name, fn] of [['SETTINGS', 'settingsScreen'], ['AUDIO', 'audioScreen'],
+  ['LOOKING', 'lookScreen'], ['PICTURE', 'pictureScreen'], ['CONTROLS', 'controlsScreen']]) {
   await page.setViewportSize({ width: 800, height: 420 });     // a deliberately short window
   await page.evaluate(async (f) => {
     const m = await import('/src/ui/menus.js');

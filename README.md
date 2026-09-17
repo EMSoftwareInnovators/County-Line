@@ -120,9 +120,19 @@ coordinates to test movement, stairs, doors and interaction.
 | **F3** | jump to the top of the stairs |
 | **F4** | architecture-review mode — the CRT off, for comparing against photographs |
 
-Picture settings — internal resolution, retro filter, vertex snapping,
-field of view — are on their own page: SETTINGS → **Picture...**. Menus
-longer than the panel scroll, and the highlight is always kept on screen.
+**SETTINGS is a menu of short pages, not one long list:** Audio, Looking,
+Picture, Controls, and a *Reset all settings* that puts every value back
+to its default while leaving the key and controller bindings alone.
+Internal resolution, the retro filter and vertex snapping are under
+**Picture**, which is also on the pause menu in its own right, one
+keypress from paused. Mouse and pad sensitivity, **Invert look (Y)** and
+field of view are under **Looking**. No page is more than six rows.
+
+Moving the mouse or the trackpad *away* from you looks up. If it does the
+opposite, Invert look is on — which is easy to do by accident, since any
+row is one keypress from being toggled while you are hunting for another
+one. *Looking* is where to turn it off and *Reset all settings* is the
+way back if more than one thing has been nudged.
 
 Architecture mode is the fourth F1 position and reads out in feet and
 inches: where you are relative to the level origin, the current room's
@@ -137,7 +147,7 @@ was drawn, which is the only way a comparison against a photograph means
 anything.
 
 Everything above can be rebound, on the keyboard and on a controller,
-from SETTINGS → CONTROLS. Xbox and PlayStation pads are both understood,
+from SETTINGS → **Controls**. Xbox and PlayStation pads are both understood,
 and a pad the browser will not describe can be laid out by hand.
 
 ---

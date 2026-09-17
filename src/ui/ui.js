@@ -145,6 +145,12 @@ export class UI {
     const top = el.offsetTop, bot = top + el.offsetHeight;
     if (top < list.scrollTop) list.scrollTop = top;
     else if (bot > list.scrollTop + list.clientHeight) list.scrollTop = bot - list.clientHeight;
+    /* A list with more below it says so. A menu that silently cuts off is
+       a menu whose bottom half does not exist as far as a player is
+       concerned -- which is what happened to the picture settings. */
+    const over = list.scrollHeight - list.clientHeight;
+    list.classList.toggle('more-above', list.scrollTop > 2);
+    list.classList.toggle('more-below', over > 2 && list.scrollTop < over - 2);
   }
 
   setFade(v) { this.el.fade.style.opacity = String(Math.max(0, Math.min(1, v))); }

@@ -129,11 +129,25 @@ export function stairFlight(mb, col, spec) {
     throw new Error('stairFlight: yaw must be a right angle');
   }
   const hw = w / 2;
+  /* `stringers` is true for both sides, 'left' or 'right' for one, or
+     false for an open flight against two walls. */
+  const sides = spec.stringers === false ? []
+    : spec.stringers === 'left' ? [-1]
+      : spec.stringers === 'right' ? [1] : [-1, 1];
+  const th = 0.06;
+  /* THE TREADS ARE HOUSED INTO THE STRINGS, which is how a closed-string
+     stair is built and, less romantically, the only way the two do not
+     fight. Run out to the full width they lapped the string on each
+     closed side by its thickness, with the front face of every riser in
+     exactly the plane the string's own step begins on -- twenty-six of
+     those per staircase, down the visible edge of every step. */
+  const hwL = sides.includes(-1) ? hw - th : hw;
+  const hwR = sides.includes(1) ? hw - th : hw;
 
   const box = (aFrom, aTo, ya, yb, material) => {
     // a runs along the flight; the width runs across it
     const p = (a, s) => [spec.x + fx * a + rx * s, spec.z + fz * a + rz * s];
-    const c0 = p(aFrom, -hw), c1 = p(aTo, hw);
+    const c0 = p(aFrom, -hwL), c1 = p(aTo, hwR);
     const bx0 = Math.min(c0[0], c1[0]), bx1 = Math.max(c0[0], c1[0]);
     const bz0 = Math.min(c0[1], c1[1]), bz1 = Math.max(c0[1], c1[1]);
     mb.box(bx0, ya, bz0, bx1, yb, bz1, { all: { tex: material.tex, density: material.density } });
@@ -170,20 +184,25 @@ export function stairFlight(mb, col, spec) {
      meter invisible wall beside the first tread, which is both wrong to
      look at and wrong to walk into.
 
-     `stringers` is true for both sides, 'left' or 'right' for one, or
-     false for an open flight against two walls. */
-  const sides = spec.stringers === false ? []
-    : spec.stringers === 'left' ? [-1]
-      : spec.stringers === 'right' ? [1] : [-1, 1];
+     The sides themselves are chosen above, where the treads need to know
+     about them too. */
   const guard = spec.guard === undefined ? 1.0 : spec.guard;
-  const th = 0.06;
   for (const s of sides) {
     for (let i = 0; i < steps; i++) {
+      /* THE STEPS OF A STRINGER ABUT, AND IT IS THICKENED ACROSS THE
+         FLIGHT ONLY. Extended by its own thickness every way, each step
+         reached six centimetres into the next with all four long faces
+         coplanar -- twenty-six fighting pairs per staircase, the whole
+         way up the closed side -- and the foot of the second flight ran
+         back through the head of the first at the turn. */
       const a0 = i * run, a1 = (i + 1) * run;
       const c0 = [spec.x + fx * a0 + rx * s * hw, spec.z + fz * a0 + rz * s * hw];
       const c1 = [spec.x + fx * a1 + rx * s * hw, spec.z + fz * a1 + rz * s * hw];
-      const bx0 = Math.min(c0[0], c1[0]) - th, bx1 = Math.max(c0[0], c1[0]) + th;
-      const bz0 = Math.min(c0[1], c1[1]) - th, bz1 = Math.max(c0[1], c1[1]) + th;
+      const across = Math.abs(fz) > 0.5;      // the flight runs along Z
+      const bx0 = Math.min(c0[0], c1[0]) - (across ? th : 0);
+      const bx1 = Math.max(c0[0], c1[0]) + (across ? th : 0);
+      const bz0 = Math.min(c0[1], c1[1]) - (across ? 0 : th);
+      const bz1 = Math.max(c0[1], c1[1]) + (across ? 0 : th);
       const top = y0 + (i + 1) * rise;
       if (spec.sideMaterial) {
         const m = spec.sideMaterial;
@@ -222,7 +241,12 @@ export function railing(mb, spec) {
   const f = { tex: m.tex, density: m.density };
   const len = Math.hypot(x1 - x0, z1 - z0);
   const n = Math.max(2, Math.round(len / 0.32));
-  const post = 0.035;
+  /* A BALUSTER IS THINNER THAN THE RAIL ON TOP OF IT. At 35 mm against
+     the rail's 40 they missed each other by five millimetres a side,
+     which at this resolution is less than a pixel: every baluster on
+     both staircases had a hairline of itself fighting the handrail down
+     each edge. */
+  const post = 0.022;
 
   for (let i = 0; i <= n; i++) {
     const t = i / n;
@@ -230,15 +254,27 @@ export function railing(mb, spec) {
     const yb = y + rise * t;
     mb.box(x - post, yb, z - post, x + post, yb + h, z + post, { all: f });
   }
-  /* The rail itself, in segments so it can follow the rake. */
+  /* The rail itself, in segments so it can follow the rake.
+
+     A SEGMENT IS NOT PADDED ALONG ITS OWN RUN. Padded by the rail's
+     radius at both ends, each one reached four centimetres into the next
+     with all four of its long faces in the same planes -- eight of those
+     per flight, on four flights and four landings, and the handrail
+     crawled the whole way up the stairs. Across the run and in height,
+     where the padding is what gives the rail its section, it stays. */
   const seg = 8, r = 0.04;
+  const alongX = Math.abs(x1 - x0) >= Math.abs(z1 - z0);
   for (let i = 0; i < seg; i++) {
     const t0 = i / seg, t1 = (i + 1) / seg;
     const ax = x0 + (x1 - x0) * t0, az = z0 + (z1 - z0) * t0;
     const bx = x0 + (x1 - x0) * t1, bz = z0 + (z1 - z0) * t1;
     const ya = y + h + rise * t0, yb = y + h + rise * t1;
-    mb.box(Math.min(ax, bx) - r, Math.min(ya, yb) - r, Math.min(az, bz) - r,
-      Math.max(ax, bx) + r, Math.max(ya, yb) + r, Math.max(az, bz) + r, { all: f });
+    const lx = Math.min(ax, bx), hx = Math.max(ax, bx);
+    const lz = Math.min(az, bz), hz = Math.max(az, bz);
+    mb.box(
+      alongX ? lx : lx - r, Math.min(ya, yb) - r, alongX ? lz - r : lz,
+      alongX ? hx : hx + r, Math.max(ya, yb) + r, alongX ? hz + r : hz,
+      { all: f });
   }
 }
 

@@ -213,6 +213,36 @@ that can drift away from the first.
 
 Ceilings throughout are **beaded board**, as the building's are.
 
+### The wainscot is laid last of all
+
+It is a separate pass (`trim.js`), run after the shell, both floors, the
+stairs and the porches. A board on a wall has to know two things that no
+floor module knows on its own — **where the wall is interrupted**, and
+**whether there is a wall there at all** — and both are questions about
+the finished building. Four passes of this were wrong in four different
+ways before the last one:
+
+| it ran across | because |
+|---|---|
+| every doorway | it was drawn as a band round a rectangle |
+| every cased archway | it asked only for the door list |
+| the floor below's doorways | the two storeys share their wall lines |
+| the two front-porch doors | it was last in `buildFirstFloor`, and `porches.js` had not run yet |
+
+Being last in your own module is not the same as being last. So now the
+floor modules hand back a list of rectangles and nothing else, and the
+boards go on when the building is standing. Each run is sampled against
+the collision world: board is laid only where a wall is actually within
+six inches of the room's boundary, **on the face that wall presents to the
+room**. That is what stopped two runs of wainscot standing back to back in
+mid-air down the middle of the upper central room, and what stopped the
+stair halls' boards being buried four inches inside their own plaster.
+
+A chimney breast, or a newel post, gets recorded on `level.obstructions`
+for the same reason a doorway is recorded: the wall is not available
+there. Told nothing, the boards ran straight through nine inches of
+masonry.
+
 ### Who owns a corner
 
 Two wall runs meeting at a corner both have an end face there, and if they
@@ -225,17 +255,42 @@ screenshot and impossible to miss in motion. So there is a rule:
 > side elevations, the garden walls, the portico's flanking walls — stop
 > at the *inner* face of whatever they abut.
 
-The same discipline applies everywhere two things meet: the parapet sits
-*on* the wall rather than overlapping it and is four inches thicker so its
-faces stand clear; the roof decks span the interior rather than the
-footprint; door and opening casings project ⅞" past the wall face instead
-of sitting flush with it; a window sill oversails its spandrel by an inch;
-paths stand three inches above the turf; and the wainscot's four runs stop
-short of each other at the corners instead of overlapping there.
+The same discipline applies everywhere two things meet:
 
-`tools/academy.mjs` asserts it arithmetically — **no solid may share a
-face plane with anything it overlaps**. That check found 132 pairs when it
-was first written.
+* the parapet sits *on* the wall rather than overlapping it, and is four
+  inches thicker so its faces stand clear;
+* a merlon begins exactly where the cap stops, with its underside left
+  undrawn, instead of sinking two inches into it;
+* the roof decks span the interior rather than the footprint — and so do
+  **every floor slab and every ceiling**. What you can see stops at the
+  plaster; what you stand on runs on under the masonry, through `pad` on
+  the floor's collider, so an external threshold is never a hole;
+* the water table and the string course return round their corners rather
+  than sharing both ends with the wall they are stuck to;
+* the treads and risers of a staircase are **housed into its strings**, as
+  a closed-string stair is built, and the steps of the string abut instead
+  of lapping;
+* a handrail segment is padded across its run and not along it, and a
+  baluster is thinner than the rail that caps it;
+* a sash window's meeting rail runs *between* its stiles;
+* door and opening casings project ⅞" past the wall face instead of
+  sitting flush with it, and are an architrave on each face rather than
+  one box driven through the wall;
+* a window sill oversails its spandrel by an inch; paths stand three
+  inches above the turf, and anything bedded in the ground has no
+  underside drawn at all.
+
+`tools/academy.mjs` asserts it arithmetically — **nothing that is drawn
+may share a face plane with anything it overlaps**, with two exemptions
+that keep it honest rather than merely loud: a face that is not drawn
+cannot fight, and neither can one buried inside the piece that carries on
+from it.
+
+The first version of that check read the *colliders*, found 132 pairs, and
+they were fixed — and the building went on shimmering, because trim is
+never solid and neither are floors, ceilings or roof decks. Scanning the
+**geometry** instead found **2,463 square feet** of contested surface
+across 1,575 pairs. It is now zero, of 3,219 boxes.
 
 ### First floor
 
@@ -274,11 +329,15 @@ was first written.
 | `academy.upper.east.minerals` | Rocks & Minerals |
 | `academy.upper.east.archives` | Archives |
 
-The War Room and Modern Mammals are **one meeting room with a spine wall
-down it**, pierced by an 8-foot opening on the room's center line — which
-is how the visitor map draws it and annotates it. The opening is at Z = 0,
-not up at the landing doors, so crossing the upper floor west to east is a
-dog-leg. **That is the building's, and it stays.**
+The War Room and Modern Mammals are **one open room**, 44'3" across and
+32'6" deep, with no wall between them. The visitor map prints the two
+names across it and annotates *both halves* as the common meeting room:
+the line between two names is a caption, not a partition. A spine wall was
+built here on the strength of it and has been removed — it could not even
+run the full depth, because the terrace door is on the same center line
+and the wall walked into it, and a partition that cannot reach either end
+of the room it divides is a partition that is not there. Both room records
+stay, because the museum does call the two ends by those names.
 
 ### Outdoors
 

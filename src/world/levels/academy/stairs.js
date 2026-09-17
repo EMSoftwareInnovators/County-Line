@@ -148,8 +148,17 @@ function staircase(b, side) {
 
   /* The north side of the well is open to the room; the south side is the
      cross wall and needs nothing. */
+  /* Stopping an inch short of the plaster at the wall end, and a foot
+     and a half short at the other, where the second flight's own
+     handrail arrives on this same line and carries on -- two rails in
+     one line is a continuous handrail, and two rails overlapping in one
+     line is a fight. Run right into the plaster at the far end, the
+     rail's end post lands in the same plane as the wall face and as the
+     wainscot board on it, and the three fight over the inch they share. */
+  const armEnd = ftin(1, 6);
   b.railing({
-    x0: well.x0, z0: well.z1, x1: well.x1, z1: well.z1,
+    x0: west ? well.x0 + inch(1) : well.foot + armEnd, z0: well.z1,
+    x1: west ? well.foot - armEnd : well.x1 - inch(1), z1: well.z1,
     y: upper, height: D.RAIL_H, material: M.paintWhite,
   });
   b.barrier({
@@ -162,6 +171,11 @@ function staircase(b, side) {
   const nx = well.foot + (west ? inch(3) : -inch(3));
   const nz = well.zA + s * (D.STAIR_WIDTH / 2);
   trimBox(b, nx - inch(3), 0, nz - inch(3), nx + inch(3), ftin(3, 6), nz + inch(3), M.trimDark);
+  /* The newel stands against the rear hall's wall, so the wainscot has
+     to stop at it -- the same rule as a chimney breast. */
+  b.level.obstructions.push({
+    x: nx, z: nz, y: 0, yaw: 0, width: ftin(1, 0), height: ftin(3, 6),
+  });
 }
 
 export function buildStairs(b) {

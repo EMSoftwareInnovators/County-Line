@@ -38,6 +38,7 @@ import { buildStairs } from './stairs.js';
 import { buildPorches } from './porches.js';
 import { buildRoof } from './roof.js';
 import { buildGrounds, SITE } from './grounds.js';
+import { buildTrim } from './trim.js';
 import { buildNav } from './nav.js';
 
 /* ============================================================
@@ -128,14 +129,22 @@ export const academy = {
     buildShell(b);
 
     b.lighting({ ambient: 0.48, sky: 0, max: 1.45 });
-    buildFirstFloor(b);
-    buildSecondFloor(b);
+    /* The two floors hand back the rooms that take wainscot rather than
+       laying it themselves. See trim.js: a board has to know where the
+       wall is interrupted, and the porch doors are cut two modules
+       later. */
+    const trim = [...buildFirstFloor(b), ...buildSecondFloor(b)];
     buildStairs(b);
 
     b.lighting({ ambient: 0.74, sky: 0.46, skyDir: [0, 1, 0], max: 1.55 });
     buildPorches(b);
     buildRoof(b);
     buildGrounds(b);
+
+    /* AFTER EVERYTHING THAT CUTS A HOLE IN A WALL. Nothing built below
+       this line may cut one. */
+    b.lighting({ ambient: 0.48, sky: 0, max: 1.45 });
+    buildTrim(b, trim);
 
     /* ---- where the player starts ----
        On the front walk, looking north at the façade. The first thing
