@@ -404,6 +404,24 @@ export const INT_COLUMN_CAP_H = ftin(1, 2);
 
 /** The site sits above the street; the front porch is reached by steps. */
 export const GRADE = -ftin(3, 0);              // exterior ground, relative to floor 1
+
+/**
+ * THE COACH YARD.
+ *
+ * The site's side grounds are forty feet, which is a lawn. A forty-foot
+ * intercity coach needs forty-two feet to stand in and about as much
+ * again to get in and out, so the WEST ground -- the one the historic
+ * "Entrance to Railroad" door opens onto, which is where the boarding
+ * route already goes -- is widened to take a real yard: a loading
+ * platform against the building, four nose-in berths off it, and a drive
+ * aisle behind them.
+ *
+ * This is a change to the GROUNDS and not to the building. The shell,
+ * the plan, the porches, the garden and the front lawn are untouched:
+ * the garden stays a garden, the forecourt stays a forecourt, and no
+ * coach goes near either.
+ */
+export const WEST_YARD = ft(104);
 export const FRONT_LAWN = ft(70);              // depth of ground south of the façade
 export const SIDE_GROUND = ft(40);             // ground beyond each side wall
 export const REAR_GROUND = ft(50);             // ground north of the wings

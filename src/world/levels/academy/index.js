@@ -40,6 +40,7 @@ import { buildRoof } from './roof.js';
 import { buildGrounds, SITE } from './grounds.js';
 import { buildTrim } from './trim.js';
 import { buildNav } from './nav.js';
+import { buildTerminal } from './terminal/index.js';
 
 /* ============================================================
    LIGHT
@@ -125,6 +126,12 @@ export const academy = {
     b.lighting({ ambient: 0.13, sky: 0, max: 1.45, darkAmbient: 0.048 });
     buildTrim(b, trim);
     buildFixtures(b);
+
+    /* ---- and the tenant ----
+       Richmond Central Coach Terminal, fitted into the building in
+       August. Furniture, equipment and signage only: see
+       terminal/index.js for the rule and the one exception. */
+    buildTerminal(b);
 
     /* ---- where the player starts ----
        On the front walk, looking north at the façade. The first thing

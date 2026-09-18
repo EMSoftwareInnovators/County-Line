@@ -74,6 +74,21 @@ export class Level {
     this.sky = 0xFF0C0A08;
     /** Named points a level can hand to scripts and NPCs. */
     this.marks = {};
+    /**
+     * WHERE THE JOB HAPPENS, without the level knowing what the job is.
+     *
+     * A station is a named place with a shape you can look at: the
+     * ticket counter, the scale, panel B, bay 3. The level declares
+     * them, because the level is what knows where the counter is. It
+     * does NOT declare what interacting with one does, because that is
+     * a ticket sale, and a building does not know how to sell a ticket.
+     *
+     * The game's terminal systems attach a `handler` after the level
+     * loads. Until one does, a station is something you can look at and
+     * read the name of, which is also exactly what it should be when the
+     * shift has not started.
+     */
+    this.stations = new Map();
     this.navNodes = [];
     this.navEdges = [];
     this.ambient = [];
@@ -563,6 +578,37 @@ export class LevelBuilder {
   }
 
   interactable(spec) { return this.level.interact.add(new Interactable(spec)); }
+
+  /**
+   * A named place the job happens at. See Level.stations.
+   *
+   * @param spec { id, name, box | boxFn, room, idle, priority, data }
+   */
+  station(spec) {
+    const st = {
+      id: spec.id,
+      name: spec.name || spec.id,
+      room: spec.room || null,
+      box: spec.box || null,
+      data: spec.data || {},
+      /** Set by the game: (ctx, station) => a describe() result. */
+      handler: null,
+    };
+    this.level.stations.set(spec.id, st);
+    st.interactable = this.level.interact.add(new Interactable({
+      id: `station:${spec.id}`,
+      box: spec.box,
+      boxFn: spec.boxFn,
+      priority: spec.priority === undefined ? 2 : spec.priority,
+      describe: (ctx) => (st.handler ? st.handler(ctx, st) : {
+        text: st.name,
+        sub: spec.idle === undefined ? '' : spec.idle,
+        action: null,
+        hold: 0,
+      }),
+    }));
+    return st;
+  }
 
   /** A looping ambient source, started when the level goes live. */
   ambience(spec) { this.level.ambient.push(spec); return this; }

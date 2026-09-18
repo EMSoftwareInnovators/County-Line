@@ -594,6 +594,235 @@ export function buildMaterials() {
     noise(g, w, h, 5);
   }), { density: 64, material: 'metal' });
 
+  /* ============================================================
+     RICHMOND CENTRAL, 1998
+
+     Everything below is FURNITURE AND EQUIPMENT, not building. The bus
+     company moved into a museum and brought its counters, its seating
+     and its signs with it; if the company left tomorrow the plaster
+     would be untouched. Nothing here is masonry, joinery or trim.
+     ============================================================ */
+
+  /** Worn pale-green formica: counter tops, the newsstand, the desks. */
+  M.formica = mat(makeTex(64, 64, (g, w, h) => {
+    fill(g, '#9fa892', w, h);
+    speckle(g, w, h, 420, ['#a8b199', '#939c88', '#b0b8a2']);
+    grime(g, w, h, 0.1, 8);
+    noise(g, w, h, 5);
+  }), { density: 56, material: 'wood' });
+
+  /** The institutional beige everything public is painted. */
+  M.counterFront = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#b3a690', w, h);
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = 'rgba(0,0,0,0.05)';
+      g.fillRect(0, i * 5, w, 1);
+    }
+    grime(g, w, h, 0.14, 7);
+    noise(g, w, h, 4);
+  }), { density: 48, material: 'wood' });
+
+  /** Terminal seating: maroon vinyl, cracked, on a steel frame. */
+  M.benchVinyl = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#6b2f2f', w, h);
+    speckle(g, w, h, 60, ['#763636', '#5e2828']);
+    for (let i = 0; i < 8; i++) {
+      g.strokeStyle = 'rgba(0,0,0,0.16)'; g.lineWidth = 1;
+      const x = Math.random() * w;
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 2, h); g.stroke();
+    }
+    grime(g, w, h, 0.14, 6);
+    noise(g, w, h, 4);
+  }), { density: 48, material: 'wood' });
+
+  /** Chromed tube and pressed steel: bench frames, cart handles, racks. */
+  M.chrome = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#8d9196', w, h);
+    for (let i = 0; i < 5; i++) {
+      g.fillStyle = `rgba(255,255,255,${0.05 + Math.random() * 0.07})`;
+      g.fillRect(0, Math.random() * h, w, 1);
+    }
+    noise(g, w, h, 5);
+  }), { density: 96, material: 'metal' });
+
+  /** Dark stained oak: the clerk's desk, the dispatch table. */
+  M.deskOak = mat(makeTex(64, 64, (g, w, h) => {
+    fill(g, '#4e3a28', w, h);
+    for (let i = 0; i < 26; i++) {
+      g.strokeStyle = `rgba(30,20,12,${0.06 + Math.random() * 0.08})`;
+      g.lineWidth = 1;
+      const y = Math.random() * h;
+      g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (Math.random() - 0.5) * 2); g.stroke();
+    }
+    grime(g, w, h, 0.16, 8);
+    noise(g, w, h, 5);
+  }), { density: 56, material: 'wood' });
+
+  /** Gray steel office furniture: files, lockers, shelving, cabinets. */
+  M.officeSteel = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#7b7d78', w, h);
+    grime(g, w, h, 0.12, 7);
+    noise(g, w, h, 5);
+  }), { density: 56, material: 'metal' });
+
+  /** The company's enamel sign blue. Lettering goes on with plate(). */
+  M.signBlue = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#1d3a5c', w, h);
+    grime(g, w, h, 0.1, 5);
+    noise(g, w, h, 3);
+  }), { density: 64, material: 'metal' });
+
+  /** A black board with white slotted letters. Departures and arrivals. */
+  M.boardBlack = mat(makeTex(64, 64, (g, w, h) => {
+    fill(g, '#16171a', w, h);
+    for (let y = 4; y < h; y += 9) {
+      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillRect(0, y, w, 1);
+    }
+    noise(g, w, h, 3);
+  }), { density: 48, material: 'metal' });
+
+  /** The face of a switched-off CRT. */
+  M.crtGlass = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#1a1c1f', w, h);
+    for (let y = 0; y < h; y += 2) {
+      g.fillStyle = 'rgba(255,255,255,0.03)';
+      g.fillRect(0, y, w, 1);
+    }
+    noise(g, w, h, 2);
+  }), { density: 64, material: 'glass' });
+
+  /** Paper: manifests, route binders, timetables, the shift log. */
+  M.paper = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#ddd7c4', w, h);
+    for (let i = 0; i < 7; i++) {
+      g.fillStyle = 'rgba(70,70,80,0.1)';
+      g.fillRect(3, 4 + i * 3, w - 8, 1);
+    }
+    grime(g, w, h, 0.08, 4);
+    noise(g, w, h, 3);
+  }), { density: 96, material: 'wood' });
+
+  /** A vending machine front: a lit panel over a glass window. */
+  M.vendingFront = mat(makeTex(32, 64, (g, w, h) => {
+    fill(g, '#8d1f24', w, h);
+    g.fillStyle = '#d9d2b8'; g.fillRect(2, 2, w - 4, 12);
+    g.fillStyle = '#26282c'; g.fillRect(3, 18, w - 6, h - 24);
+    for (let y = 22; y < h - 8; y += 9) {
+      g.fillStyle = '#4a4d52'; g.fillRect(5, y, w - 10, 6);
+    }
+    noise(g, w, h, 4);
+  }), { density: 40, material: 'metal' });
+
+  /** Luggage. Three tones, because a rack of one color reads as one bag. */
+  const bag = (base, strap) => mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, base, w, h);
+    g.fillStyle = strap; g.fillRect(0, h * 0.42, w, 3);
+    speckle(g, w, h, 40, [strap, base]);
+    grime(g, w, h, 0.16, 6);
+    noise(g, w, h, 5);
+  }), { density: 48, material: 'wood' });
+  M.bagBrown = bag('#5a4534', '#3a2c20');
+  M.bagNavy = bag('#2f3a4d', '#1d2430');
+  M.bagTan = bag('#8b7550', '#5e4e34');
+
+  /** A rubber entrance mat, and the ribbed rubber of a conveyor belt. */
+  M.rubberMat = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#2a2c2e', w, h);
+    for (let x = 0; x < w; x += 4) {
+      g.fillStyle = 'rgba(255,255,255,0.04)';
+      g.fillRect(x, 0, 2, h);
+    }
+    noise(g, w, h, 4);
+  }), { density: 56, material: 'wood' });
+
+  /* ---- outside: the coach apron ---- */
+
+  M.asphalt = mat(makeTex(64, 64, (g, w, h) => {
+    fill(g, '#34353a', w, h);
+    speckle(g, w, h, 700, ['#3b3c42', '#2d2e33', '#42434a']);
+    grime(g, w, h, 0.1, 10);
+    noise(g, w, h, 7);
+  }), { material: 'stone' });
+
+  /** Poured concrete: the loading platform and the bay islands. */
+  M.apron = mat(makeTex(64, 64, (g, w, h) => {
+    fill(g, '#7d7d78', w, h);
+    speckle(g, w, h, 300, ['#858580', '#757570']);
+    g.strokeStyle = 'rgba(0,0,0,0.16)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, h / 2 + 0.5); g.lineTo(w, h / 2 + 0.5); g.stroke();
+    grime(g, w, h, 0.1, 8);
+    noise(g, w, h, 5);
+  }), { density: 40, material: 'stone' });
+
+  /** Bay striping and curb paint. */
+  M.paintYellow = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#b99a2e', w, h);
+    grime(g, w, h, 0.2, 5);
+    noise(g, w, h, 6);
+  }), { density: 48, material: 'stone' });
+
+  /* ---- outside: a coach ---- */
+
+  M.busBody = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#c9c6bd', w, h);
+    for (let i = 0; i < 4; i++) {
+      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillRect(0, i * 8, w, 1);
+    }
+    grime(g, w, h, 0.1, 6);
+    noise(g, w, h, 3);
+  }), { density: 32, material: 'metal' });
+
+  M.busStripe = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#2b4f7d', w, h);
+    noise(g, w, h, 4);
+  }), { density: 48, material: 'metal' });
+
+  M.busGlass = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#1b2128', w, h);
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = 'rgba(180,200,220,0.05)';
+      g.fillRect(0, Math.random() * h, w, 1);
+    }
+    noise(g, w, h, 3);
+  }), { density: 32, material: 'glass' });
+
+  M.tire = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#1e1f22', w, h);
+    for (let y = 0; y < h; y += 3) {
+      g.fillStyle = 'rgba(255,255,255,0.04)';
+      g.fillRect(0, y, w, 1);
+    }
+    noise(g, w, h, 4);
+  }), { density: 64, material: 'metal' });
+
+  M.busLamp = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#f0e6c6', w, h);
+    speckle(g, w, h, 10, ['#fff8e0']);
+  }), { density: 48, material: 'glass' });
+
+  M.busTail = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#8d2320', w, h);
+    speckle(g, w, h, 10, ['#a33']);
+  }), { density: 48, material: 'glass' });
+
+  /**
+   * A lettered plate: signage, bay numbers, a destination roll, a panel
+   * schedule card. `noMip` because these are read, and a blurred
+   * mip level of a word is worse than an aliased one.
+   */
+  M.plate = (text, opt = {}) => mat(makeTex(opt.w || 128, opt.h || 32, (g, w, h) => {
+    fill(g, opt.bg || '#1d3a5c', w, h);
+    if (opt.rule !== false) {
+      g.strokeStyle = opt.fg || '#e6e2d4'; g.lineWidth = 1;
+      g.strokeRect(1.5, 1.5, w - 3, h - 3);
+    }
+    label(g, text, w / 2, h / 2 + 1, opt.fg || '#e6e2d4',
+      opt.font || `bold ${opt.size || 15}px "Helvetica Neue", Arial, sans-serif`);
+    if (opt.age !== false) grime(g, w, h, 0.08, 4);
+  }), { density: opt.density || 96, material: 'metal', noMip: true });
+
   /** A labelled plate, for calling out what a piece of test geometry is for. */
   M.sign = (text) => mat(makeTex(128, 32, (g, w, h) => {
     fill(g, '#1d1d20', w, h);

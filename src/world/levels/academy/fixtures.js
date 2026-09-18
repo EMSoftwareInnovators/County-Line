@@ -48,39 +48,47 @@ import { pendant, strip, utility, sconce, lantern, flood } from './fittings.js';
    `panel` is which cabinet: A is the original 1920s six-way with four of
    its ways still live, B is the 1950s addition that took the wings, C is
    the 1970s subpanel that took the second floor and the yard.
+
+   `rating` is what the way is good for, in amps, and it is the reason
+   the east wing is the one that trips. Panel A's ways are 1920s
+   fifteens. B and C are twenties. The east rear circuit carries the
+   baggage room's lights, the scale, the conveyor and a vending machine
+   whose compressor cycles, and the sum of the last three with the first
+   is four amps over what a 1950s panel way was ever meant to hold. See
+   electrical.js -- nothing in this building trips except arithmetic.
    ============================================================ */
 export const CIRCUITS = [
-  { id: 'lobby', panel: 'A', breaker: 2, label: 'MAIN LOBBY',
+  { id: 'lobby', panel: 'A', breaker: 2, rating: 15, label: 'MAIN LOBBY',
     rooms: ['academy.central'] },
-  { id: 'west-front', panel: 'A', breaker: 4, label: 'WAITING RM - WEST',
+  { id: 'west-front', panel: 'A', breaker: 4, rating: 15, label: 'WAITING RM - WEST',
     rooms: ['academy.indians', 'academy.west.store'] },
-  { id: 'east-front', panel: 'A', breaker: 6, label: 'WAITING RM - EAST / NEWSSTAND',
+  { id: 'east-front', panel: 'A', breaker: 6, rating: 15, label: 'WAITING RM - EAST / NEWSSTAND',
     rooms: ['academy.giftshop', 'academy.americana.main'] },
-  { id: 'clerk', panel: 'A', breaker: 8, label: 'OFFICE & DISPATCH',
+  { id: 'clerk', panel: 'A', breaker: 8, rating: 15, label: 'OFFICE & DISPATCH',
     rooms: ['academy.west.docent', 'academy.west.offices'] },
 
-  { id: 'west-rear', panel: 'B', breaker: 1, label: 'W REAR / RESTRM / W STAIR',
+  { id: 'west-rear', panel: 'B', breaker: 1, rating: 20, label: 'W REAR / RESTRM / W STAIR',
     rooms: ['academy.west.rearhall', 'academy.west.restroom', 'academy.west.stairhall'] },
-  { id: 'east-rear', panel: 'B', breaker: 3, label: 'E REAR / BAGGAGE / E STAIR',
+  { id: 'east-rear', panel: 'B', breaker: 3, rating: 20, label: 'E REAR / BAGGAGE / E STAIR',
     rooms: ['academy.east.rearhall', 'academy.east.animal', 'academy.east.staff',
       'academy.east.stairhall', 'academy.east.entry', 'academy.east.service',
       'academy.east.vestibule', 'academy.east.council'] },
-  { id: 'porch-rear', panel: 'B', breaker: 5, label: 'REAR PORCH',
+  { id: 'porch-rear', panel: 'B', breaker: 5, rating: 20, label: 'REAR PORCH',
     rooms: ['academy.porch.rear'] },
-  { id: 'front-ext', panel: 'B', breaker: 7, label: 'FRONT EXTERIOR',
+  { id: 'front-ext', panel: 'B', breaker: 7, rating: 20, label: 'FRONT EXTERIOR',
     rooms: ['academy.porch.front', 'academy.gallery', 'academy.grounds.front'] },
 
-  { id: 'floor2-west', panel: 'C', breaker: 2, label: '2ND FL WEST',
+  { id: 'floor2-west', panel: 'C', breaker: 2, rating: 20, label: '2ND FL WEST',
     rooms: ['academy.upper.west.rotating', 'academy.upper.west.landing',
       'academy.upper.west.history'] },
-  { id: 'floor2-center', panel: 'C', breaker: 4, label: '2ND FL CENTER',
+  { id: 'floor2-center', panel: 'C', breaker: 4, rating: 20, label: '2ND FL CENTER',
     rooms: ['academy.upper.center.war', 'academy.upper.center.mammals'] },
-  { id: 'floor2-east', panel: 'C', breaker: 6, label: '2ND FL EAST',
+  { id: 'floor2-east', panel: 'C', breaker: 6, rating: 20, label: '2ND FL EAST',
     rooms: ['academy.upper.east.natural', 'academy.upper.east.landing',
       'academy.upper.east.minerals', 'academy.upper.east.archives'] },
-  { id: 'garden', panel: 'C', breaker: 8, label: 'GARDEN / REAR EXT',
+  { id: 'garden', panel: 'C', breaker: 8, rating: 20, label: 'GARDEN / REAR EXT',
     rooms: ['academy.garden', 'academy.grounds.rear'] },
-  { id: 'platform', panel: 'C', breaker: 10, label: 'PLATFORM & SERVICE EXT',
+  { id: 'platform', panel: 'C', breaker: 10, rating: 20, label: 'PLATFORM & SERVICE EXT',
     rooms: ['academy.grounds.west', 'academy.grounds.east'] },
 ];
 

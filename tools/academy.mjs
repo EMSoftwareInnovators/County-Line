@@ -613,13 +613,18 @@ check('  and it can be walked from the porch steps to the far wall',
   p.room === 'academy.garden' && p.z > ft(57), where(p));
 
 /* ---- the side entrances, which are historic ---- */
+/* Dropped in from a foot up rather than placed at grade: the west
+   ground now carries the coach platform, whose concrete stands eight
+   inches over the asphalt, and a body placed at grade there is a body
+   placed inside a slab. Falling onto whatever is under you is what a
+   player does anyway. */
 console.log('\n-- the side entrances --');
-await put(ft(-68), ft(-3), ft(43), E);
+await put(ft(-68), ft(-2), ft(43), E);
 p = await advance(inRoom('academy.west.offices'));
 check('the west "Entrance to Railroad" door works',
   p.room === 'academy.west.offices', where(p));
 
-await put(ft(68), ft(-3), ft(43), W);
+await put(ft(68), ft(-2), ft(43), W);
 p = await advance(inRoom('academy.east.vestibule'));
 check('and so does the east side door into the vestibule',
   p.room === 'academy.east.vestibule', where(p));

@@ -22,7 +22,10 @@ import { trimBox } from './parts.js';
 
 /* The site, which is a good deal bigger than the building. */
 export const SITE = {
-  x0: D.X_W_OUT - D.SIDE_GROUND,
+  /* The west ground is the coach yard, so it is wider than the east one.
+     See WEST_YARD in dimensions.js -- this is the grounds changing, not
+     the building. */
+  x0: D.X_W_OUT - D.WEST_YARD,
   x1: D.X_E_OUT + D.SIDE_GROUND,
   z0: D.Z_FACADE - D.FRONT_LAWN,
   z1: D.Z_N_OUT + D.REAR_GROUND,
