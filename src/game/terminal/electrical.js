@@ -239,13 +239,11 @@ export class Electrical {
    * rating for long enough.
    */
   update(dt) {
-    for (const d of this.devices) {
-      const live = this.circuit(d.circuit).powerLive;
-      if (live !== d.live) {
-        d.live = live;
-        if (d.onPower) d.onPower(live);
-      }
-    }
+    /* THE LOAD FIRST, THEN THE POWER. A breaker that opens this frame
+       has to take its machines with it this frame: doing the devices
+       first leaves the conveyor running for one more step after the way
+       that feeds it is dead, which is a frame of a lie and also the
+       kind of thing a test notices. */
     for (const c of this.circuits) {
       if (!c.powerLive) { c.over = 0; continue; }
       const a = this.loadOn(c.id);
@@ -259,6 +257,13 @@ export class Electrical {
         c.over = Math.max(0, c.over - dt * 2);
       }
     }
+    for (const d of this.devices) {
+      const live = this.circuit(d.circuit).powerLive;
+      if (live !== d.live) {
+        d.live = live;
+        if (d.onPower) d.onPower(live);
+      }
+    }
   }
 
   /* ---------------- the building ---------------- */
@@ -268,9 +273,31 @@ export class Electrical {
    *
    * This is the whole connection between the panel and what the player
    * sees: `chunkLit` is the blend between each vertex's two baked shade
-   * terms, so a circuit going out is one number per room.
+   * terms, so a circuit going out is one number per chunk.
+   *
+   * A chunk that belongs to one circuit is lit or it is not. A chunk
+   * that several circuits light -- an elevation is the inside face of
+   * two floors of rooms and the outside face of the building -- gets
+   * the mean, because a wall is about as bright as the rooms burning
+   * next to it. See the academy's CHUNK_CIRCUITS for why the shell
+   * cannot be split any further than it already is.
    */
   applyTo(level) {
+    const map = level.chunkCircuits;
+    if (map && map.size) {
+      for (const [chunk, ids] of map) {
+        let live = 0, n = 0;
+        for (const id of ids) {
+          const c = this.byId.get(id);
+          if (!c) continue;
+          n++;
+          if (c.lightsLive) live++;
+        }
+        level.chunkLit[chunk] = n ? DIM + (1 - DIM) * (live / n) : 1;
+      }
+      return this;
+    }
+    /* No table: a circuit dims the rooms it names, and nothing else. */
     for (const c of this.circuits) {
       const v = c.lightsLive ? 1 : DIM;
       for (const r of c.rooms) level.chunkLit[r] = v;

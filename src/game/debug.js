@@ -8,12 +8,20 @@
    laid out to real measurements and the question is "how far is that
    wall, and am I on the floor I think I am".
 
-   F1 cycles the overlay: off, a one-line strip, the full read-out, and
-   then ARCHITECTURE MODE -- which answers the questions you have while
-   laying a real building out to a measured plan and nothing else: where
-   am I relative to the origin, how big is this room in feet and inches,
-   and which doorway is nearest. Everything in that mode is in imperial,
-   because the plan it is being checked against is.
+   F1 cycles the overlay: off, a one-line strip, the full read-out,
+   ARCHITECTURE MODE, and the PANEL.
+
+   ARCHITECTURE MODE answers the questions you have while laying a real
+   building out to a measured plan and nothing else: where am I relative
+   to the origin, how big is this room in feet and inches, and which
+   doorway is nearest. Everything in that mode is in imperial, because
+   the plan it is being checked against is.
+
+   THE PANEL is the electrical read-out: thirteen ways, what each one is
+   carrying against what it is rated for, how long it has been over, and
+   which machine on it is drawing. It exists because "the lights went
+   out in the east wing" is not a bug report you can act on, and
+   "east-rear has been at 21.3 of 20 amps for nine seconds" is.
    F2 draws the collision world.
 
    None of this is on the HUD. It is a separate layer, it is off by
@@ -26,7 +34,7 @@ import { makeTex } from '../engine/texture.js';
 
 export class Debug {
   constructor() {
-    /** 0 off, 1 one line, 2 everything, 3 architecture. */
+    /** 0 off, 1 one line, 2 everything, 3 architecture, 4 the panel. */
     this.level = 0;
     /** Recomputed only when the player has moved; door lists are long. */
     this._nearDoor = null;
@@ -43,7 +51,7 @@ export class Debug {
     this._tex = null;
   }
 
-  cycle() { this.level = (this.level + 1) % 4; }
+  cycle() { this.level = (this.level + 1) % 5; }
 
   update(dt) {
     this._frames++;
@@ -67,6 +75,7 @@ export class Debug {
         + `${room ? room.name : 'outside'} &middot; ${g.state}</div>`;
     }
     if (this.level === 3) return this.architecture(g, room);
+    if (this.level === 4) return this.panel(g, room);
 
     const tgt = g.level && g.level.interact.target;
     const surf = p.surface;
@@ -92,6 +101,36 @@ export class Debug {
     return `<table class="dbg">${rows.map(([k, v]) =>
       `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>`
       + `<div class="dbg-keys">F1 overlay &middot; F2 collision &middot; F3 teleport up &middot; F4 review</div>`;
+  }
+
+  /* ---------------- the panel ---------------- */
+
+  /**
+   * Every way in the building, what it is carrying, and what is on it.
+   *
+   * A row reads: panel and breaker number, the label on the card, the
+   * state, the load against the rating, and the devices -- starred if
+   * they are drawing this instant. A way that is over its rating shows
+   * how long it has been over, counting up to the trip.
+   */
+  panel(g, room) {
+    const P = g.power;
+    if (!P) return '<table class="dbg"><tr><th>panel</th><td>this level has no wiring</td></tr></table>';
+    const here = room ? P.system.circuitForRoom(room.id) : null;
+    const rows = P.report().map((r) => {
+      const over = r.over > 0 ? ` +${r.over.toFixed(1)}s` : '';
+      const hot = r.load > r.rating;
+      const mine = here && here.id === r.id;
+      return `<tr><th>${mine ? '&rsaquo; ' : ''}${r.panel}${r.breaker} ${r.label}</th>`
+        + `<td>${r.state} &middot; <b${hot ? ' style="color:#e06a4a"' : ''}>`
+        + `${r.load.toFixed(1)}</b>/${r.rating} A${over}<br>`
+        + `<small>${r.devices.join(', ') || '&mdash;'}</small></td></tr>`;
+    });
+    const trips = P.system.trips.slice(-3).map((t) => `${t.circuit} (${t.why})`).join(', ');
+    rows.push(`<tr><th>trips</th><td>${trips || 'none tonight'}</td></tr>`);
+    rows.push(`<tr><th>here</th><td>${here ? `${here.label} &middot; ${here.stateText}` : '&mdash;'}</td></tr>`);
+    return `<table class="dbg">${rows.join('')}</table>`
+      + '<div class="dbg-keys">* = drawing now &middot; &rsaquo; = the way that lights this room</div>';
   }
 
   /* ---------------- architecture mode ---------------- */

@@ -342,6 +342,10 @@ export function declareLights(b) {
    things from. Geometry only -- the light was declared above.
    ============================================================ */
 export function buildFixtures(b) {
+  /* The wiring itself, as data. The level says what is on what; what a
+     breaker DOES is game/terminal/electrical.js's business. */
+  b.electrical({ circuits: CIRCUITS, chunks: chunkCircuits() });
+
   for (const row of SCHEDULE) {
     const r = room(row.id);
     b.chunk(row.id);
@@ -365,17 +369,84 @@ export function buildFixtures(b) {
 }
 
 /* ============================================================
-   THE ROOMS EACH CIRCUIT DIMS
+   WHAT EACH CIRCUIT DIMS
 
-   Every chunk that belongs to a room, plus the envelope segments and
-   floor slabs that room shares. A wall's geometry lives in its own
-   chunk, so a circuit has to name those too or the walls of a dark room
-   stay lit.
+   A room's own chunk holds its floor finish, its partitions, its trim
+   and its furniture, so a room is one circuit and that is easy. The
+   problem is everything else the player can see from inside it:
+
+     THE ENVELOPE. A wall's geometry lives in one chunk per elevation
+     segment -- ext.west.north is sixty feet of masonry from grade to
+     parapet -- and that one mesh carries the inside faces of TWO floors
+     of rooms as well as the outside face of the building. It cannot
+     belong to one circuit.
+
+     THE SLABS. floor2.west.front is the second floor's boards on top
+     and the first floor's plaster ceiling underneath. Two circuits, one
+     mesh, and nobody is going to split it.
+
+   So a chunk names every circuit that lights it and gets the MEAN: an
+   elevation with two of its four circuits burning comes out half lit.
+   That is an approximation and it is the right one -- a wall is about
+   as bright as the rooms burning next to it, and the alternative is
+   either a dark room with a glowing window wall or forty more chunks.
+
+   The bands the envelope and the slabs are cut into are the building's
+   own: front (the front block), mid (the middle band with the stairs
+   and the cross halls) and north (the long rear rooms).
    ============================================================ */
+export const CHUNK_CIRCUITS = {
+  /* ---- the front elevation, either side of the portico ---- */
+  'ext.front.west': ['clerk', 'west-front', 'floor2-west', 'front-ext'],
+  'ext.front.east': ['east-front', 'floor2-east', 'front-ext'],
+  /* ---- the two long side elevations ---- */
+  'ext.west.front': ['clerk', 'west-front', 'floor2-west', 'platform'],
+  'ext.west.mid': ['west-rear', 'floor2-west', 'platform'],
+  'ext.west.north': ['west-rear', 'floor2-west', 'platform'],
+  'ext.east.front': ['east-front', 'floor2-east', 'platform'],
+  'ext.east.mid': ['east-rear', 'floor2-east', 'platform'],
+  'ext.east.north': ['east-rear', 'floor2-east', 'platform'],
+  /* ---- the north ends of the wings, and their garden faces ---- */
+  'ext.north.west': ['west-rear', 'floor2-west', 'garden'],
+  'ext.north.east': ['east-rear', 'floor2-east', 'garden'],
+  'ext.garden.west': ['west-rear', 'floor2-west', 'garden', 'porch-rear'],
+  'ext.garden.east': ['east-rear', 'floor2-east', 'garden', 'porch-rear'],
+  /* ---- the central block ---- */
+  'ext.central.south': ['lobby', 'floor2-center', 'front-ext'],
+  'ext.central.north': ['lobby', 'floor2-center', 'porch-rear', 'garden'],
+  /* ---- the first floor's boards ---- */
+  'floor1.west.front': ['clerk', 'west-front'],
+  'floor1.west.mid': ['west-rear'],
+  'floor1.west.north': ['west-rear'],
+  'floor1.east.front': ['east-front'],
+  'floor1.east.mid': ['east-rear'],
+  'floor1.east.north': ['east-rear'],
+  'floor1.central': ['lobby'],
+  /* ---- and the second floor's, which are also the ceilings below ---- */
+  'floor2.west.front': ['floor2-west', 'clerk', 'west-front'],
+  'floor2.west.mid': ['floor2-west', 'west-rear'],
+  'floor2.west.north': ['floor2-west', 'west-rear'],
+  'floor2.east.front': ['floor2-east', 'east-front'],
+  'floor2.east.mid': ['floor2-east', 'east-rear'],
+  'floor2.east.north': ['floor2-east', 'east-rear'],
+  'floor2.central': ['floor2-center', 'lobby'],
+};
+
+/**
+ * Chunk id -> the circuits that light it, rooms and shell together.
+ * This is what the level hands the electrical system.
+ */
+export function chunkCircuits() {
+  const m = new Map();
+  for (const [room, id] of ROOM_CIRCUIT) m.set(room, [id]);
+  for (const [chunk, ids] of Object.entries(CHUNK_CIRCUITS)) m.set(chunk, ids.slice());
+  return m;
+}
+
 export function circuitChunks(circuitId) {
-  const c = CIRCUIT_BY_ID.get(circuitId);
-  if (!c) return [];
-  return c.rooms.slice();
+  const out = [];
+  for (const [chunk, ids] of chunkCircuits()) if (ids.includes(circuitId)) out.push(chunk);
+  return out;
 }
 
 /** Every room the panel knows about, for the invariant that checks it. */

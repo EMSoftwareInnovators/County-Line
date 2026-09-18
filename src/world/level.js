@@ -106,6 +106,26 @@ export class Level {
      * breaker actually does. See MeshBuilder.dark.
      */
     this.chunkLit = {};
+    /**
+     * THE ELECTRICAL SCHEDULE, if the level has one.
+     *
+     *   circuits        one record per way in the panel; see
+     *                   game/terminal/electrical.js for what it means
+     *   chunkCircuits   chunk id -> the circuits that light it. A room
+     *                   has one. A whole elevation has several, because
+     *                   it is the outside face of four rooms and the
+     *                   inside face of four more.
+     *   devices         everything plugged in, as data: which circuit,
+     *                   how many amps, and how it cycles. The game turns
+     *                   these into PoweredDevices.
+     *
+     * The level says what is wired to what. It does not say what happens
+     * when a breaker goes, and nothing in world/ imports the electrical
+     * system.
+     */
+    this.circuits = [];
+    this.chunkCircuits = new Map();
+    this.devices = [];
     /** Per-frame stats the debug overlay reads. */
     this.stats = { chunks: 0, chunksDrawn: 0, tris: 0 };
   }
@@ -578,6 +598,26 @@ export class LevelBuilder {
   }
 
   interactable(spec) { return this.level.interact.add(new Interactable(spec)); }
+
+  /**
+   * Declare the building's wiring. See Level.circuits.
+   *
+   * @param spec { circuits, chunks: Map|object of chunk -> [circuit ids] }
+   */
+  electrical(spec) {
+    this.level.circuits = spec.circuits ? spec.circuits.slice() : [];
+    const src = spec.chunks instanceof Map ? spec.chunks.entries() : Object.entries(spec.chunks || {});
+    for (const [chunk, ids] of src) {
+      this.level.chunkCircuits.set(chunk, Array.isArray(ids) ? ids.slice() : [ids]);
+    }
+    return this;
+  }
+
+  /** Something plugged in. @param spec { id, circuit, draw, label, duty } */
+  device(spec) {
+    this.level.devices.push(spec);
+    return spec;
+  }
 
   /**
    * A named place the job happens at. See Level.stations.

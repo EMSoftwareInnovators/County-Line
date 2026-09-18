@@ -37,6 +37,7 @@ import { SaveGame, Profile } from './save.js';
 import { Campaign, TEST_CAMPAIGN, PHASE } from './campaign.js';
 import { Sfx } from './sfx.js';
 import { Debug } from './debug.js';
+import { Power } from './terminal/power.js';
 
 /** Every image-degradation stage off. See the note at the call site. */
 const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
@@ -230,6 +231,19 @@ export class Game {
     this.level = buildLevel(def, this.materials);
     this.nav = graphFromLevel(this.level);
     this.player = createPlayer(this.level.spawn);
+    /* ---- the building's electricity ----
+       Built from the schedule the level declared, and only if it
+       declared one: the testbed has no breaker panel and does not need
+       to pretend it has. */
+    this.power = this.level.circuits.length ? new Power(this.level, {
+      onTrip: (c) => this.onCircuitTrip(c),
+      toast: (t) => this.ui.toast(t),
+    }) : null;
+    if (this.power) {
+      this.power.openForBusiness();
+      this.power.bind(this.level, this.ctx());
+      this.power.apply();
+    }
     this.roomLights = {};
     for (const r of this.level.rooms) this.roomLights[r.id] = true;
     this.level.chunkShade = {};
@@ -466,6 +480,7 @@ export class Game {
     const levelId = (this.save.data.player && this.save.data.player.level) || 'testbed';
     this.loadLevel(levelId);
     this.save.restore(this.campaign, this.player, this.level);
+    if (this.power) this.power.restore(this.save.data.world && this.save.data.world.power);
     if (this.campaign.phase !== PHASE.ACTIVE) this.campaign.phase = PHASE.ACTIVE;
     this.beginPlay();
     this.ui.toast('Shift resumed');
@@ -493,6 +508,7 @@ export class Game {
     this.playtime += dt;
     this.campaign.update(dt);
     this.level.update(dt);
+    if (this.power) this.power.update(dt);
 
     const ctx = this.ctx();
     updatePlayer(this.player, dt, i, ctx);
@@ -575,6 +591,7 @@ export class Game {
         openTestCrate: () => this.openTestCrate(),
         roomLit: (id) => this.roomLit(id),
         toggleRoomLights: (id) => this.toggleRoomLights(id),
+        get power() { return this.game.power; },
         toast: (t, k) => this.ui.toast(t, k),
       };
     }
@@ -583,6 +600,15 @@ export class Game {
     this._ctx.onStep = (m, run) => this.sfx.footstep(m, run);
     this._ctx.onLand = (h) => this.sfx.land(h);
     return this._ctx;
+  }
+
+  /**
+   * A breaker has gone. Nothing supernatural happens: the lights in
+   * those rooms go out, whatever was plugged in stops, and somebody has
+   * to walk to the library and push it back up.
+   */
+  onCircuitTrip(c) {
+    this.ui.toast(`Somewhere a breaker has gone: ${c.label.toLowerCase()}.`, 'warn');
   }
 
   useDoor(d) {
@@ -711,7 +737,8 @@ export class Game {
    */
   autosave() {
     this.profile.addPlaytime(0);
-    const ok = this.save.autosave(this.campaign, this.player, this.level, this.playtime);
+    const ok = this.save.autosave(this.campaign, this.player, this.level, this.playtime,
+      this.power ? { power: this.power.save() } : null);
     if (!ok && !this._saveWarned) {
       this._saveWarned = true;
       this.ui.toast('This browser will not let the game save. Progress is kept until you close the tab.', 'warn');

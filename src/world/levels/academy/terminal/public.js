@@ -98,6 +98,16 @@ function lobby(b) {
     priority: 4,
   });
 
+  /* ---- what is plugged in at the counter ----
+     The level says which way feeds it and how many amps it pulls. It
+     does not say what happens when the way goes, because that is the
+     same answer for everything in the building and it is written once,
+     in game/terminal/electrical.js. */
+  b.device({ id: 'register', circuit: 'lobby', draw: 0.5, label: 'Cash register' });
+  b.device({ id: 'ticket-printer', circuit: 'lobby', draw: 2.2, label: 'Ticket printer' });
+  b.device({ id: 'counter-crt', circuit: 'lobby', draw: 1.2, label: 'Counter terminal' });
+  b.device({ id: 'lobby-clock', circuit: 'lobby', draw: 0.1, label: 'Lobby clock' });
+
   /* stanchions south of the counter, so a waiting line has a shape.
      They stop three feet short of the west wall: the run is a guide, not
      a fence, and the gap is how somebody crossing the room gets past it
@@ -231,6 +241,10 @@ function departureWaiting(b) {
 
   /* one machine, a bin, and a clock */
   const v = vending(b, { x: r.x0 + ftin(2, 2), z: r.z1 - ftin(4, 0), face: 'east' });
+  b.device({
+    id: 'vending-waiting', circuit: 'west-front', draw: 4.4,
+    label: 'Vending machine (waiting room)', duty: [7, 21],
+  });
   b.station({
     id: 'vending-waiting', name: 'Vending machine', room: r.id,
     box: { x0: v.x0, x1: v.x1 + ftin(1, 6), z0: v.z0, z1: v.z1, y0: ftin(2, 0), y1: ftin(5, 0) },
@@ -385,6 +399,10 @@ function newsstand(b) {
   }
 
   const v = vending(b, { x: r.x1 - ftin(2, 2), z: r.z0 + ftin(2, 0), face: 'west' });
+  b.device({
+    id: 'vending-lobby', circuit: 'east-front', draw: 4.4,
+    label: 'Vending machine (newsstand)', duty: [7, 23],
+  });
   b.station({
     id: 'vending-lobby', name: 'Vending machine', room: r.id,
     box: { x0: v.x0 - ftin(1, 6), x1: v.x1, z0: v.z0, z1: v.z1, y0: ftin(2, 0), y1: ftin(5, 0) },

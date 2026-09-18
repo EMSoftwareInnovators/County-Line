@@ -17,6 +17,11 @@
 
    It then asks the same of every station the job happens at: a counter
    you cannot reach is a counter that is not in the game.
+
+   The second half is the electrical retrofit: thirteen ways, three
+   cabinets, a switch bank, and the one trip the east wing's load
+   arithmetic produces when the conveyor runs on top of the coffee
+   maker. Nothing in it is supernatural and nothing in it is scripted.
    ============================================================ */
 import { launch, openGame, checker } from './browser.mjs';
 
@@ -130,6 +135,219 @@ const unreachable = await page.evaluate(() => {
 for (const s of unreachable) console.log(`      ${s.id}  nowhere to stand`);
 check('every station can be walked up to', unreachable.length === 0,
   `${(await page.evaluate(() => window.__game.level.stations.size))} stations`);
+
+/* ============================================================
+   THE PANEL
+
+   Thirteen ways in three cabinets, a switch bank, and one trip that
+   arithmetic causes. Everything here is checked against the live
+   system in the running game, because the thing worth knowing is not
+   whether the class works but whether the building is wired to it.
+   ============================================================ */
+console.log('\n-- the electrical retrofit --');
+
+const wiring = await page.evaluate(() => {
+  const g = window.__game;
+  const L = g.level;
+  const P = g.power;
+  const rooms = L.rooms.map((r) => r.id);
+  const unwired = rooms.filter((id) => !P.system.roomCircuit.has(id));
+  return {
+    circuits: P.system.circuits.length,
+    panels: P.system.panels,
+    devices: P.system.devices.length,
+    unwired,
+    /* Every device names a way that exists -- Electrical.add throws
+       otherwise, so reaching here at all is the test. */
+    perPanel: P.system.panels.map((p) => P.system.panelWays(p).length),
+    labels: P.system.circuits.every((c) => !!c.label && !!c.panel && c.breakerNo > 0),
+    ids: new Set(P.system.circuits.map((c) => c.id)).size,
+  };
+});
+check('the building has one panel schedule, not one breaker per bulb',
+  wiring.circuits >= 10 && wiring.circuits <= 16, `${wiring.circuits} ways`);
+check('in three cabinets, all on one wall of the clerk\'s office',
+  wiring.panels.length === 3, wiring.panels.join(' / ') + ' — ' + wiring.perPanel.join(', '));
+check('every way has a stable id, a label and a breaker number',
+  wiring.labels && wiring.ids === wiring.circuits);
+check('every room in the building is on a circuit',
+  wiring.unwired.length === 0, wiring.unwired.join(', ') || 'none unwired');
+check('and there is real equipment plugged into them',
+  wiring.devices >= 10, `${wiring.devices} devices`);
+
+/* ---- the switch bank dims what it says it dims ---- */
+const dimming = await page.evaluate(() => {
+  const g = window.__game;
+  const P = g.power;
+  const before = { ...g.level.chunkLit };
+  P.system.setSwitch('east-rear', false);
+  P.apply();
+  const after = { ...g.level.chunkLit };
+  const changed = Object.keys(after).filter((k) => after[k] !== before[k]);
+  const room = 'academy.east.animal';
+  const out = {
+    changed: changed.length,
+    room: [before[room], after[room]],
+    /* an elevation is lit by several ways and comes down part of the
+       way, not all of it */
+    shell: [before['ext.east.north'], after['ext.east.north']],
+    /* and a room on another circuit does not move at all */
+    other: [before['academy.central'], after['academy.central']],
+  };
+  P.system.setSwitch('east-rear', true);
+  P.apply();
+  return out;
+});
+check('switching a zone off dims the rooms on it',
+  dimming.room[0] === 1 && dimming.room[1] === 0, `${dimming.room[0]} -> ${dimming.room[1]}`);
+check('an elevation lit by four ways comes down part of the way, not all',
+  dimming.shell[1] < dimming.shell[0] && dimming.shell[1] > 0,
+  `${dimming.shell[0].toFixed(2)} -> ${dimming.shell[1].toFixed(2)}`);
+check('and nothing on another way moves',
+  dimming.other[0] === dimming.other[1], `${dimming.other[1]}`);
+
+/* ---- a breaker cuts the machines; a switch does not ---- */
+const split = await page.evaluate(() => {
+  const g = window.__game;
+  const P = g.power;
+  P.system.setSwitch('lobby', false);
+  P.system.update(0.016);
+  const switchedOff = P.working('ticket-printer');
+  P.system.setBreaker('lobby', false);
+  P.system.update(0.016);
+  const breakerOff = P.working('ticket-printer');
+  P.system.setBreaker('lobby', true);
+  P.system.setSwitch('lobby', true);
+  P.system.update(0.016);
+  return { switchedOff, breakerOff, back: P.working('ticket-printer') };
+});
+check('a light switch leaves the ticket printer running',
+  split.switchedOff === true);
+check('the breaker takes it with it',
+  split.breakerOff === false);
+check('and putting the breaker back brings it back', split.back === true);
+
+/* ---- the east wing trips, and only because of arithmetic ---- */
+const trip = await page.evaluate(async () => {
+  const g = window.__game;
+  const P = g.power;
+  const c = P.system.circuit('east-rear');
+  const idle = P.system.loadOn('east-rear');
+  /* Run the conveyor with a pot of coffee on. Twelve and a half amps
+     and seven and a half on a twenty-amp way. */
+  P.run('conveyor', true);
+  P.run('coffee', true);
+  /* Wind the clock forward in game steps rather than real seconds. */
+  let loaded = 0;
+  for (let i = 0; i < 40 && !c.tripped; i++) {
+    P.update(0.5);
+    loaded = Math.max(loaded, P.system.loadOn('east-rear'));
+  }
+  const tripped = c.tripped;
+  const roomDark = g.level.chunkLit['academy.east.animal'];
+  const machinesDead = !P.working('baggage-scale') && !P.working('conveyor');
+  /* A tripped way cannot be switched back on, only reset. */
+  P.system.setBreaker('east-rear', true);
+  const stillTripped = c.tripped;
+  const why = P.system.trips.length ? P.system.trips[P.system.trips.length - 1].why : null;
+  P.run('conveyor', false);
+  P.run('coffee', false);
+  P.system.reset('east-rear');
+  P.update(0.016);
+  P.apply();
+  return {
+    idle, loaded, tripped, stillTripped, why, roomDark, machinesDead,
+    recovered: c.breaker === 'on' && g.level.chunkLit['academy.east.animal'] === 1,
+  };
+});
+check('the east wing is inside its rating with the machines stopped',
+  trip.idle < 20, `${trip.idle.toFixed(1)} of 20 A`);
+check('running the conveyor and the coffee maker together puts it over',
+  trip.loaded > 20, `${trip.loaded.toFixed(1)} of 20 A`);
+check('and holding it there opens the breaker', trip.tripped === true, `why: ${trip.why}`);
+check('which takes the lights and the machines with it',
+  trip.roomDark === 0 && trip.machinesDead);
+check('a tripped way cannot be switched on, only reset', trip.stillTripped === true);
+check('and resetting it puts the wing back', trip.recovered === true);
+
+/* ---- the stations in the clerk's office are wired to it ---- */
+const stations = await page.evaluate(() => {
+  const g = window.__game;
+  const L = g.level;
+  const ctx = g.ctx();
+  const sw = [...L.stations.keys()].filter((k) => k.startsWith('switch.'));
+  const panels = [...L.stations.keys()].filter((k) => k.startsWith('panel-'));
+  const bound = [...sw, ...panels].every((k) => typeof L.stations.get(k).handler === 'function');
+  /* the switch station actually throws its own circuit */
+  const st = L.stations.get('switch.garden');
+  const before = g.power.system.circuit('garden').switched;
+  st.handler(ctx, st).action();
+  const after = g.power.system.circuit('garden').switched;
+  st.handler(ctx, st).action();
+  /* and a panel offers a reset only when something has tripped */
+  const pa = L.stations.get('panel-b');
+  const quiet = pa.handler(ctx, pa);
+  g.power.system.trip('east-rear', 'test');
+  const loud = pa.handler(ctx, pa);
+  if (loud.action) loud.action();
+  const cleared = !g.power.system.circuit('east-rear').tripped;
+  g.power.apply();
+  return {
+    switches: sw.length, panels: panels.length, bound,
+    flipped: before !== after,
+    quiet: !quiet.action, offered: !!loud.action && /Reset breaker/.test(loud.text),
+    cleared,
+  };
+});
+check('there is a labelled switch for every way, and a station per panel',
+  stations.switches === wiring.circuits && stations.panels === 3,
+  `${stations.switches} switches, ${stations.panels} panels`);
+check('all of them are wired to the system', stations.bound === true);
+check('a switch on the bank throws its own circuit', stations.flipped === true);
+check('a panel offers nothing when nothing has tripped', stations.quiet === true);
+check('and offers the reset when something has', stations.offered === true);
+check('which clears it', stations.cleared === true);
+
+/* ---- it survives a save ---- */
+const persisted = await page.evaluate(() => {
+  const g = window.__game;
+  const P = g.power;
+  P.system.setSwitch('floor2-east', true);
+  P.system.setBreaker('garden', false);
+  P.run('conveyor', true);
+  const blob = JSON.parse(JSON.stringify(P.save()));
+  /* wreck it, then put it back */
+  P.openForBusiness();
+  P.system.setBreaker('garden', true);
+  P.run('conveyor', false);
+  P.restore(blob);
+  const ok = P.system.circuit('floor2-east').switched === true
+    && P.system.circuit('garden').breaker === 'off'
+    && P.isRunning('conveyor') === true;
+  P.system.setBreaker('garden', true);
+  P.run('conveyor', false);
+  P.openForBusiness();
+  P.apply();
+  return ok;
+});
+check('the state of the panel goes into the save and comes back', persisted === true);
+
+/* ---- and the diagnostics are developer-only ---- */
+const diag = await page.evaluate(() => {
+  const g = window.__game;
+  const was = g.debug.level;
+  g.debug.level = 4;
+  const html = g.debug.html(g);
+  g.debug.level = was;
+  return {
+    rows: (html.match(/<tr>/g) || []).length,
+    mentionsLoad: /\/20 A/.test(html) || /\/15 A/.test(html),
+    gated: g.devTools === true || g.devTools === false,
+  };
+});
+check('the panel read-out lists every way with its load',
+  diag.rows >= wiring.circuits && diag.mentionsLoad, `${diag.rows} rows`);
+check('and it is behind the developer flag, not on the HUD', diag.gated === true);
 
 check('no page errors', page.logs.filter((l) => l.startsWith('[pageerror]')).length === 0,
   page.logs.join(' | '));

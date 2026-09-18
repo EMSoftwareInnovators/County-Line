@@ -96,6 +96,9 @@ function clerkOffice(b) {
     x: ft(-53.5), z: ft(-25.4), y: ftin(4, 6), face: 'north',
     w: ftin(1, 10), h: ftin(0, 6), material: M.plate('P.A.', { size: 13 }),
   });
+  b.device({ id: 'pa-amp', circuit: 'clerk', draw: 1.6, label: 'P.A. amplifier' });
+  b.device({ id: 'clerk-crt', circuit: 'clerk', draw: 1.2, label: 'Dispatch terminal' });
+  b.device({ id: 'clerk-lamp', circuit: 'clerk', draw: 0.5, label: 'Desk lamp' });
   b.station({
     id: 'pa-desk', name: 'Public address', room: r.id,
     box: {
@@ -334,6 +337,7 @@ function baggageRoom(b) {
          bags come in through ---- */
   const SX = r.x0 + ftin(3, 6), SZ = r.z0 + ftin(4, 0);
   scale(b, { x: SX, z: SZ, dial: 'east' });
+  b.device({ id: 'baggage-scale', circuit: 'east-rear', draw: 0.7, label: 'Baggage scale' });
   b.station({
     id: 'baggage-scale', name: 'Baggage scale', room: r.id,
     box: {
@@ -404,6 +408,10 @@ function baggageRoom(b) {
   });
 
   const v = vending(b, { x: r.x1 - ftin(2, 2), z: r.z0 + ftin(2, 6), face: 'west' });
+  b.device({
+    id: 'vending-baggage', circuit: 'east-rear', draw: 4.6,
+    label: 'Vending machine (baggage room)', duty: [9, 17],
+  });
   b.station({
     id: 'vending-baggage', name: 'Vending machine', room: r.id,
     box: { x0: v.x0 - ftin(1, 6), x1: v.x1, z0: v.z0, z1: v.z1, y0: ftin(2, 0), y1: ftin(5, 0) },
@@ -472,6 +480,16 @@ function operations(b) {
   block(b, {
     x0: CX, x1: CX + CW, z0: CZ0 - ftin(0, 10), z1: CZ0,
     y0: ftin(1, 4), y1: ftin(3, 0), material: M.officeSteel, tag: 'conveyor-motor',
+  });
+  /* TWELVE AND A HALF AMPS, and only while the motor is turning. A
+     one-and-a-half horsepower belt drive on a hundred and twenty volts
+     is about that, and it is most of what the east wing's way carries.
+     Add the coffee maker in the break room and the pair of them are
+     nine tenths of an amp over it -- which is the entire trip, and
+     nothing about it is written down anywhere as an event. */
+  b.device({
+    id: 'conveyor', circuit: 'east-rear', draw: 12.5,
+    label: 'Baggage conveyor', switched: true,
   });
   b.station({
     id: 'conveyor', name: 'Baggage conveyor', room: r.id,
@@ -545,6 +563,14 @@ function breakRoom(b) {
     x0: r.x0 + ftin(1, 6), x1: r.x0 + ftin(2, 6), z0: r.z0 + ftin(0, 8), z1: r.z0 + ftin(1, 8),
     y0: ftin(3, 2), y1: ftin(4, 4), material: M.officeSteel, tag: 'coffee',
   });
+  /* Brewing, not warming: a switched device, because somebody puts a
+     pot on and that is the point. Seven and a half amps on the same
+     way as the conveyor. */
+  b.device({
+    id: 'coffee', circuit: 'east-rear', draw: 7.5,
+    label: 'Coffee maker', switched: true,
+  });
+  b.device({ id: 'time-clock', circuit: 'east-rear', draw: 0.2, label: 'Time clock' });
   b.station({
     id: 'coffee', name: 'Coffee maker', room: r.id,
     box: {

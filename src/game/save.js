@@ -145,8 +145,12 @@ export class SaveGame {
    * @param player   the live player object
    * @param level    the live Level
    * @param playtime seconds
+   * @param extra    anything else that belongs to the world rather than
+   *                 to the campaign -- the state of the breaker panel,
+   *                 tonight's schedule. Merged into `world`, so a build
+   *                 that does not understand a key still carries it.
    */
-  capture(campaign, player, level, playtime) {
+  capture(campaign, player, level, playtime, extra) {
     const doors = {};
     if (level) {
       for (const d of level.doors) doors[d.id] = { open: d.open, locked: d.locked };
@@ -161,7 +165,12 @@ export class SaveGame {
       } : null,
       /* Keep whatever a newer build wrote that this one does not
          understand. Rule 2. */
-      world: { ...(this.data.world || {}), doors, flags: { ...(this.data.world && this.data.world.flags) } },
+      world: {
+        ...(this.data.world || {}),
+        ...(extra || {}),
+        doors,
+        flags: { ...(this.data.world && this.data.world.flags) },
+      },
       meta: { savedAt: Date.now(), playtime: Math.round(playtime || 0), build: SAVE_VERSION },
     };
     return this.data;
@@ -170,8 +179,8 @@ export class SaveGame {
   write() { return saveRecord.save(this.data); }
 
   /** capture + write, the call an autosave actually makes. */
-  autosave(campaign, player, level, playtime) {
-    this.capture(campaign, player, level, playtime);
+  autosave(campaign, player, level, playtime, extra) {
+    this.capture(campaign, player, level, playtime, extra);
     return this.write();
   }
 
