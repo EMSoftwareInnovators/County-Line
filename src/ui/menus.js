@@ -14,7 +14,7 @@
    ============================================================ */
 import { glyph, keyList, padList, escapeHtml } from './glyphs.js';
 import { BINDABLE, ACTIONS } from '../engine/input.js';
-import { RESOLUTIONS, RETRO_LEVELS } from '../game/settings.js';
+import { RESOLUTIONS, RETRO_LEVELS, TEXTURE_STABILITY } from '../game/settings.js';
 
 /* ---------------- row constructors ---------------- */
 
@@ -260,10 +260,14 @@ export function pictureScreen(game) {
   return {
     title: 'PICTURE',
     blurb: 'Resolution is the internal framebuffer, not the window. '
-      + 'The window always scales to fit it.',
+      + 'Texture stability trades the old swim on big surfaces for being '
+      + 'able to read the building.',
     rows: () => [
       choice('Resolution', RESOLUTIONS, () => v.resolution, (i) => { v.resolution = i; touch(); },
         { render: (r) => r[2] }),
+      choice('Texture stability', TEXTURE_STABILITY, () => v.textureStability,
+        (i) => { v.textureStability = i; touch(); },
+        { render: (r) => r.label.toUpperCase() }),
       choice('Retro filter', RETRO_LEVELS, () => RETRO_LEVELS.indexOf(v.retro),
         (i) => { v.retro = RETRO_LEVELS[i]; touch(); },
         { render: (r) => r.toUpperCase() }),

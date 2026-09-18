@@ -26,6 +26,7 @@
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
 import { chimneyBreast, column, setBreast, trimBox } from './parts.js';
+import { FLOOR1, X_DOCENT_E, X_SHOP_W } from './rooms.js';
 
 /* Interior openings. `at` is an absolute coordinate along the wall. */
 const door = (at, id, opt = {}) => ({
@@ -91,14 +92,14 @@ function slab(b, chunk, x0, x1, z0, z1, m) {
   b.chunk(chunk);
   /* FLOORS AND CEILINGS GET SUBDIVIDED FINER THAN WALLS.
 
-     The rasterizer maps textures affinely, so the error across a quad
-     grows with how big the quad is on screen -- and nothing in a room is
-     bigger on screen than the floor you are standing on. At 2.4 m the
-     board lines bent into visible chevrons across every room. 1.5 m costs
-     a few hundred triangles over the whole building and the boards run
-     straight. Floors get 1.0 m: they are the one surface always seen at
-     a grazing angle, and it is the cheapest place to spend triangles. */
-  b.detail(1.0);
+     NOT FOR TEXTURES ANY MORE. Floors were cut at 1.0 m because affine
+     mapping bent the board lines into chevrons across every room; the
+     rasterizer corrects the mapping now, and the chevrons were half
+     texture content anyway. What is left is the light: a pool of it
+     twenty feet across needs vertices inside that pool or it arrives as
+     one flat step. 1.35 m puts five across the pool and costs a third
+     of what 1.0 did. */
+  b.detail(1.35);
   /* `pad` is the exterior wall's thickness: the boards you can see stop
      at the plaster, the structure you stand on runs on under the
      masonry. See the note on LevelBuilder.floor -- drawn out to the
@@ -248,56 +249,16 @@ export function buildFirstFloor(b) {
   /* ============================================================
      ROOMS
      ============================================================ */
-  const X_DOCENT_E = D.X_W_IN + ft(18);
-  const X_SHOP_W = D.X_E_IN - ft(18);
 
-  /* THREE CEILING CLASSES AND NO MORE. The photographs show very tall
-     first-floor rooms; the number they are tall is not documented
-     anywhere, so it is estimated once (dimensions.js) and applied by
-     class rather than varied room by room. `P` is the principal height
-     the central room reaches, `S` the secondary rooms' plaster ceiling
-     nine inches under the same structural floor, `V` the furred-down
-     service ceiling over the closets. */
-  const P_ = D.CEIL_PRINCIPAL, S_ = D.CEIL_SECONDARY, V_ = D.CEIL_SERVICE;
-
-  const rooms = [
-    /* ---- the center ---- */
-    ['academy.central', 'Central Room', D.X_BAY_W, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N, P_],
-
-    /* ---- west wing, south to north ---- */
-    ['academy.west.docent', 'Docent Library', D.X_W_IN, X_DOCENT_E, D.Z_S_IN, D.Z_DOCENT_N, S_],
-    ['academy.west.store', 'West Store Room', X_DOCENT_E + D.PART, D.X_WING_W_IN, D.Z_S_IN, D.Z_DOCENT_N, V_],
-    ['academy.indians', 'Indians of the Southeast', D.X_W_IN, D.X_WING_W_IN, D.Z_INDIANS_S, D.Z_FB_N, S_],
-    /* THE STAIR HALLS GET NO CEILING. They are the same footprint as the
-       well, and the well is a hole in the floor above -- a plaster
-       ceiling over one is a ceiling across a staircase, which stops the
-       player's head at about the ninth riser and then drops them back
-       down it. `P_` here means "reaches the structural floor", and over
-       the well there is no structural floor to reach. */
-    ['academy.west.stairhall', 'West Stair Hall', D.X_W_IN, D.X_W_HALL_W - D.PART, D.Z_MID_S, D.Z_STAIR_N, P_],
-    ['academy.west.rearhall', 'West Rear Hall', D.X_W_HALL_W, D.X_WING_W_IN, D.Z_MID_S, D.Z_MID_N, S_],
-    ['academy.west.offices', 'Offices', D.X_W_IN, D.X_WING_W_IN, D.Z_NB_S, D.Z_N_IN, S_],
-
-    /* ---- east wing, south to north ----
-       THE GIFT SHOP IS ONE ROOM, and it is the room the front porch opens
-       into AND the room the central room opens into. Stage 2 had those as
-       two separate spaces in two bands with the porch door landing in one
-       and the central room's door in the other, so the Gift Shop was
-       somewhere you could not reach from the hall. The east front block is now two
-       full-depth columns instead of two bands, which is the only way the
-       two doors can share a room. The west keeps the visitor map's own
-       arrangement, because Indians of the Southeast runs the full width
-       of that wing, and a gift shop by the entrance has no mirror image. */
-    ['academy.giftshop', 'Gift Shop', D.X_WING_E_IN, X_SHOP_W, D.Z_S_IN, D.Z_FB_N, S_],
-    ['academy.americana.main', 'Americana', X_SHOP_W + D.PART, D.X_E_IN, D.Z_S_IN, D.Z_FB_N, S_],
-    ['academy.east.rearhall', 'East Rear Hall / USS Augusta', D.X_WING_E_IN, D.X_E_HALL_E, D.Z_MID_S, D.Z_MID_N, S_],
-    ['academy.east.stairhall', 'East Stair Hall', D.X_E_HALL_E + D.PART, D.X_E_IN, D.Z_MID_S, D.Z_STAIR_N, P_],
-    ['academy.east.animal', 'Animal Room', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_NB_S, D.Z_ANIMAL_N, S_],
-    ['academy.east.staff', 'Staff', D.X_WING_E_IN, D.X_EAST_COL_E, D.Z_STAFF_S, D.Z_N_IN, S_],
-    ['academy.east.service', 'East Service Room', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_NB_S, D.Z_STRIP_S_N, S_],
-    ['academy.east.vestibule', 'East Vestibule', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_STRIP_M_S, D.Z_STRIP_M_N, V_],
-    ['academy.east.council', 'Council Room', D.X_EAST_STRIP_W, D.X_E_IN, D.Z_STRIP_N_S, D.Z_N_IN, S_],
-  ];
+  /* THE ROOM TABLE LIVES IN rooms.js. It used to live here, which was
+     right while this module was its only reader; the fixtures, the
+     circuit schedule and the terminal's furniture are three more, and
+     four copies of where the Gift Shop is are four places for it to
+     move. The three ceiling classes are still the estimate they always
+     were -- `P` the principal height the central room reaches, `S` a
+     plaster ceiling nine inches under the same structural floor, `V` the
+     furred-down service ceiling over the closets. */
+  const rooms = FLOOR1;
 
   for (const [id, name, x0, x1, z0, z1, ceil] of rooms) {
     b.room({ id, name, x0, x1, z0, z1, y0: 0, y1: ceil, floor: 1, material: 'wood' });

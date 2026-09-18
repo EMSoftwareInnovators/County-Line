@@ -70,7 +70,7 @@ export function buildRoof(b) {
   });
 
   b.chunk('academy.roof');
-  b.detail(3.0);
+  b.detail(4.2);
 
   /* ---- the decks ----
      THE DECK SPANS THE INTERIOR, NOT THE FOOTPRINT. Taken out to the

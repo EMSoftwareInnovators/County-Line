@@ -40,6 +40,7 @@
 import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
 import { trimBox } from './parts.js';
+import { FLOOR2, MIN_Z } from './rooms.js';
 import { partition } from './firstfloor.js';
 import { stairWells } from './stairs.js';
 
@@ -131,25 +132,11 @@ export function buildSecondFloor(b) {
   /* ============================================================
      ROOMS
      ============================================================ */
-  /* The east wing's north band, split by ONE cross wall: the smaller room
-     south, the Archives filling the rest. Two rectangles covering the
-     whole band, rather than a corner room with an orphan strip beside
-     it. */
-  const MIN_Z = D.Z_NB_S + ftin(13, 6);
-
-  const rooms = [
-    ['academy.upper.west.rotating', 'Rotating Exhibits', D.X_W_IN, D.X_WING_W_IN, D.Z_S_IN, D.Z_FB_N],
-    ['academy.upper.west.landing', 'West Upper Landing', D.X_W_IN, D.X_WING_W_IN, D.Z_MID_S, D.Z_MID_N],
-    ['academy.upper.west.history', 'Augusta-Richmond County History', D.X_W_IN, D.X_WING_W_IN, D.Z_NB_S, D.Z_N_IN],
-
-    ['academy.upper.center.war', 'The War Room', D.X_BAY_W, 0, D.Z_CENTRAL_S, D.Z_CENTRAL_N],
-    ['academy.upper.center.mammals', 'Modern Mammals', 0, D.X_BAY_E, D.Z_CENTRAL_S, D.Z_CENTRAL_N],
-
-    ['academy.upper.east.natural', 'Natural History', D.X_WING_E_IN, D.X_E_IN, D.Z_S_IN, D.Z_FB_N],
-    ['academy.upper.east.landing', 'East Upper Landing', D.X_WING_E_IN, D.X_E_IN, D.Z_MID_S, D.Z_MID_N],
-    ['academy.upper.east.minerals', 'Rocks & Minerals', D.X_WING_E_IN, D.X_E_IN, D.Z_NB_S, MIN_Z],
-    ['academy.upper.east.archives', 'Archives', D.X_WING_E_IN, D.X_E_IN, MIN_Z + D.PART, D.Z_N_IN],
-  ];
+  /* The room table lives in rooms.js -- see the note in firstfloor.js.
+     The east wing's north band is split by ONE cross wall there: the
+     smaller room south, the Archives filling the rest, two rectangles
+     covering the whole band. */
+  const rooms = FLOOR2;
 
   for (const [id, name, x0, x1, z0, z1] of rooms) {
     b.room({ id, name, x0, x1, z0, z1, y0: D.FLOOR2, y1: D.FLOOR2_CEIL, floor: 2, material: 'wood' });

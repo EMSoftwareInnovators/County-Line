@@ -501,13 +501,19 @@ export function windowSurround(b, spec) {
   const outward = (spec.face === 'south' || spec.face === 'west') ? -1 : 1;
   const d0 = outward * t / 2;
   const d1 = d0 + outward * inch(3);
+  /* The back of every block is inside the masonry it is stuck to, and
+     there are eighty-six windows with nine blocks each. */
+  const back = {};
+  if (alongX) back[outward > 0 ? 'nz' : 'pz'] = null;
+  else back[outward > 0 ? 'nx' : 'px'] = null;
   const put = (a0, a1, y0, y1, extra) => {
     const e = extra || 0;
     const x0 = alongX ? spec.at + a0 : spec.line + Math.min(d0, d1 + outward * e);
     const x1 = alongX ? spec.at + a1 : spec.line + Math.max(d0, d1 + outward * e);
     const z0 = alongX ? spec.line + Math.min(d0, d1 + outward * e) : spec.at + a0;
     const z1 = alongX ? spec.line + Math.max(d0, d1 + outward * e) : spec.at + a1;
-    trimBox(b, Math.min(x0, x1), y0, Math.min(z0, z1), Math.max(x0, x1), y1, Math.max(z0, z1), m);
+    trimBox(b, Math.min(x0, x1), y0, Math.min(z0, z1),
+      Math.max(x0, x1), y1, Math.max(z0, z1), m, back);
   };
   /* head */
   put(-half, half, spec.head, spec.head + inch(9));
@@ -550,13 +556,23 @@ export function corbelTable(b, spec) {
   const outward = spec.outward === undefined ? 1 : spec.outward;
   const d0 = outward > 0 ? t / 2 : -t / 2 - proj;
   const d1 = outward > 0 ? t / 2 + proj : -t / 2;
+  /* TWO HUNDRED AND THIRTY BRACKETS RUN ROUND THIS BUILDING, and four of
+     every bracket's six faces are against something: the wall behind it,
+     the parapet sitting on it, and -- at nine inches wide with a
+     seven-inch projection -- there is nothing to see of its underside
+     from the ground either. Leaving the buried ones undrawn takes a
+     third of the roof chunk out, which is the largest single mesh in the
+     game and fully visible from the street. */
+  const buried = { py: null, ny: null };
+  if (alongX) buried[outward > 0 ? 'nz' : 'pz'] = null;
+  else buried[outward > 0 ? 'nx' : 'px'] = null;
   for (let i = 0; i < n; i++) {
     const a = pad + i * pitch - cw / 2;
     const x0 = alongX ? spec.x0 + a : spec.line + d0;
     const x1 = alongX ? spec.x0 + a + cw : spec.line + d1;
     const z0 = alongX ? spec.line + d0 : spec.z0 + a;
     const z1 = alongX ? spec.line + d1 : spec.z0 + a + cw;
-    trimBox(b, x0, spec.y, z0, x1, spec.y + ch, z1, m);
+    trimBox(b, x0, spec.y, z0, x1, spec.y + ch, z1, m, buried);
   }
 }
 

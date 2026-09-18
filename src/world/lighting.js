@@ -19,9 +19,16 @@
        { x, y, z, r, i, kind }
      r     meters to full darkness
      i     intensity at the center
-     kind  'point'  falls off in all directions (a fitting, a lamp)
+     kind  'point'  falls off in all directions (a bare lamp)
            'fill'   the same, but ignores which way the surface faces --
                     for bounce, and for anything meant to lift a whole room
+           'down'   a SHADED fitting: it lights what is below it and
+                    nothing above. This is the one that makes a tall room
+                    read as tall. A bare point light at eleven feet in a
+                    sixteen-foot room lights the ceiling above it as
+                    brightly as the floor below, and the volume flattens;
+                    a pendant with an enameled shade over it does not,
+                    and neither does this.
    ============================================================ */
 
 /**
@@ -36,6 +43,11 @@
  * @param opts.skyDir   where the sky light comes from, default straight up
  * @param opts.max      clamp. Above 1 the texture is blown out, which is
  *                      occasionally what a fluorescent tube wants.
+ * @param opts.only     'fixed' bakes ONLY the lights a breaker cannot
+ *                      reach -- the moon, a streetlamp, the glow through
+ *                      a window -- and skips every switchable fitting.
+ *                      This is the second shade term every vertex
+ *                      carries: the building with the lights out.
  */
 export function makeLightSampler(opts) {
   const lights = opts.lights;
@@ -43,6 +55,7 @@ export function makeLightSampler(opts) {
   const sky = opts.sky || 0;
   const sd = opts.skyDir || [0, 1, 0];
   const max = opts.max === undefined ? 1.5 : opts.max;
+  const fixedOnly = opts.only === 'fixed';
 
   return function lightAt(x, y, z, nx, ny, nz) {
     let s = ambient;
@@ -56,6 +69,10 @@ export function makeLightSampler(opts) {
     for (let i = 0; i < lights.length; i++) {
       const L = lights[i];
       if (L.off) continue;
+      /* A fitting on a circuit is not part of the dark bake. Anything
+         with no circuit is weather, or the sky, or a streetlight, and
+         stays on whatever the panel says. */
+      if (fixedOnly && L.circuit) continue;
       const dx = L.x - x, dy = L.y - y, dz = L.z - z;
       const d2 = dx * dx + dy * dy + dz * dz;
       const r = L.r || 6;
@@ -63,6 +80,15 @@ export function makeLightSampler(opts) {
       const d = Math.sqrt(d2) || 1e-4;
       let a = 1 - d / r;
       a *= a;
+      /* A shaded fitting throws down. `dy` is the light minus the
+         surface, so a surface below the fitting has dy > 0, and dy/d is
+         how far below it is. Weighted toward the square, because a shade
+         has a lip on it. */
+      if (L.kind === 'down') {
+        const below = dy / d;
+        if (below <= 0) continue;
+        a *= below * below * 0.75 + below * 0.25;
+      }
       let ndl = 1;
       if (haveN && L.kind !== 'fill') {
         /* Half-lambert rather than straight N dot L. A surface facing away
@@ -80,3 +106,11 @@ export function makeLightSampler(opts) {
 export const pointLight = (x, y, z, r = 6, i = 1) => ({ x, y, z, r, i, kind: 'point' });
 /** Bounce, or a room lifted as a whole. Ignores surface direction. */
 export const fillLight = (x, y, z, r = 8, i = 0.4) => ({ x, y, z, r, i, kind: 'fill' });
+/** The same two, on a breaker. `circuit` is an id from the panel. */
+export const wiredLight = (circuit, x, y, z, r = 6, i = 1) =>
+  ({ x, y, z, r, i, kind: 'point', circuit });
+export const wiredFill = (circuit, x, y, z, r = 8, i = 0.4) =>
+  ({ x, y, z, r, i, kind: 'fill', circuit });
+/** A shaded fitting on a breaker: the ordinary case in this building. */
+export const wiredDown = (circuit, x, y, z, r = 6, i = 1) =>
+  ({ x, y, z, r, i, kind: 'down', circuit });

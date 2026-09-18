@@ -206,5 +206,82 @@ section('blending');
     (c & 255) > 0 && (c & 255) < 200 ? 'blended' : `0x${c.toString(16)}`, 'blended');
 }
 
+
+/* ============================================================
+   PERSPECTIVE CORRECTION
+
+   The Stage 3 complaint was that big architectural surfaces swim. The
+   cause is affine mapping: u and v interpolated linearly in screen space
+   are not what a perspective projection puts there, and the error grows
+   with how much depth a polygon covers on screen.
+
+   This measures it rather than looking at it. A 4 x 20 m floor is laid
+   ahead of the camera as ONE quad, with the texture's own horizontal
+   midline halfway along it in world space. Affine mapping puts that
+   midline at the screen midpoint of the quad. A correct mapping puts it
+   where the projection does -- far higher up the screen, because the
+   back half of a floor occupies a fraction of the rows the front half
+   does. The gap between the two numbers is the swim.
+   ============================================================ */
+section('perspective correction');
+{
+  const floorRow = (persp) => {
+    const mb = new MeshBuilder();
+    mb.light = () => 1;
+    /* Wound counter-clockwise seen from ABOVE, so the camera looking down
+       at it sees the front. p0 is the far edge. */
+    mb.quad([-2, 0, 22], [2, 0, 22], [2, 0, 2], [-2, 0, 2],
+      tex, [0, 0, 8, 8], 0, [1, 1, false]);
+    const mesh = mb.build();
+    const rz = view([0, 1.6, 0], 0, 128);
+    rz.perspStep = persp;
+    rz.drawMesh(mesh, mat(), {});
+    for (let y = 0; y < rz.h; y++) {
+      const c = rz.color[y * rz.w + 64] >>> 0;
+      if (c === (RED >>> 0) || c === (GREEN >>> 0)) return y;
+    }
+    return -1;
+  };
+  const affine = floorRow(0);
+  const correct = floorRow(1);
+  const seg = floorRow(8);
+  console.log(`      world midline lands at row ${affine} affine, ${correct} corrected, ${seg} in 8-px segments`);
+  check('affine and corrected mapping disagree by a lot on a 20 m floor',
+    affine - correct > 20, true);
+  check('and the corrected one is where the projection puts it',
+    Math.abs(correct - 76) <= 2, true);
+  check('8-pixel segments land within two pixels of per-pixel correction',
+    Math.abs(seg - correct) <= 2, true);
+  check('and affine is where the SCREEN midpoint is, which is the bug',
+    Math.abs(affine - 104) <= 3, true);
+}
+
+/* The same error across a span rather than down one. Affine error is zero
+   at a polygon's edges and worst in the middle, which is the shape that
+   reads as the texture breathing as you walk past a wall. */
+section('affine error across a span');
+{
+  const wallCol = (persp) => {
+    const mb = new MeshBuilder();
+    mb.light = () => 1;
+    // a wall raking away to the right: near at one end, far at the other
+    mb.quad([9, 0, 19], [-1, 0, 1], [-1, 3, 1], [9, 3, 19],
+      tex, [0, 0, 8, 8], 0, [1, 1, false]);
+    const mesh = mb.build();
+    const rz = view([0, 1.5, 0], 0, 128);
+    rz.perspStep = persp;
+    rz.drawMesh(mesh, mat(), {});
+    for (let x = rz.w - 1; x >= 0; x--) {
+      const c = rz.color[64 * rz.w + x] >>> 0;
+      if (c === (RED >>> 0) || c === (BLUE >>> 0)) return x;
+    }
+    return -1;
+  };
+  const a = wallCol(0), c = wallCol(1);
+  console.log(`      vertical midline at column ${a} affine, ${c} corrected`);
+  check('a raking wall shows the same disagreement sideways',
+    a >= 0 && c >= 0 && Math.abs(a - c) > 4, true);
+}
+
 console.log(fails ? `\n${fails} FAILED` : '\nall good');
 process.exit(fails ? 1 : 0);

@@ -14,13 +14,23 @@
 
    Real County Line materials arrive with the building, in a later stage.
    ============================================================ */
-import { makeTex, fill, noise, speckle, grid, bond, grime, label } from '../engine/texture.js';
+import { makeTex, mipChain, fill, noise, speckle, grid, bond, grime, label } from '../engine/texture.js';
 
 /** texels per meter for the standard greybox grid: one line every 0.5 m. */
 const D = 64;
 
+/**
+ * Every material gets a mip chain. It is three box-filtered halvings, it
+ * costs a fraction of a millisecond at boot and about a third more
+ * texture memory, and it is the difference between a floor you can look
+ * along and a floor that crawls. See mipChain() in texture.js.
+ *
+ * `noMip` is for anything read as information rather than as surface --
+ * lettering on a sign, a destination roll -- where a blurred level is
+ * worse than an aliased one.
+ */
 const mat = (tex, opts = {}) => ({
-  tex,
+  tex: opts.noMip ? tex : mipChain(tex),
   density: opts.density === undefined ? D : opts.density,
   material: opts.material || 'stone',
 });
@@ -337,24 +347,36 @@ export function buildMaterials() {
   /* -------- heart pine floorboards -------- */
   M.heartPine = mat(makeTex(64, 64, (g, w, h) => {
     fill(g, '#7c5f3e', w, h);
-    for (let i = 0; i < 8; i++) {
-      g.fillStyle = ['#7f6240', '#775a3a', '#856844', '#725637',
-        '#806341', '#7a5d3c', '#886b47', '#745839'][i];
-      g.fillRect(0, i * 8, w, 8);
+    /* WIDE PLANK, four boards to the meter. Eight was a twelve-centimeter
+       board with a hard one-texel black seam between each -- the highest
+       contrast feature on the largest surface in the building, repeating
+       at the one frequency a grazing view cannot resolve. A ten-inch
+       plank is also what an 1802 building has. */
+    for (let i = 0; i < 4; i++) {
+      g.fillStyle = ['#7f6240', '#775a3a', '#856844', '#725637'][i];
+      g.fillRect(0, i * 16, w, 16);
     }
-    for (let i = 0; i < 130; i++) {                 // grain
-      g.strokeStyle = `rgba(60,40,22,${0.05 + Math.random() * 0.1})`;
+    /* GRAIN AT TWO LINES PER TEXEL IS NOT GRAIN, IT IS NOISE. Drawn at
+       130 lines in sixty-four rows, the floor carried more detail than
+       the framebuffer can hold, and at a grazing angle -- which is how a
+       floor is always seen -- it beat against the sampling grid into
+       moving chevrons. That was most of what read as the floor swimming,
+       and it is not something perspective correction or mipmaps can fix,
+       because the texture itself is the aliasing. Forty soft lines read
+       as heart pine and survive being looked along. */
+    for (let i = 0; i < 40; i++) {                  // grain
+      g.strokeStyle = `rgba(60,40,22,${0.04 + Math.random() * 0.06})`;
       g.lineWidth = 1;
       const y = Math.random() * h;
       g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (Math.random() - 0.5) * 2); g.stroke();
     }
-    g.strokeStyle = '#4b381f'; g.lineWidth = 1;
-    for (let i = 0; i <= 8; i++) {
-      const y = i * 8;
+    g.strokeStyle = 'rgba(75,56,31,0.55)'; g.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = i * 16;
       g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); g.stroke();
     }
-    noise(g, w, h, 9);
-    grime(g, w, h, 0.16, 14);
+    noise(g, w, h, 5);
+    grime(g, w, h, 0.16, 10);
   }), { material: 'wood' });
 
   /* -------- painted joinery: skirting, chair rail, casing, doors -------- */
@@ -521,6 +543,56 @@ export function buildMaterials() {
     speckle(g, w, h, 900, ['#53565b', '#43464a', '#5b5e63']);
     noise(g, w, h, 8);
   }), { material: 'stone' });
+
+  /* ============================================================
+     THE ELECTRICAL RETROFIT
+
+     Everything below was screwed to an 1802 building by somebody in a
+     hurry, in one of four decades, and looks it.
+     ============================================================ */
+
+  /** Painted steel: fixture bodies, surface boxes, breaker cabinets. */
+  M.fixtureMetal = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#54565a', w, h);
+    for (let i = 0; i < 10; i++) {
+      g.fillStyle = `rgba(255,255,255,${0.02 + Math.random() * 0.03})`;
+      g.fillRect(0, Math.random() * h, w, 1);
+    }
+    grime(g, w, h, 0.1, 6);
+    noise(g, w, h, 4);
+  }), { density: 64, material: 'metal' });
+
+  /** White vitreous enamel, gone yellow: pendant shades, porcelain bases. */
+  M.fixtureEnamel = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#ded6c2', w, h);
+    speckle(g, w, h, 40, ['#e6dfcc', '#cfc6b1']);
+    grime(g, w, h, 0.14, 7);
+    noise(g, w, h, 3);
+  }), { density: 64, material: 'stone' });
+
+  /** A lit lamp. Deliberately nearly flat: the brightness is the shade
+      bias the fitting draws it with, not the texture. See fittings.js. */
+  M.lampGlass = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#fff6dd', w, h);
+    speckle(g, w, h, 12, ['#fffaea', '#f4e8cb']);
+  }), { density: 48, material: 'glass' });
+
+  /** Half-inch EMT and its straps, run on the surface of the plaster. */
+  M.conduit = mat(makeTex(16, 16, (g, w, h) => {
+    fill(g, '#6d6f72', w, h);
+    for (let i = 0; i < 4; i++) {
+      g.fillStyle = 'rgba(0,0,0,0.12)';
+      g.fillRect(0, i * 4, w, 1);
+    }
+    noise(g, w, h, 4);
+  }), { density: 96, material: 'metal' });
+
+  /** The gray of a panel schedule card, and of a typed label strip. */
+  M.panelGray = mat(makeTex(32, 32, (g, w, h) => {
+    fill(g, '#9a9a96', w, h);
+    grime(g, w, h, 0.1, 5);
+    noise(g, w, h, 5);
+  }), { density: 64, material: 'metal' });
 
   /** A labelled plate, for calling out what a piece of test geometry is for. */
   M.sign = (text) => mat(makeTex(128, 32, (g, w, h) => {

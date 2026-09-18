@@ -32,6 +32,25 @@ export const RESOLUTIONS = [
 
 export const RETRO_LEVELS = ['off', 'light', 'full'];
 
+/**
+ * How honestly the rasterizer maps textures, worst to best.
+ *
+ * `step` is `Raster.perspStep`: 0 is fully affine -- the authentic PS1
+ * swim, and on a ninety-four-foot elevation an unusable amount of it --
+ * and any n above 0 is a perspective-correct sample every n pixels with
+ * affine mapping between. 8 is indistinguishable from exact on anything
+ * you can walk up to and costs an eighth of the divides.
+ *
+ * BALANCED is the default because architecture has to be readable. The
+ * retro look in this game comes from resolution, color depth, dither and
+ * vertex snapping, none of which this touches.
+ */
+export const TEXTURE_STABILITY = [
+  { id: 'retro', label: 'Retro (affine)', step: 0 },
+  { id: 'balanced', label: 'Balanced', step: 8 },
+  { id: 'stable', label: 'Stable', step: 1 },
+];
+
 export function defaultSettings() {
   return {
     /* ---- audio, one per bus ---- */
@@ -50,6 +69,7 @@ export function defaultSettings() {
     resolution: 1,             // index into RESOLUTIONS
     retro: 'full',             // key of PRESETS
     vertexSnap: true,          // the PS1 polygon wobble
+    textureStability: 1,       // index into TEXTURE_STABILITY
     fieldOfView: 65,           // degrees, vertical
 
     /* ---- bindings ---- */
@@ -84,6 +104,8 @@ export class Settings {
     if (!RETRO_LEVELS.includes(this.values.retro)) this.values.retro = 'full';
     this.values.resolution = Math.max(0, Math.min(RESOLUTIONS.length - 1,
       Math.round(this.values.resolution)));
+    this.values.textureStability = Math.max(0, Math.min(TEXTURE_STABILITY.length - 1,
+      Math.round(this.values.textureStability)));
     this.lastError = r.rejected || null;
     return this.values;
   }
@@ -128,7 +150,11 @@ export class Settings {
       }
     }
 
-    if (raster) raster.snap = v.vertexSnap ? 1 : 0;
+    if (raster) {
+      raster.snap = v.vertexSnap ? 1 : 0;
+      const t = TEXTURE_STABILITY[v.textureStability] || TEXTURE_STABILITY[1];
+      raster.perspStep = t.step;
+    }
 
     if (post) {
       const p = PRESETS[v.retro] || PRESETS.full;

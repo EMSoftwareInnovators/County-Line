@@ -29,7 +29,7 @@
    porches, roof, grounds.
    ============================================================ */
 import { ft, ftin } from '../../../engine/units.js';
-import { pointLight, fillLight } from '../../lighting.js';
+import { declareLights, buildFixtures } from './fixtures.js';
 import * as D from './dimensions.js';
 import { buildShell } from './shell.js';
 import { buildFirstFloor } from './firstfloor.js';
@@ -44,62 +44,34 @@ import { buildNav } from './nav.js';
 /* ============================================================
    LIGHT
 
-   An overcast afternoon, because this stage is an architectural
-   assessment and you cannot assess a building you cannot see. It is not
-   the game's lighting and is not meant to be: no fixtures, no pools of
-   light, no atmosphere. A later stage takes the shutters off.
+   Stage 2 lit this building like an overcast afternoon, on purpose: an
+   architectural assessment needs a building you can see. The note there
+   said a later stage takes the shutters off. This is that stage, and the
+   shutters come off into the dark.
 
-   Vertex light is baked as geometry is created, so every fitting has to
-   be declared before anything it is meant to light.
+   It is a Tuesday night in October 1998, between eight and one. The
+   building is working. It is also 196 years old, was finished before
+   anyone had electricity, and everything that lights it was screwed to
+   the plaster afterwards -- so what the player sees is fittings, and the
+   distance between them.
+
+   Three light models, applied in the order the fabric is built:
+
+     THE ENVELOPE carries an outside face and an inside one in the same
+     mesh, so it gets a value between the two. Outside at night that is
+     nearly nothing; the streetlights and the porch lanterns do the work.
+
+     THE INTERIOR is a tenth, which is what a room with no fitting
+     burning in it looks like once your eyes adjust. The fittings are in
+     fixtures.js and every one of them is on a breaker.
+
+     THE OUTSIDE gets a thin sky term so that up-facing surfaces -- the
+     walk, the parapet caps, the coach apron -- catch the city glow
+     and the building reads as a silhouette rather than a hole.
+
+   `darkAmbient` is the second half of every bake: the same geometry with
+   every switchable fitting off. See MeshBuilder.dark.
    ============================================================ */
-function declareLights(b) {
-  const L = (x, y, z, r, i) => b.light(pointLight(x, y, z, r, i));
-  const F = (x, y, z, r, i) => b.light(fillLight(x, y, z, r, i));
-
-  const h1 = D.FLOOR1_CEIL - ftin(1, 6);
-  const h2 = D.FLOOR2_CEIL - ftin(1, 6);
-
-  /* The central room, which is 44 feet across and needs it. */
-  for (const x of [ft(-15), 0, ft(15)]) {
-    for (const z of [ft(-10), ft(10)]) {
-      L(x, h1, z, ft(36), 0.62);
-      L(x, D.FLOOR2 + ftin(11, 6), z, ft(36), 0.56);
-    }
-    F(x, ftin(5, 0), 0, ft(28), 0.2);
-  }
-
-  /* The wings, band by band, on both floors. */
-  const bands = [
-    [ft(-39), ft(-8)], [ft(-39), ft(15.5)], [ft(-39), ft(32)], [ft(-39), ft(50)],
-    [ft(39), ft(-8)], [ft(39), ft(15.5)], [ft(39), ft(32)], [ft(39), ft(50)],
-    [ft(-29), ft(-22)], [ft(29), ft(-22)],
-    [ft(-48), ft(40)], [ft(48), ft(40)],
-    [ft(-48), ft(-8)], [ft(48), ft(-8)],
-  ];
-  for (const [x, z] of bands) {
-    L(x, h1, z, ft(32), 0.58);
-    L(x, h2, z, ft(32), 0.54);
-    F(x, ftin(5, 6), z, ft(22), 0.18);
-  }
-
-  /* Daylight down the two covered porches, which are outdoors and should
-     not read as dark rooms. */
-  for (const x of [ft(-18), ft(-6), ft(6), ft(18)]) {
-    /* A covered porch is still outdoors and has to read as daylight in
-       shade, not as an unlit room. These are bounce, not fittings. */
-    F(x, D.PORCH_CEIL - ftin(1, 0), D.Z_FACADE + ftin(6, 6), ft(26), 0.3);
-    F(x, D.REAR_PORCH_CEIL - ftin(1, 0), D.Z_CENTRAL_N_OUT + ftin(7, 6), ft(26), 0.32);
-    F(x, D.ROOF - ftin(2, 6), D.Z_FACADE + ftin(6, 6), ft(24), 0.28);
-    F(x, ftin(3, 0), D.Z_FACADE + ftin(6, 6), ft(20), 0.16);
-    F(x, ftin(3, 0), D.Z_CENTRAL_N_OUT + ftin(7, 6), ft(20), 0.16);
-  }
-
-  /* And a little light down into the garden, which is a court between two
-     thirty-foot walls and would otherwise sit in its own shadow. */
-  for (const z of [ft(38), ft(50), ft(60)]) {
-    F(0, ftin(16, 0), z, ft(46), 0.22);
-  }
-}
 
 export const academy = {
   id: 'academy',
@@ -109,8 +81,15 @@ export const academy = {
     /* Long sightlines: the building is 112 feet across and you can see
        the length of it from the garden, so the fog sits well back and the
        far plane sits well beyond the site. */
-    b.view(ft(80), ft(300), ft(750));
-    b.sky(0xFFB8A894);
+    /* Black fog, closing at two hundred feet. Long enough to see the
+       whole facade from the street and the length of the garden; short
+       enough that the far end of a ninety-four-foot wing goes to nothing,
+       which is most of what makes the building feel big at night. */
+    b.view(ft(55), ft(200), ft(620));
+    /* Sodium-tinted overcast, about two stops under the daylight sky
+       Stage 2 used. Windows read as black against it, which is what the
+       brief asks for and what a lit building at night actually does. */
+    b.sky(0xFF2A2018);
 
     declareLights(b);
 
@@ -125,10 +104,10 @@ export const academy = {
 
        THE OUTSIDE is overcast daylight: high ambient on the vertical
        faces, a strong sky term on everything pointing up. */
-    b.lighting({ ambient: 0.66, sky: 0.34, skyDir: [0, 1, 0], max: 1.5 });
+    b.lighting({ ambient: 0.2, sky: 0.09, skyDir: [0, 1, 0], max: 1.45, darkAmbient: 0.075 });
     buildShell(b);
 
-    b.lighting({ ambient: 0.48, sky: 0, max: 1.45 });
+    b.lighting({ ambient: 0.13, sky: 0, max: 1.45, darkAmbient: 0.048 });
     /* The two floors hand back the rooms that take wainscot rather than
        laying it themselves. See trim.js: a board has to know where the
        wall is interrupted, and the porch doors are cut two modules
@@ -136,15 +115,16 @@ export const academy = {
     const trim = [...buildFirstFloor(b), ...buildSecondFloor(b)];
     buildStairs(b);
 
-    b.lighting({ ambient: 0.74, sky: 0.46, skyDir: [0, 1, 0], max: 1.55 });
+    b.lighting({ ambient: 0.13, sky: 0.12, skyDir: [0, 1, 0], max: 1.5, darkAmbient: 0.06 });
     buildPorches(b);
     buildRoof(b);
     buildGrounds(b);
 
     /* AFTER EVERYTHING THAT CUTS A HOLE IN A WALL. Nothing built below
        this line may cut one. */
-    b.lighting({ ambient: 0.48, sky: 0, max: 1.45 });
+    b.lighting({ ambient: 0.13, sky: 0, max: 1.45, darkAmbient: 0.048 });
     buildTrim(b, trim);
+    buildFixtures(b);
 
     /* ---- where the player starts ----
        On the front walk, looking north at the façade. The first thing

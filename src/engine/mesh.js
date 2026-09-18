@@ -1,8 +1,19 @@
 /* ============================================================
    mesh.js -- mesh construction. Front faces wind counter-clockwise
-   when seen from outside. Large surfaces are subdivided on purpose:
-   affine texture mapping warps badly across big polygons, and the
-   PS1 fix was exactly this -- chop the floor into tiles.
+   when seen from outside. Large surfaces are subdivided on purpose.
+
+   WHAT SUBDIVISION IS FOR CHANGED IN STAGE 3. It used to be for two
+   things at once: affine texture shear, and the resolution of the baked
+   vertex light. The rasterizer now interpolates texture coordinates
+   perspective-correctly (see raster.js), so the first reason is gone --
+   and what is left is the one that actually sets the numbers. A shade
+   value lives at a vertex. A wall with three rows of vertices up it can
+   hold three steps of a light falling off toward a sixteen-foot ceiling,
+   and no more. If a room is meant to go dark overhead, the wall has to
+   be cut finely enough to say so.
+
+   So: FLOORS ARE COARSER THAN THEY WERE AND WALLS ARE FINER. That is not
+   a wash; it is the triangles being spent where the light is.
 
    Carried over from Final Rental with two changes that County Line's
    architecture needs:
@@ -10,11 +21,8 @@
    1. SUBDIVISION IS AUTOMATIC. Final Rental asked each caller to pass a
       grid size, which is workable when the biggest surface is a four
       meter store wall and unworkable when it is a twenty meter hall with a
-      fourteen foot ceiling. An un-subdivided surface that size does not
-      merely look soft -- affine mapping shears the texture along each
-      triangle's diagonal, and vertex lighting turns the whole wall into
-      two triangular gradients. Every quad is now chopped to `maxEdge`
-      meters unless the caller says otherwise.
+      fourteen foot ceiling. Every quad is chopped to `maxEdge` meters
+      unless the caller says otherwise.
 
    2. `surface()` places a quad from world coordinates and a texel
       density rather than from a uv rectangle, so a wall tiles correctly
@@ -26,18 +34,48 @@ export class MeshBuilder {
   constructor(textures) {
     this.textures = textures || [];
     this.px = []; this.uv = []; this.sh = [];
+    /** The same vertices with every switchable fitting off. See below. */
+    this.shDark = [];
     this.idx = []; this.tex = []; this.flg = [];
     /** Override to bake vertex lighting: (x,y,z,nx,ny,nz) -> 0..1+ */
     this.light = null;
+    /**
+     * THE SAME BUILDING WITH THE LIGHTS OUT.
+     *
+     * Vertex light is baked once, which is the whole reason it is cheap
+     * and the whole reason a switch cannot normally do anything. County
+     * Line has a breaker panel in it, so every vertex carries TWO shade
+     * values -- one with the fittings on and one with only the ambient
+     * and whatever is still burning outside -- and the draw call blends
+     * between them per chunk. Turning a circuit off is then a number per
+     * room, not a rebake.
+     *
+     * If this is left null the dark term is the lit one, so a mesh nobody
+     * switches costs nothing but four bytes a vertex.
+     */
+    this.dark = null;
+    /**
+     * Bypass the samplers entirely for the next few boxes: `{ lit, dark }`
+     * shade values used verbatim.
+     *
+     * THIS EXISTS FOR LAMPS. A light fitting's own glass is the one
+     * surface in the building the sampler cannot help with, because the
+     * lamp is inside it: the distance is zero, the direction is
+     * undefined, and a shaded fitting's "is this below me" test divides
+     * by that zero. So a lit lamp is stated rather than computed -- full
+     * bright while its circuit is live, and as dark as the room when it
+     * is not.
+     */
+    this.shadeFixed = null;
     this.shadeBias = 1;
     /**
      * Longest edge, in meters, a quad is allowed to have before it is cut
-     * up. 1.25 m is about the point where affine shear stops being visible
-     * on a wall you can walk up to, and it keeps baked vertex light on a
-     * grid fine enough to read a light fitting overhead.
+     * up. 1.25 m keeps baked vertex light on a grid fine enough to read a
+     * fitting overhead and a falloff up a wall.
      *
-     * Raise it for things nobody gets close to (the far side of a
-     * courtyard); lower it for a floor under a lamp.
+     * Raise it for things nobody gets close to and nothing lights
+     * unevenly (the far side of a courtyard); lower it for a wall the
+     * light has to die on.
      */
     this.maxEdge = 1.25;
   }
@@ -61,7 +99,14 @@ export class MeshBuilder {
     const i = this.sh.length;
     this.px.push(x, y, z);
     this.uv.push(u, v);
-    this.sh.push(this.light ? this.light(x, y, z, nx, ny, nz) * this.shadeBias : this.shadeBias);
+    if (this.shadeFixed) {
+      this.sh.push(this.shadeFixed.lit);
+      this.shDark.push(this.shadeFixed.dark);
+      return i;
+    }
+    const lit = this.light ? this.light(x, y, z, nx, ny, nz) * this.shadeBias : this.shadeBias;
+    this.sh.push(lit);
+    this.shDark.push(this.dark ? this.dark(x, y, z, nx, ny, nz) * this.shadeBias : lit);
     return i;
   }
 
@@ -262,6 +307,7 @@ export class MeshBuilder {
       this.px.push(other.px[i * 3] + dx, other.px[i * 3 + 1] + dy, other.px[i * 3 + 2] + dz);
       this.uv.push(other.uv[i * 2], other.uv[i * 2 + 1]);
       this.sh.push(other.sh[i]);
+      this.shDark.push(other.shDark ? other.shDark[i] : other.sh[i]);
     }
     const map = other.textures.map((t) => this.slot(t));
     for (let t = 0; t < other.tex.length; t++) {
@@ -287,6 +333,7 @@ export class MeshBuilder {
       vx: new Float32Array(this.px),
       vu: new Float32Array(this.uv),
       vs: new Float32Array(this.sh),
+      vs2: new Float32Array(this.shDark),
       idx: n > 65535 ? new Uint32Array(this.idx) : new Uint16Array(this.idx),
       tex: new Uint8Array(this.tex),
       flg: new Uint8Array(this.flg),

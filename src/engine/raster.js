@@ -11,6 +11,32 @@
    Everything writes into one Uint32Array in 0xAABBGGRR order so it
    can be handed straight to ImageData.
 
+   ------------------------------------------------------------
+   STAGE 3: AFFINE MAPPING IS NOW A SETTING, NOT A LAW.
+
+   Final Rental's biggest surface was a four-meter store wall. The Old
+   Academy's is a ninety-four-foot elevation with a sixteen-foot ceiling,
+   and affine mapping across a surface that size does not read as retro
+   charm -- it reads as the building being made of liquid. Standing close
+   to a wall, the texture visibly swims and bends as you walk, because a
+   perspective projection is a division and interpolating u and v linearly
+   in screen space is not.
+
+   `perspStep` decides how honest the mapping is:
+
+       0   fully affine, as before -- the authentic swim
+       n   perspective-correct every n pixels, affine between
+       1   perspective-correct per pixel
+
+   Segmented correction is what 1990s software renderers actually did, and
+   at n = 8 the residual error on a wall you can touch is under a texel.
+   The cost is one divide per segment instead of one per pixel.
+
+   Two span loops rather than one branch inside the pixel loop: this is the
+   hot path, and `if (persp)` per pixel costs more than the divide it
+   guards.
+   ------------------------------------------------------------
+
    Carried over from Final Rental. The scanline inner loops are
    unchanged -- they were correct and they are the hot path. What changed
    for County Line is the culling: Final Rental's view distance was the
@@ -36,6 +62,11 @@ export class Raster {
        Geometry beyond this is culled whole. Tuned per level. */
     this.far = 90.0;
     this.snap = 1;            // 1 = full pixel snap (max wobble), 0 = smooth
+    /** 0 = affine; n > 0 = perspective-correct every n pixels. */
+    this.perspStep = 8;
+    /** Scales the mip ratio. 1 is neutral; below 1 keeps sharper, noisier
+        texels for longer; -1 turns mip selection off entirely. */
+    this.mipBias = 1;
     this.view = null;
     this.focal = 1;
     this.tris = 0;            // per-frame stats
@@ -121,6 +152,12 @@ export class Raster {
     const n = mesh.count;
     this._grow(n);
     const vx = mesh.vx, vu = mesh.vu, vs = mesh.vs;
+    /* `lit` blends between the two baked shade terms: 1 is the building
+       with its fittings on, 0 is the same building with only the ambient
+       and whatever is burning outside. A breaker is a number per chunk. */
+    const lit = (opt && opt.lit !== undefined) ? opt.lit : 1;
+    const vs2 = (lit < 0.999 && mesh.vs2) ? mesh.vs2 : null;
+    const ik = 1 - lit;
     const tvx = this.tvx, tvy = this.tvy, tvz = this.tvz;
     const tsx = this.tsx, tsy = this.tsy, tiz = this.tiz, tsh = this.tsh;
 
@@ -162,7 +199,8 @@ export class Raster {
       // shade = baked vertex light * distance fog, folded into one scalar
       let f = 1 - (zz - fogN) * fogRange;
       if (f > 1) f = 1; else if (f < 0) f = 0;
-      let s = vs[i] * shade * f * 256;
+      const base = vs2 ? vs[i] * lit + vs2[i] * ik : vs[i];
+      let s = base * shade * f * 256;
       tsh[i] = s > 256 ? 256 : s < 0 ? 0 : s;
     }
 
@@ -238,6 +276,38 @@ export class Raster {
     // signed area -> backface cull (screen space, y-down so CW is front)
     const area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
     if (area === 0) return;
+
+    /* ------------------------------------------------------------
+       MIP SELECTION, ONCE PER TRIANGLE.
+
+       Perspective correction fixes where a texel goes. It does nothing
+       about how many of them are trying to fit in one pixel, and on a
+       floor seen at a grazing angle that is four or five -- so which
+       texel wins changes with sub-pixel camera motion and the whole
+       surface crawls. Half of what read as "texture warping" was this.
+
+       The ratio below is texels squared per pixel squared, straight out
+       of the two areas the triangle already has. Every level it drops
+       quarters it. `mipBias` lets the player choose to live with more of
+       the crawl. Selection is per triangle, not per pixel: one compare
+       in setup, nothing in the span loop, and it is what software
+       renderers of the period actually did.
+       ------------------------------------------------------------ */
+    const chain = T.mip;
+    if (chain && chain.length && this.mipBias >= 0) {
+      const uvA = Math.abs((u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0));
+      const sA = Math.abs(area);
+      if (sA > 1e-6) {
+        let r = (uvA / sA) * this.mipBias;
+        let l = 0;
+        while (l < chain.length && r > 4) { r *= 0.25; l++; }
+        if (l > 0) {
+          T = chain[l - 1];
+          const k = 1 / (1 << l);
+          u0 *= k; v0 *= k; u1 *= k; v1 *= k; u2 *= k; v2 *= k;
+        }
+      }
+    }
     // camera looks down +Z, so front faces come out counter-clockwise (area > 0)
     if (area < 0 && !(flags & F_DOUBLE)) return;
     if (area < 0) { // double-sided back face: swap to keep winding consistent
@@ -260,6 +330,21 @@ export class Raster {
     if (cy < 0 || ay > this.h) return;
 
     const solid = !(flags & (F_BLEND | F_ADD));
+    /* PERSPECTIVE CORRECTION, IN ONE LINE OF SETUP.
+
+       u/z and v/z ARE linear in screen space, and 1/z is already being
+       interpolated for the depth buffer. So premultiplying the texture
+       coordinates by 1/z here lets every gradient below stay exactly as
+       it was, and the span loop divides them back out at sampling time.
+       Nothing else in the triangle setup has to know. */
+    const persp = this.perspStep;
+    if (persp) {
+      au *= az; av *= az;
+      bu *= bz; bv *= bz;
+      cu *= cz; cv *= cz;
+    }
+    const half = persp ? this._halfP : this._half;
+
     const hAC = cy - ay;
     const dxAC = (cx - ax) / hAC, dzAC = (cz - az) / hAC;
     const duAC = (cu - au) / hAC, dvAC = (cv - av) / hAC, dsAC = (cs - as) / hAC;
@@ -267,7 +352,7 @@ export class Raster {
     // upper half: A->B and A->C
     if (by > ay) {
       const hAB = by - ay;
-      this._half(ay, by, ax, az, au, av, as, dxAC, dzAC, duAC, dvAC, dsAC,
+      half.call(this, ay, by, ax, az, au, av, as, dxAC, dzAC, duAC, dvAC, dsAC,
         ax, az, au, av, as, (bx - ax) / hAB, (bz - az) / hAB, (bu - au) / hAB, (bv - av) / hAB, (bs - as) / hAB,
         T, flags, solid);
     }
@@ -275,7 +360,7 @@ export class Raster {
     if (cy > by) {
       const hBC = cy - by;
       const k = by - ay;
-      this._half(by, cy, ax + dxAC * k, az + dzAC * k, au + duAC * k, av + dvAC * k, as + dsAC * k,
+      half.call(this, by, cy, ax + dxAC * k, az + dzAC * k, au + duAC * k, av + dvAC * k, as + dsAC * k,
         dxAC, dzAC, duAC, dvAC, dsAC,
         bx, bz, bu, bv, bs, (cx - bx) / hBC, (cz - bz) / hBC, (cu - bu) / hBC, (cv - bv) / hBC, (cs - bs) / hBC,
         T, flags, solid);
@@ -353,6 +438,99 @@ export class Raster {
             }
             z += dz; u += du; v += dv; s += ds;
           }
+        }
+      }
+      lx += dlx; lz += dlz; lu += dlu; lv += dlv; ls += dls;
+      rx += drx; rz += drz; ru += dru; rv += drv; rs += drs;
+    }
+  }
+
+  /**
+   * The same scanline pair, with the texture coordinates divided back out
+   * of 1/z. `u` and `v` arriving here are u/z and v/z; the depth value
+   * already being carried for the z-buffer IS 1/z, so one reciprocal per
+   * segment recovers both.
+   *
+   * The span is walked in runs of `perspStep` pixels. Exact texture
+   * coordinates are computed at each end of a run and interpolated
+   * linearly between -- which is affine mapping again, but over eight
+   * pixels instead of over a ninety-four-foot wall, where the error is
+   * a fraction of a texel instead of half the texture.
+   */
+  _halfP(y0, y1, lx, lz, lu, lv, ls, dlx, dlz, dlu, dlv, dls,
+    rx, rz, ru, rv, rs, drx, drz, dru, drv, drs, T, flags, solid) {
+    const H = this.h, W = this.w;
+    let y = Math.ceil(y0);
+    let pre = y - y0;
+    if (y < 0) { pre = -y0; y = 0; }
+    if (pre > 0) {
+      lx += dlx * pre; lz += dlz * pre; lu += dlu * pre; lv += dlv * pre; ls += dls * pre;
+      rx += drx * pre; rz += drz * pre; ru += dru * pre; rv += drv * pre; rs += drs * pre;
+    }
+    const yEnd = Math.min(Math.ceil(y1), H);
+    const color = this.color, depth = this.depth;
+    const tw = T.wMask, th = T.hMask, tsh = T.shift, tp = T.px;
+    const add = (flags & F_ADD) !== 0;
+    const STEP = this.perspStep;
+
+    for (; y < yEnd; y++) {
+      let x0f = lx, x1f = rx, z0f = lz, z1f = rz, u0f = lu, u1f = ru, v0f = lv, v1f = rv, s0f = ls, s1f = rs;
+      if (x0f > x1f) {
+        let t;
+        t = x0f; x0f = x1f; x1f = t; t = z0f; z0f = z1f; z1f = t;
+        t = u0f; u0f = u1f; u1f = t; t = v0f; v0f = v1f; v1f = t; t = s0f; s0f = s1f; s1f = t;
+      }
+      const span = x1f - x0f;
+      let xs = Math.ceil(x0f);
+      let xe = Math.min(Math.ceil(x1f), W);
+      if (span > 0 && xe > 0 && xs < W) {
+        const inv = 1 / span;
+        const dz = (z1f - z0f) * inv, du = (u1f - u0f) * inv, dv = (v1f - v0f) * inv, ds = (s1f - s0f) * inv;
+        let stepX = xs - x0f;
+        if (xs < 0) { stepX = -x0f; xs = 0; }
+        let z = z0f + dz * stepX, uz = u0f + du * stepX, vz = v0f + dv * stepX, s = s0f + ds * stepX;
+        let idx = y * W + xs;
+        this.spans++;
+        let x = xs;
+        /* w is 1/(1/z). Guarded because a vertex clipped exactly onto the
+           near plane can leave z at zero on the first pixel of a span. */
+        let w = z > 1e-9 ? 1 / z : 0;
+        let u = uz * w, v = vz * w;
+        while (x < xe) {
+          let n = xe - x;
+          if (n > STEP) n = STEP;
+          const ze = z + dz * n;
+          const we = ze > 1e-9 ? 1 / ze : 0;
+          const ue = (uz + du * n) * we, ve = (vz + dv * n) * we;
+          const su = (ue - u) / n, sv = (ve - v) / n;
+          for (let k = 0; k < n; k++, idx++) {
+            if (z > depth[idx]) {
+              const texel = tp[(((v | 0) & th) << tsh) + ((u | 0) & tw)];
+              if (texel & 0xFF000000) {
+                const q = s | 0;
+                const src = ((((texel & 0x00FF00FF) * q) >>> 8) & 0x00FF00FF) |
+                  ((((texel & 0x0000FF00) * q) >>> 8) & 0x0000FF00);
+                if (solid) {
+                  color[idx] = 0xFF000000 | src;
+                  depth[idx] = z;
+                } else {
+                  const dst = color[idx];
+                  if (add) {
+                    let r2 = (src & 255) + (dst & 255); if (r2 > 255) r2 = 255;
+                    let g2 = ((src >> 8) & 255) + ((dst >> 8) & 255); if (g2 > 255) g2 = 255;
+                    let b2 = ((src >> 16) & 255) + ((dst >> 16) & 255); if (b2 > 255) b2 = 255;
+                    color[idx] = 0xFF000000 | (b2 << 16) | (g2 << 8) | r2;
+                  } else {
+                    color[idx] = 0xFF000000 | ((((src & 0xFEFEFE) >> 1) + ((dst & 0xFEFEFE) >> 1)) & 0xFFFFFF);
+                  }
+                }
+              }
+            }
+            z += dz; u += su; v += sv; s += ds;
+          }
+          uz += du * n; vz += dv * n;
+          u = ue; v = ve;
+          x += n;
         }
       }
       lx += dlx; lz += dlz; lu += dlu; lv += dlv; ls += dls;

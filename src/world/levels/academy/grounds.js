@@ -62,7 +62,7 @@ export function buildGrounds(b) {
     x0: D.X_BAY_W, x1: D.X_BAY_E, z0: D.Z_PORCH_N, z1: D.Z_N_OUT,
     y0: D.GARDEN_LEVEL, y1: D.GARDEN_LEVEL + ft(60), floor: 0, outdoor: true,
   });
-  b.detail(3.0);
+  b.detail(4.0);
   b.floor({
     /* Stopping at the face of the wall that closes the north end, not
        running on under it: a slab and a wall that share two faces and a
@@ -131,7 +131,7 @@ export function buildGrounds(b) {
      problem and a coach stand will go over most of it; what is here is
      enough that the building has a setting instead of standing on a lawn. */
   b.chunk('academy.grounds.front');
-  b.detail(3.0);
+  b.detail(4.0);
   /* Up to the cross walk and no further: laid the whole way to the
      façade it ran THROUGH the cross walk, two slabs at one height
      fighting over the square where they meet, and out under the portico

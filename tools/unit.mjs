@@ -35,7 +35,8 @@ const { CollisionWorld, rampHeight, rayBox } = await import('../src/engine/colli
 const { NavGraph } = await import('../src/game/nav.js');
 const { SCALE, ft, ftin, inch, toFtIn, eyeAt, standAt } = await import('../src/engine/units.js');
 const storage = await import('../src/engine/storage.js');
-const { Settings, defaultSettings } = await import('../src/game/settings.js');
+const { Settings, defaultSettings, TEXTURE_STABILITY } = await import('../src/game/settings.js');
+const { mipChain } = await import('../src/engine/texture.js');
 const { SaveGame, Profile } = await import('../src/game/save.js');
 const { Campaign, CampaignDef, TEST_CAMPAIGN, PHASE } = await import('../src/game/campaign.js');
 const input = await import('../src/engine/input.js');
@@ -270,6 +271,47 @@ section('settings');
   s3.apply(fake);
   check('applying sets a real sensitivity', fake.input.sensitivity > 0, String(fake.input.sensitivity));
   check('and a pad sensitivity', fake.input.padSensitivity > 0);
+
+  /* ---- texture stability ---- */
+  check('the default mapping is not fully affine',
+    TEXTURE_STABILITY[defaultSettings().textureStability].step > 0,
+    TEXTURE_STABILITY[defaultSettings().textureStability].id);
+  check('and it reaches the rasterizer', fake.raster.perspStep > 0, String(fake.raster.perspStep));
+  check('RETRO is the affine one',
+    TEXTURE_STABILITY.find((t) => t.id === 'retro').step === 0);
+  check('STABLE corrects every pixel',
+    TEXTURE_STABILITY.find((t) => t.id === 'stable').step === 1);
+  const s4 = new Settings();
+  s4.values.textureStability = 99;
+  localStorage.setItem('countyline.settings', JSON.stringify({ v: 1, d: { ...defaultSettings(), textureStability: 99 } }));
+  s4.load();
+  check('an out-of-range stability index is clamped rather than crashing the span loop',
+    s4.get('textureStability') === TEXTURE_STABILITY.length - 1, String(s4.get('textureStability')));
+}
+
+section('mipmaps');
+{
+  /* A 4x4 texture, left half opaque red and right half opaque blue, in
+     the rasterizer's own 0xAABBGGRR order. */
+  const R = 0xFF0000FF >>> 0, B = 0xFFFF0000 >>> 0;
+  const px = new Uint32Array(16);
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) px[y * 4 + x] = x < 2 ? R : B;
+  const tex = { px, w: 4, h: 4, wMask: 3, hMask: 3, shift: 2 };
+  mipChain(tex, 3);
+  check('a 4x4 texture makes one usable level', tex.mip.length === 1, String(tex.mip.length));
+  const m = tex.mip[0];
+  check('and it is 2x2 with the right mask and shift',
+    m.w === 2 && m.h === 2 && m.wMask === 1 && m.shift === 1);
+  check('a box filter over a solid half keeps the color exactly',
+    (m.px[0] >>> 0) === R && (m.px[1] >>> 0) === B,
+    `${(m.px[0] >>> 0).toString(16)}, ${(m.px[1] >>> 0).toString(16)}`);
+  check('and alpha survives the averaging', ((m.px[0] >>> 24) & 255) === 255);
+  /* A checker averages to the midpoint rather than picking a corner. */
+  const px2 = new Uint32Array(4);
+  px2[0] = 0xFF000000; px2[1] = 0xFF0000FF; px2[2] = 0xFF0000FF; px2[3] = 0xFF000000;
+  const t2 = { px: px2, w: 2, h: 2, wMask: 1, hMask: 1, shift: 1 };
+  mipChain(t2, 3);
+  check('a 2x2 texture stops rather than making a 1x1', t2.mip.length === 0, String(t2.mip.length));
 }
 
 /* ============================================================ */

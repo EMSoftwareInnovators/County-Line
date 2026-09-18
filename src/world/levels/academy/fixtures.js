@@ -1,0 +1,379 @@
+/* ============================================================
+   fixtures.js -- the panel schedule, and the lights themselves.
+
+   ------------------------------------------------------------
+   THE BUILDING FACT THIS WHOLE MODULE EXISTS FOR
+
+   The Old Academy opened in 1802. It has no electrical service in its
+   fabric, because nobody had any. What it has is a retrofit: a supply
+   brought in at some point after 1890 and extended, re-extended and
+   patched ever since, all of it on the surface of the plaster, all of it
+   fed from one place -- the room the museum called the DOCENT LIBRARY,
+   which Richmond Central uses as its night clerk's office because that
+   is where the panels are.
+
+   So: twelve circuits, one panel wall, and a bank of labelled switches
+   beside it. Every light in the building is on exactly one of them, and
+   every powered device names one. Turning a breaker off turns a wing of
+   the terminal off.
+   ------------------------------------------------------------
+
+   HOW IT IS BAKED. Vertex light is baked once, which is why it is cheap
+   and why a switch normally cannot do anything. Every vertex therefore
+   carries two shade values -- lit and dark -- and a circuit going out
+   sets a blend per room chunk. See MeshBuilder.dark and Level.chunkLit.
+
+   The consequence, stated so nobody has to find it out: SPILL DOES NOT
+   MOVE. The lit bake includes every fitting in the building, so light
+   spilling from the lobby into the waiting room is baked into the
+   waiting room. Switch the lobby off and the waiting room loses its own
+   fittings but keeps that spill in the lit term it is blending away
+   from. At one shade value per vertex there is no honest way around it,
+   and at this resolution nobody has noticed.
+   ============================================================ */
+import { ft, ftin, inch } from '../../../engine/units.js';
+import * as D from './dimensions.js';
+import { fillLight, pointLight, wiredDown, wiredFill } from '../../lighting.js';
+import { ROOMS, room } from './rooms.js';
+import { pendant, strip, utility, sconce, lantern, flood } from './fittings.js';
+
+/* ============================================================
+   THE PANEL SCHEDULE
+
+   Twelve circuits. Not one per bulb -- a panel with a hundred and forty
+   breakers in it is a panel nobody can use, and it is not what is on the
+   wall of a building like this. `label` is what is typed on the card
+   inside the cabinet door, and it is what the player reads.
+
+   `panel` is which cabinet: A is the original 1920s six-way with four of
+   its ways still live, B is the 1950s addition that took the wings, C is
+   the 1970s subpanel that took the second floor and the yard.
+   ============================================================ */
+export const CIRCUITS = [
+  { id: 'lobby', panel: 'A', breaker: 2, label: 'MAIN LOBBY',
+    rooms: ['academy.central'] },
+  { id: 'west-front', panel: 'A', breaker: 4, label: 'WAITING RM - WEST',
+    rooms: ['academy.indians', 'academy.west.store'] },
+  { id: 'east-front', panel: 'A', breaker: 6, label: 'WAITING RM - EAST / NEWSSTAND',
+    rooms: ['academy.giftshop', 'academy.americana.main'] },
+  { id: 'clerk', panel: 'A', breaker: 8, label: 'OFFICE & DISPATCH',
+    rooms: ['academy.west.docent', 'academy.west.offices'] },
+
+  { id: 'west-rear', panel: 'B', breaker: 1, label: 'W REAR / RESTRM / W STAIR',
+    rooms: ['academy.west.rearhall', 'academy.west.restroom', 'academy.west.stairhall'] },
+  { id: 'east-rear', panel: 'B', breaker: 3, label: 'E REAR / BAGGAGE / E STAIR',
+    rooms: ['academy.east.rearhall', 'academy.east.animal', 'academy.east.staff',
+      'academy.east.stairhall', 'academy.east.entry', 'academy.east.service',
+      'academy.east.vestibule', 'academy.east.council'] },
+  { id: 'porch-rear', panel: 'B', breaker: 5, label: 'REAR PORCH',
+    rooms: ['academy.porch.rear'] },
+  { id: 'front-ext', panel: 'B', breaker: 7, label: 'FRONT EXTERIOR',
+    rooms: ['academy.porch.front', 'academy.gallery', 'academy.grounds.front'] },
+
+  { id: 'floor2-west', panel: 'C', breaker: 2, label: '2ND FL WEST',
+    rooms: ['academy.upper.west.rotating', 'academy.upper.west.landing',
+      'academy.upper.west.history'] },
+  { id: 'floor2-center', panel: 'C', breaker: 4, label: '2ND FL CENTER',
+    rooms: ['academy.upper.center.war', 'academy.upper.center.mammals'] },
+  { id: 'floor2-east', panel: 'C', breaker: 6, label: '2ND FL EAST',
+    rooms: ['academy.upper.east.natural', 'academy.upper.east.landing',
+      'academy.upper.east.minerals', 'academy.upper.east.archives'] },
+  { id: 'garden', panel: 'C', breaker: 8, label: 'GARDEN / REAR EXT',
+    rooms: ['academy.garden', 'academy.grounds.rear'] },
+  { id: 'platform', panel: 'C', breaker: 10, label: 'PLATFORM & SERVICE EXT',
+    rooms: ['academy.grounds.west', 'academy.grounds.east'] },
+];
+
+/** Circuit id -> record. */
+export const CIRCUIT_BY_ID = new Map(CIRCUITS.map((c) => [c.id, c]));
+
+/** Room id -> circuit id, so a chunk knows which breaker dims it. */
+export const ROOM_CIRCUIT = (() => {
+  const m = new Map();
+  for (const c of CIRCUITS) for (const r of c.rooms) m.set(r, c.id);
+  return m;
+})();
+
+/* ============================================================
+   THE FITTING SCHEDULE
+
+   One row per room: what kind of fitting, how many and in what grid, how
+   high above that room's floor the lamp hangs, and how bright the floor
+   directly under it should end up.
+
+   THE REACH AND THE INTENSITY ARE DERIVED, NOT TUNED. The sampler falls
+   off as (1 - d/r) squared, so a fitting fourteen feet over a floor and
+   a fitting nine feet over one need completely different numbers to put
+   the same light on the boards -- and hand-tuning forty of them is how a
+   building ends up with one room lit like an operating theater and the
+   next like a cellar. That happened once already on the way here. So a
+   row states the two things a lighting designer actually decides, `mount`
+   and `target`, and the arithmetic below turns them into a radius and an
+   intensity.
+
+   REACH is the radius as a multiple of the mounting height, and it is
+   the one aesthetic number here: raise it and the light spreads into a
+   flat wash, lower it and every fitting becomes a spotlight on a black
+   stage. It is also what decides how far a fitting reaches THROUGH A
+   WALL, because nothing here casts a shadow. 2.8 looked right in one
+   room and lit the next one through the plaster; 2.2 stops a pool about
+   twelve feet out from a fitting ten feet up, which in a thirty-one foot
+   room means a lit middle, dark corners, and not much arriving next
+   door. Which is the brief.
+
+   `target` is where the gloom is actually decided:
+
+       0.68 - 0.72   the lobby and the waiting rooms: a working level
+       0.48 - 0.62   halls, baggage, the break room, the restroom, the
+                     clerk's office -- all of which also collect spill
+                     from whatever is next to them, so they are set
+                     lower than they read
+       0.40 - 0.46   stores, closets, records
+       0.32 - 0.44   the whole upper floor
+
+   Ambient adds about 0.13 to all of it. Nothing in the building reaches
+   1.0 except the lamps themselves.
+
+   WHY THE LIGHT DOES NOT LEAK EVERYWHERE, given radii of thirty feet in
+   rooms half that across and no shadowing of any kind: the half-lambert
+   term. A wall's inner face is turned away from a fitting on the other
+   side of it, and a ceiling is turned away from a bulb on the floor
+   above, so both get 22% of what the distance alone would give. That is
+   not occlusion, but at one shade value per vertex it is a remarkably
+   good imitation of it.
+   ============================================================ */
+const REACH = 2.2;
+
+const SCHEDULE = [
+  /* ---- public, first floor ---- */
+  { id: 'academy.central', fit: 'pendant', nx: 3, nz: 2, mount: 11.25, target: 0.72 },
+  { id: 'academy.indians', fit: 'pendant', nx: 2, nz: 2, mount: 11.5, target: 0.68 },
+  { id: 'academy.giftshop', fit: 'pendant', nx: 1, nz: 3, mount: 11.5, target: 0.7 },
+  { id: 'academy.americana.main', fit: 'pendant', nx: 1, nz: 3, mount: 11.5, target: 0.62 },
+
+  /* ---- staff and service, first floor ----
+     Chain-hung fluorescent, ten feet up, which is what a bus company
+     screws into a fifteen-foot room it has to work in. */
+  { id: 'academy.west.docent', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.58, len: ftin(4, 0) },
+  { id: 'academy.west.store', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.46 },
+  { id: 'academy.west.offices', fit: 'strip', nx: 2, nz: 3, mount: 10, target: 0.42, len: ftin(4, 0) },
+  { id: 'academy.west.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.48, len: ftin(4, 0), axis: 'z' },
+  { id: 'academy.west.restroom', fit: 'strip', nx: 1, nz: 1, mount: 9.5, target: 0.62, len: ftin(4, 0) },
+  { id: 'academy.west.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.58 },
+  { id: 'academy.east.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.5, len: ftin(4, 0), axis: 'z' },
+  { id: 'academy.east.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.58 },
+  { id: 'academy.east.entry', fit: 'strip', nx: 1, nz: 1, mount: 10, target: 0.6, len: ftin(4, 0) },
+  { id: 'academy.east.animal', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.52, len: ftin(4, 0) },
+  { id: 'academy.east.staff', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.5, len: ftin(4, 0) },
+  { id: 'academy.east.service', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.44 },
+  { id: 'academy.east.vestibule', fit: 'utility', nx: 1, nz: 1, mount: 9.5, target: 0.44 },
+  { id: 'academy.east.council', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.4 },
+
+  /* ---- the upper floor ----
+     A bulb on a cord per room, and dimmer bulbs than downstairs. The bus
+     company inherited a whole second story it never needed and lights it
+     like the store room it uses it as. This is most of why upstairs
+     reads as unfamiliar, and it is on purpose. */
+  { id: 'academy.upper.west.rotating', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.36 },
+  { id: 'academy.upper.west.landing', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.42 },
+  { id: 'academy.upper.west.history', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.34 },
+  { id: 'academy.upper.center.war', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.44 },
+  { id: 'academy.upper.center.mammals', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.44 },
+  { id: 'academy.upper.east.natural', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.32 },
+  { id: 'academy.upper.east.landing', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.42 },
+  { id: 'academy.upper.east.minerals', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.4 },
+  { id: 'academy.upper.east.archives', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.34 },
+];
+
+/** Where the fittings in a room actually hang. */
+function positions(r, row) {
+  const out = [];
+  for (let i = 0; i < row.nx; i++) {
+    for (let j = 0; j < row.nz; j++) {
+      out.push([
+        r.x0 + r.w * ((i + 0.5) / row.nx),
+        r.z0 + r.d * ((j + 0.5) / row.nz),
+      ]);
+    }
+  }
+  return out;
+}
+
+/** The lamp's own height, and how far it hangs under the plaster. */
+const mountY = (r, row) => r.y + ft(row.mount);
+const dropOf = (r, row) => r.ceil - ft(row.mount);
+const reachOf = (row) => ft(row.mount) * REACH;
+
+/**
+ * What one fitting has to be worth for the floor under it to reach
+ * `target` -- WITH THE REST OF THE ROOM'S FITTINGS ADDING IN.
+ *
+ * This is not `target / UNDER`. That is right for a room with one
+ * fitting in it and wrong everywhere else: the clerk's office is ten
+ * feet deep with two strips five feet apart, so each lands most of its
+ * own pool on the other's, and the first cut of this had that room
+ * pinned at the clamp -- a blown-out white box in a building whose whole
+ * point is gloom.
+ *
+ * So the model is evaluated instead of assumed. Every fitting in the
+ * room contributes to the point under the first one, through the same
+ * distance falloff and the same downward-shade term the sampler uses,
+ * and the intensity is whatever makes that sum come out at `target`.
+ */
+function powerOf(r, row) {
+  const reach = reachOf(row);
+  const h = ft(row.mount);
+  const pos = positions(r, row);
+  const [px, pz] = pos[0];
+  let sum = 0;
+  for (const [x, z] of pos) {
+    const flat = Math.hypot(x - px, z - pz);
+    const d = Math.hypot(flat, h);
+    if (d >= reach) continue;
+    const a = (1 - d / reach) ** 2;
+    const below = h / d;
+    sum += a * (below * below * 0.75 + below * 0.25);
+  }
+  return row.target / Math.max(1e-6, sum);
+}
+
+/* ============================================================
+   EXTERIOR AND PORCH FITTINGS
+
+   Declared by hand rather than from the room table: a porch is a
+   rectangle with no ceiling to hang anything from, and where a lantern
+   goes is decided by where the door is.
+   ============================================================ */
+const EXTERIOR = [
+  /* ---- the front portico ----
+     A lantern each side of the double doors, one at each end of the
+     recess, and a flood high on each flanking wall over the steps.
+
+     EVERY ONE OF THESE MOUNTS ON A WALL FACE, EXACTLY. Two inches
+     proud is a fitting floating off the plaster; two inches shy is a
+     fitting inside it, sharing the masonry's own face plane and fighting
+     it for the pixels. The faces are X_BAY_W / X_BAY_E for the recess
+     sides, Z_CENTRAL_S_OUT for the wall the doors are in. */
+  { c: 'front-ext', fit: 'lantern', x: -ftin(4, 6), z: D.Z_CENTRAL_S_OUT, y: ftin(8, 0), face: 'south', mount: 8, target: 0.6 },
+  { c: 'front-ext', fit: 'lantern', x: ftin(4, 6), z: D.Z_CENTRAL_S_OUT, y: ftin(8, 0), face: 'south', mount: 8, target: 0.6 },
+  { c: 'front-ext', fit: 'lantern', x: D.X_BAY_W, z: ft(-21), y: ftin(8, 0), face: 'east', mount: 8, target: 0.46 },
+  { c: 'front-ext', fit: 'lantern', x: D.X_BAY_E, z: ft(-21), y: ftin(8, 0), face: 'west', mount: 8, target: 0.46 },
+  { c: 'front-ext', fit: 'flood', x: D.X_BAY_W, z: ft(-28), y: ftin(13, 0), face: 'east', mount: 13, target: 0.44 },
+  { c: 'front-ext', fit: 'flood', x: D.X_BAY_E, z: ft(-28), y: ftin(13, 0), face: 'west', mount: 13, target: 0.44 },
+
+  /* rear porch: three lanterns along the central block's north wall */
+  { c: 'porch-rear', fit: 'lantern', x: -ftin(12, 0), z: D.Z_CENTRAL_N_OUT, y: ftin(8, 6), face: 'north', mount: 8.5, target: 0.52 },
+  { c: 'porch-rear', fit: 'lantern', x: 0, z: D.Z_CENTRAL_N_OUT, y: ftin(8, 6), face: 'north', mount: 8.5, target: 0.52 },
+  { c: 'porch-rear', fit: 'lantern', x: ftin(12, 0), z: D.Z_CENTRAL_N_OUT, y: ftin(8, 6), face: 'north', mount: 8.5, target: 0.52 },
+
+  /* The garden: one flood on each wing's garden wall, aimed down into
+     the court, and nothing else. It is mostly dark and meant to be --
+     the brief says the garden is lit by what spills out of the windows
+     and the porch, and two floods is already generous. */
+  { c: 'garden', fit: 'flood', x: D.X_BAY_W, z: ft(34), y: ftin(12, 0), face: 'east', mount: 12, target: 0.3 },
+  { c: 'garden', fit: 'flood', x: D.X_BAY_E, z: ft(50), y: ftin(12, 0), face: 'west', mount: 12, target: 0.3 },
+
+  /* The two historic side doors: the west one is the coach platform
+     route, the east ones are staff and service. */
+  { c: 'platform', fit: 'lantern', x: D.X_W_OUT, z: ft(43), y: ftin(8, 6), face: 'west', mount: 8.5, target: 0.54 },
+  { c: 'platform', fit: 'lantern', x: D.X_E_OUT, z: ft(43), y: ftin(8, 6), face: 'east', mount: 8.5, target: 0.52 },
+  { c: 'platform', fit: 'lantern', x: D.X_E_OUT, z: ft(19.5), y: ftin(8, 6), face: 'east', mount: 8.5, target: 0.52 },
+];
+
+/* ============================================================
+   PHASE ONE: THE LIGHTS
+
+   Called before any geometry, because vertex light is baked as geometry
+   is created. Nothing here draws anything.
+   ============================================================ */
+export function declareLights(b) {
+  /* ---- what is burning whatever the panel says ----
+     The moon, the streetlights on Telfair Street, and the glow off the
+     city. These carry no circuit, so they are in the DARK bake too: a
+     room with its breaker off still has a window in it. */
+  b.light(fillLight(0, ft(120), ft(20), ft(400), 0.07));
+  for (const x of [ft(-70), ft(70)]) {
+    b.light(pointLight(x, ftin(22, 0), D.Z_FACADE - ft(58), ft(80), 0.16));
+  }
+
+  /* ---- the fittings, room by room ---- */
+  for (const row of SCHEDULE) {
+    const r = room(row.id);
+    const c = ROOM_CIRCUIT.get(row.id);
+    if (!c) throw new Error(`room ${row.id} is on no circuit`);
+    const y = mountY(r, row);
+    const reach = reachOf(row), power = powerOf(r, row);
+    for (const [x, z] of positions(r, row)) {
+      b.light(wiredDown(c, x, y, z, reach, power));
+      /* A little bounce off the floor under each fitting, so the room
+         does not read as a spotlight on a black stage. Short reach, and
+         it goes out with the same breaker. */
+      b.light(wiredFill(c, x, r.y + ftin(2, 6), z, reach * 0.42, row.target * 0.3));
+    }
+  }
+
+  /* ---- outdoors ---- */
+  for (const e of EXTERIOR) {
+    const out = (e.face === 'south' || e.face === 'west') ? -1 : 1;
+    const alongX = e.face === 'north' || e.face === 'south';
+    const lx = alongX ? e.x : e.x + out * inch(7);
+    const lz = alongX ? e.z + out * inch(7) : e.z;
+    /* A single fitting outdoors, so the one-lamp arithmetic is right
+       here: what the falloff leaves directly under it, at REACH. */
+    const reach = ft(e.mount) * REACH;
+    const power = e.target / ((1 - 1 / REACH) ** 2);
+    b.light(wiredDown(e.c, lx, e.y, lz, reach, power));
+    b.light(wiredFill(e.c, lx, e.y - ftin(4, 0), lz, reach * 0.45, e.target * 0.3));
+  }
+}
+
+/* ============================================================
+   PHASE TWO: THE FITTINGS THEMSELVES
+
+   Called after the shell and the floors, so there are ceilings to hang
+   things from. Geometry only -- the light was declared above.
+   ============================================================ */
+export function buildFixtures(b) {
+  for (const row of SCHEDULE) {
+    const r = room(row.id);
+    b.chunk(row.id);
+    b.detail(2.4);
+    const ceil = r.ceilY;
+    const drop = dropOf(r, row);
+    for (const [x, z] of positions(r, row)) {
+      if (row.fit === 'pendant') pendant(b, { x, z, ceil, drop });
+      else if (row.fit === 'strip') strip(b, { x, z, ceil, len: row.len, axis: row.axis, drop });
+      else utility(b, { x, z, ceil, drop });
+    }
+  }
+
+  for (const e of EXTERIOR) {
+    b.chunk(CIRCUIT_BY_ID.get(e.c).rooms[0]);
+    b.detail(2.4);
+    if (e.fit === 'lantern') lantern(b, e);
+    else if (e.fit === 'flood') flood(b, e);
+    else sconce(b, e);
+  }
+}
+
+/* ============================================================
+   THE ROOMS EACH CIRCUIT DIMS
+
+   Every chunk that belongs to a room, plus the envelope segments and
+   floor slabs that room shares. A wall's geometry lives in its own
+   chunk, so a circuit has to name those too or the walls of a dark room
+   stay lit.
+   ============================================================ */
+export function circuitChunks(circuitId) {
+  const c = CIRCUIT_BY_ID.get(circuitId);
+  if (!c) return [];
+  return c.rooms.slice();
+}
+
+/** Every room the panel knows about, for the invariant that checks it. */
+export const WIRED_ROOMS = new Set(ROOM_CIRCUIT.keys());
+
+/** Rooms in the building that no circuit claims. Should be empty. */
+export function unwiredRooms() {
+  return ROOMS.filter((r) => !ROOM_CIRCUIT.has(r.id)).map((r) => r.id);
+}

@@ -42,6 +42,54 @@ export function texFromCanvas(c) {
   };
 }
 
+/**
+ * Build a chain of half-size copies of a texture, smallest last.
+ *
+ * WHY A SOFTWARE RENDERER WITH NO FILTERING STILL WANTS MIPMAPS.
+ *
+ * Nearest-neighbor sampling of a detailed texture at a grazing angle
+ * walks the texture faster than one texel per pixel, so which texel a
+ * pixel lands on changes with sub-pixel camera motion, and the whole
+ * surface crawls. That is most of what looked like texture warping on the
+ * Old Academy's floors, and no amount of perspective correction touches
+ * it -- the mapping was right, the sampling was undersampled.
+ *
+ * Levels are box-filtered by hand rather than by drawing the canvas at
+ * half scale, because canvas downscaling is an implementation detail and
+ * this has to be identical on every machine that takes a screenshot.
+ *
+ * Selection is PER TRIANGLE, from texel area over screen area, so it
+ * costs one comparison in the triangle setup and nothing per pixel. That
+ * is coarser than hardware, which picks per pixel, and it is exactly what
+ * software renderers of the period did.
+ */
+export function mipChain(tex, levels = 3) {
+  const out = [];
+  let src = tex;
+  for (let i = 0; i < levels; i++) {
+    const w = src.w >> 1, h = src.h >> 1;
+    if (w < 2 || h < 2) break;
+    const px = new Uint32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let r = 0, g = 0, b = 0, a = 0;
+        for (let j = 0; j < 2; j++) {
+          for (let k = 0; k < 2; k++) {
+            const c = src.px[((y * 2 + j) * src.w) + (x * 2 + k)] >>> 0;
+            r += c & 255; g += (c >>> 8) & 255; b += (c >>> 16) & 255; a += (c >>> 24) & 255;
+          }
+        }
+        px[y * w + x] = (((a >> 2) & 255) << 24) | (((b >> 2) & 255) << 16)
+          | (((g >> 2) & 255) << 8) | ((r >> 2) & 255);
+      }
+    }
+    src = { px, w, h, wMask: w - 1, hMask: h - 1, shift: Math.round(Math.log2(w)) };
+    out.push(src);
+  }
+  tex.mip = out;
+  return tex;
+}
+
 /** A flat color, for developer materials and for anything untextured. */
 export function solidTex(css, size = 8) {
   return makeTex(size, size, (g, w, h) => { g.fillStyle = css; g.fillRect(0, 0, w, h); });

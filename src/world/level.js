@@ -85,6 +85,12 @@ export class Level {
      * looks like on hardware that bakes its lighting.
      */
     this.chunkShade = {};
+    /**
+     * Per-chunk blend between the two baked shade terms: 1 is lit, 0 is
+     * the same geometry with every switchable fitting off. This is what a
+     * breaker actually does. See MeshBuilder.dark.
+     */
+    this.chunkLit = {};
     /** Per-frame stats the debug overlay reads. */
     this.stats = { chunks: 0, chunksDrawn: 0, tris: 0 };
   }
@@ -127,6 +133,8 @@ export class Level {
       if (!rz.boxVisible(c.bounds)) continue;
       const k = this.chunkShade[c.id];
       sub.shade = k === undefined ? baseShade : baseShade * k;
+      const lit = this.chunkLit[c.id];
+      sub.lit = lit === undefined ? 1 : lit;
       rz.drawMesh(c.mesh, m, sub);
       drawn++;
     }
@@ -135,8 +143,13 @@ export class Level {
       const d = this.dynamic[i];
       const mm = d.matrix();
       if (!mm) continue;
+      /* A door leaf dims with the room it hangs in, or it is a bright
+         rectangle in a dark doorway. */
+      const dl = d.chunk === undefined ? undefined : this.chunkLit[d.chunk];
+      sub.lit = dl === undefined ? 1 : dl;
       rz.drawMesh(d.mesh, mm, sub);
     }
+    sub.lit = 1;
     this.stats.chunks = this.chunks.length;
     this.stats.chunksDrawn = drawn;
     this.stats.tris = rz.tris;
@@ -157,6 +170,12 @@ export class LevelBuilder {
       ambient: 0.26,
       sky: 0,
     });
+    this.darkAt = makeLightSampler({
+      lights: level.lights,
+      ambient: 0.09,
+      sky: 0,
+      only: 'fixed',
+    });
     this.chunk('default');
   }
 
@@ -172,12 +191,25 @@ export class LevelBuilder {
   sky(colorAbgr) { this.level.sky = colorAbgr >>> 0; return this; }
 
   /** Ambient floor and sky term for baked lighting. Call before geometry. */
-  lighting({ ambient, sky, skyDir, max }) {
+  lighting({ ambient, sky, skyDir, max, darkAmbient }) {
     this.lightAt = makeLightSampler({
       lights: this.level.lights,
       ambient, sky, skyDir, max,
     });
-    for (const c of this._chunks.values()) c.mb.light = this.lightAt;
+    /* THE SAME ROOM WITH THE FITTINGS OFF, baked alongside the lit one.
+       `darkAmbient` is what is left when the breaker is out: not zero --
+       a room in a working building at night still has a doorway and a
+       window in it -- but low enough that the difference is the point.
+       Defaults to a third of the lit ambient. */
+    this.darkAt = makeLightSampler({
+      lights: this.level.lights,
+      ambient: darkAmbient === undefined ? ambient * 0.34 : darkAmbient,
+      sky, skyDir, max, only: 'fixed',
+    });
+    for (const c of this._chunks.values()) {
+      c.mb.light = this.lightAt;
+      c.mb.dark = this.darkAt;
+    }
     return this;
   }
 
@@ -193,6 +225,7 @@ export class LevelBuilder {
     if (!c) {
       const mb = new MeshBuilder();
       mb.light = this.lightAt;
+      mb.dark = this.darkAt;
       c = { id, mb, bounds: bounds || null };
       this._chunks.set(id, c);
     }

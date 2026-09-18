@@ -116,7 +116,7 @@ await back();
 await open('Picture...');
 check('PICTURE opens', (await pageTitle()) === 'PICTURE', await pageTitle());
 const picRows = await rowsNow();
-for (const label of ['Resolution', 'Retro filter', 'Vertex snapping']) {
+for (const label of ['Resolution', 'Texture stability', 'Retro filter', 'Vertex snapping']) {
   check(`  it has ${label}`, picRows.includes(label), picRows.join(', '));
 }
 
@@ -125,6 +125,16 @@ const w0 = await page.evaluate(() => window.__game.raster.w);
 await press('ArrowRight', 250);
 const w1 = await page.evaluate(() => window.__game.raster.w);
 check('changing resolution resizes the framebuffer', w1 !== w0, `${w0} -> ${w1}`);
+
+/* Texture stability is the Stage 3 setting: it decides whether the
+   rasterizer divides. RETRO is the old fully affine mapping. */
+await pick('Texture stability');
+const ps0 = await page.evaluate(() => window.__game.raster.perspStep);
+await press('ArrowLeft', 200);
+const ps1 = await page.evaluate(() => window.__game.raster.perspStep);
+check('texture stability reaches the rasterizer', ps1 !== ps0, `${ps0} -> ${ps1}`);
+await press('ArrowRight', 200);
+check('and comes back', (await page.evaluate(() => window.__game.raster.perspStep)) === ps0);
 
 await back();
 check('Back returns from PICTURE to SETTINGS', (await pageTitle()) === 'SETTINGS', await pageTitle());

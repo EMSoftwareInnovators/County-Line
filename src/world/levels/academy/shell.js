@@ -128,7 +128,14 @@ function story(b, seg, level, openings) {
 /** Both stories of one segment, plus the string course between them. */
 function elevation(b, seg) {
   b.chunk(seg.chunk);
-  b.detail(seg.detail || 1.8);
+  /* 2.5 m, not 1.8. Subdivision used to be doing two jobs -- affine
+     texture shear and the resolution of the baked light -- and the
+     rasterizer now maps textures perspective-correctly, so only the
+     second job is left. An exterior elevation at night is lit by the
+     ambient, a thin sky term and four lanterns; there is almost no
+     gradient on it to resolve, and these are the biggest surfaces in
+     the game. */
+  b.detail(seg.detail || 2.5);
   story(b, seg, 1, seg.lower || []);
   story(b, seg, 2, seg.upper || []);
 
