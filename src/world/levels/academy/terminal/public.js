@@ -90,6 +90,15 @@ function lobby(b) {
     priority: 3,
   });
   b.station({
+    id: 'ticket-printer', name: 'Ticket printer', room: r.id,
+    box: {
+      x0: ft(-8.4), x1: ft(-6), z0: CZ1 - inch(14), z1: CZ1,
+      y0: TOP, y1: TOP + ftin(1, 0),
+    },
+    idle: 'A roll of blanks and a platen that needs a shove.',
+    priority: 4,
+  });
+  b.station({
     id: 'register', name: 'Cash drawer', room: r.id,
     box: {
       x0: ft(-18.4), x1: ft(-15.6), z0: CZ1 - inch(12), z1: CZ1,
@@ -186,6 +195,17 @@ function lobby(b) {
   floorMat(b, {
     x0: -D.DBL_W / 2 - inch(4), x1: D.DBL_W / 2 + inch(4),
     z0: D.Z_CENTRAL_S + inch(2), z1: D.Z_CENTRAL_S + ftin(3, 6),
+  });
+  /* The mat by the front doors, which is where everything that gets
+     spilled in this building gets spilled. */
+  b.station({
+    id: 'lobby-mat', name: 'The mat by the doors', room: r.id,
+    box: {
+      x0: -D.DBL_W / 2 - ftin(1, 0), x1: D.DBL_W / 2 + ftin(1, 0),
+      z0: D.Z_CENTRAL_S, z1: D.Z_CENTRAL_S + ftin(4, 6),
+      y0: 0, y1: ftin(3, 0),
+    },
+    priority: 1,
   });
   floorMat(b, {
     x0: -D.DBL_W / 2 - inch(4), x1: D.DBL_W / 2 + inch(4),

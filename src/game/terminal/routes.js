@@ -188,16 +188,23 @@ export const NIGHT = [
   },
 ];
 
-/** "21:15" from minutes-after-eight, for a board or a manifest. */
+/**
+ * "21:15" from minutes-after-eight, for a board or a manifest.
+ *
+ * THE MINUTES ARE FLOORED, and they have to be: the shift clock runs
+ * at seven and a half terminal minutes a second and is therefore
+ * fractional every frame, and a clock that reads 8:0.154 PM is the
+ * sort of thing that ships.
+ */
 export function clockAt(minutes) {
-  const t = (20 * 60 + minutes) % (24 * 60);
+  const t = Math.floor((20 * 60 + minutes) % (24 * 60));
   const h = Math.floor(t / 60), m = t % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 /** And the same in the twelve-hour form a 1998 departure board used. */
 export function boardTime(minutes) {
-  const t = (20 * 60 + minutes) % (24 * 60);
+  const t = Math.floor((20 * 60 + minutes) % (24 * 60));
   const h24 = Math.floor(t / 60), m = t % 60;
   const h = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${h}:${String(m).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`;

@@ -39,6 +39,25 @@ export function buildNav(b) {
   at('central.nw', D.X_BAY_W + ft(4), F1, ft(12.5));
   at('central.ne', D.X_BAY_E - ft(4), F1, ft(12.5));
 
+  /* ---- and a node standing IN each of the four side doorways ----
+
+     The header above says "a node at each doorway" and for a long time
+     this file did not have one. It did not matter while nobody walked
+     the building. It matters the moment six passengers are called to a
+     coach at once: without a node in the opening, the leg from the
+     room's corner node to the next room's center node is a DIAGONAL
+     THROUGH A THREE-FOOT-EIGHT DOORWAY, everybody clips the jamb,
+     slides, gives up, and stands in the lobby while their coach leaves
+     without them. Which is exactly what tools/shift.mjs reported, in
+     those words, before this existed.
+
+     A doorway node costs one waypoint and makes the approach square
+     to the opening, which is also how a person walks through a door. */
+  at('door.nw', D.X_BAY_W, F1, ft(12.5));
+  at('door.ne', D.X_BAY_E, F1, ft(12.5));
+  at('door.sw', D.X_BAY_W, F1, ft(-12.5));
+  at('door.se', D.X_BAY_E, F1, ft(-12.5));
+
   /* ---- west wing, ground ---- */
   at('indians', ft(-39), F1, ft(-5));
   at('indians.n', ft(-32), F1, D.Z_FB_N - ft(3));
@@ -105,10 +124,10 @@ export function buildNav(b) {
     ['porch.front', 'central.s'], ['central.s', 'central'],
 
     ['central', 'central.n'], ['central.n', 'porch.rear'],
-    ['central', 'central.sw'], ['central.sw', 'indians'],
-    ['central', 'central.se'], ['central.se', 'giftshop'],
-    ['central', 'central.nw'], ['central.nw', 'west.rearhall'],
-    ['central', 'central.ne'], ['central.ne', 'east.rearhall'],
+    ['central', 'central.sw'], ['central.sw', 'door.sw'], ['door.sw', 'indians'],
+    ['central', 'central.se'], ['central.se', 'door.se'], ['door.se', 'giftshop'],
+    ['central', 'central.nw'], ['central.nw', 'door.nw'], ['door.nw', 'west.rearhall'],
+    ['central', 'central.ne'], ['central.ne', 'door.ne'], ['door.ne', 'east.rearhall'],
 
     ['indians', 'indians.n'], ['indians', 'indians.s'],
     ['indians.s', 'docent'], ['indians.s', 'west.store'],

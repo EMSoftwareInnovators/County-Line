@@ -116,6 +116,20 @@ export class Sale {
     return true;
   }
 
+  /** How much they are short, if they are. Cents. */
+  get shortBy() {
+    const offered = this.req.paid === undefined ? this.total : this.req.paid;
+    return Math.max(0, this.total - offered);
+  }
+
+  /** They find the rest, or somebody with them does. */
+  topUp() {
+    if (!this.shortBy) return false;
+    this.req.paid = this.total;
+    this.trouble = '';
+    return true;
+  }
+
   /** 3. They pay. Returns false if they are short. */
   take() {
     if (this.step !== STEP.QUOTED) return false;
@@ -209,6 +223,13 @@ export class Sale {
       case 'register':
         if (this.step === STEP.QUOTED) {
           const offered = this.req.paid === undefined ? this.total : this.req.paid;
+          if (offered < this.total) {
+            return {
+              text: 'Ask them for the rest',
+              sub: `${money(offered)} against ${money(this.total)} — `
+                + `${money(this.total - offered)} short`,
+            };
+          }
           return { text: `Take ${money(offered)}`, sub: `${money(this.total)} due` };
         }
         if (this.step === STEP.PAID) {

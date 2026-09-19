@@ -86,6 +86,13 @@ body{
 }
 .toast.good{color:var(--good)}
 .toast.warn{color:var(--warn)}
+/* The public address. Not a toast in the sense the others are: it is
+   the room talking, so it is centered, wider and in the color of the
+   sodium light outside rather than the HUD's own. */
+.toast.pa{
+  color:#d8c79a;letter-spacing:.06em;font-style:italic;
+  background:rgba(10,10,10,.68);
+}
 
 #notice{
   display:grid;place-items:center;align-content:end;

@@ -312,6 +312,34 @@ export class Fleet {
 
   coach(id) { return this.coaches.find((c) => c.id === id) || null; }
 
+  /**
+   * Wind a new destination onto the roll.
+   *
+   * A coach that comes in as the Macon and goes back out as the
+   * Charleston is the SAME BUS, and the only thing about it that
+   * changes is the sign on the front. So the roll's mesh instance is
+   * swapped and nothing else moves.
+   */
+  resign(c, text) {
+    if (!c || !text) return false;
+    c.sign = text;
+    const mesh = this.roll(text);
+    let found = false;
+    for (const d of this.level.dynamic) {
+      if (d.coach !== c || d.mesh === this.mesh) continue;
+      d.mesh = mesh;
+      found = true;
+    }
+    if (!found) {
+      this.level.dynamic.push({
+        coach: c, mesh,
+        matrix: () => (c.present ? c.matrix() : null),
+        chunk: 'academy.grounds.west',
+      });
+    }
+    return true;
+  }
+
   /** Whatever is standing at that berth, or null. */
   atBay(id) {
     return this.coaches.find((c) => c.present && c.bay.id === id

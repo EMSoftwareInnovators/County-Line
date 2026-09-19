@@ -146,6 +146,18 @@ check('every station can be walked up to', unreachable.length === 0,
    ============================================================ */
 console.log('\n-- the electrical retrofit --');
 
+/* EIGHT O'CLOCK IS A DARK BUILDING. The night man leaves the lobby lit
+   and goes home, and putting the zones on is the first job of the
+   shift -- so a harness that wants to test what a switch does has to
+   do that job first, the same as a player. */
+await page.evaluate(() => {
+  const g = window.__game;
+  for (const c of g.power.system.circuits) {
+    if (!c.id.startsWith('floor2')) g.power.system.setSwitch(c.id, true);
+  }
+  g.power.apply();
+});
+
 const wiring = await page.evaluate(() => {
   const g = window.__game;
   const L = g.level;

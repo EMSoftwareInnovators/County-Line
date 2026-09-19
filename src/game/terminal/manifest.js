@@ -128,8 +128,19 @@ export class Manifest {
     return out;
   }
 
+  /**
+   * The driver signs for what is on his coach.
+   *
+   * HE SIGNS WHILE IT IS STILL BOARDING, not after. A manifest that
+   * could only be signed once boarding had CLOSED meant that signing
+   * it closed it, which meant the bay stopped offering to take
+   * anybody's ticket the moment the paperwork was done -- six people
+   * stood on a platform beside an open coach door for ten minutes and
+   * the headless playtest counted them every time. Signing is a
+   * signature. Closing is closing.
+   */
   sign() {
-    if (this.state !== 'closed') return false;
+    if (this.state !== 'boarding' && this.state !== 'closed') return false;
     this.signed = true;
     return true;
   }

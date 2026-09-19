@@ -39,6 +39,8 @@ import { Sfx } from './sfx.js';
 import { Debug } from './debug.js';
 import { Power } from './terminal/power.js';
 import { Fleet } from './terminal/fleet.js';
+import { Shift, PHASE as SHIFT } from './terminal/shift.js';
+import { bindShift } from './terminal/stations.js';
 
 /** Every image-degradation stage off. See the note at the call site. */
 const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
@@ -256,6 +258,22 @@ export class Game {
        to level.movers, so a coach standing at a berth is eight and a
        half feet of solid on the apron like anything else. */
     this.fleet = new Fleet(this.materials, this.level);
+
+    /* ---- and the night's work ----
+       Only for a level that has a terminal in it. The testbed has a
+       crate and a test actor and does not need a timetable. */
+    this.shift = this.level.stations.has('ticket-counter')
+      ? new Shift({
+        level: this.level,
+        power: this.power,
+        fleet: this.fleet,
+        ctx: () => this.ctx(),
+        toast: (t, k) => this.ui.toast(t, k),
+        say: (line) => this.ui.toast(line, 'pa'),
+        seed: 19981020,
+      })
+      : null;
+    if (this.shift) bindShift(this.level, this.shift, this.ctx());
     this.roomLights = {};
     for (const r of this.level.rooms) this.roomLights[r.id] = true;
     this.level.chunkShade = {};
@@ -501,6 +519,7 @@ export class Game {
     const w = this.save.data.world || {};
     if (this.power) this.power.restore(w.power);
     if (this.fleet && this.fleet.enabled) this.fleet.restore(w.fleet);
+    if (this.shift && w.shift) this.shift.restore(w.shift, this.ctx());
     if (this.campaign.phase !== PHASE.ACTIVE) this.campaign.phase = PHASE.ACTIVE;
     this.beginPlay();
     this.ui.toast('Shift resumed');
@@ -518,6 +537,8 @@ export class Game {
     this.settings.apply(this.systems());
     this.startAmbience();
     this.grabLock();
+    /* Eight o'clock. The night man has left the lobby lit and gone. */
+    if (this.shift && this.shift.phase === SHIFT.BEFORE) this.shift.start();
     this.updateObjectiveLine();
   }
 
@@ -530,6 +551,12 @@ export class Game {
     this.level.update(dt);
     if (this.power) this.power.update(dt);
     if (this.fleet) this.fleet.update(dt);
+    if (this.shift && this.shift.running) {
+      this.shift.update(dt, this.ctx());
+      /* The switch bank is not a station, so the zone job is checked
+         against the panel rather than pressed. */
+      this.shift.checkZones();
+    }
 
     const ctx = this.ctx();
     updatePlayer(this.player, dt, i, ctx);
@@ -547,7 +574,13 @@ export class Game {
     this.showPrompt();
 
     this.checkObjectives();
-    this.ui.setClock(this.campaign.clockString(), this.campaign.shift ? this.campaign.shift.name.toUpperCase() : '');
+    if (this.shift && this.shift.running) {
+      this.ui.setClock(this.shift.clock, 'NIGHT CLERK');
+      this.ui.setObjective(this.shift.objective());
+    } else {
+      this.ui.setClock(this.campaign.clockString(),
+        this.campaign.shift ? this.campaign.shift.name.toUpperCase() : '');
+    }
 
     /* Interiors and the outdoors want different fog. Switching on the
        room the camera is in is crude and it is also exactly right: the
@@ -614,6 +647,7 @@ export class Game {
         toggleRoomLights: (id) => this.toggleRoomLights(id),
         get power() { return this.game.power; },
         get fleet() { return this.game.fleet; },
+        get shift() { return this.game.shift; },
         toast: (t, k) => this.ui.toast(t, k),
       };
     }
@@ -629,6 +663,7 @@ export class Game {
     const out = {};
     if (this.power) out.power = this.power.save();
     if (this.fleet && this.fleet.enabled) out.fleet = this.fleet.save();
+    if (this.shift) out.shift = this.shift.save();
     return out;
   }
 

@@ -942,8 +942,14 @@ section('boarding');
   })());
   check('a manifest with a coach and people on it has nothing wrong with it',
     m.problems(book).length === 0, m.problems(book).join('; '));
-  check('the driver cannot sign it until it is closed',
-    m.sign() === false && m.close() && m.sign() === true);
+  check('the driver signs while it is still boarding, not after',
+    (() => {
+      const later = new Manifest({ id: 'y', route: 'sav', bay: 2, depart: 300 });
+      const cannot = later.sign() === false;       // nothing to sign yet
+      later.coach = 'x'; later.open();
+      return cannot && later.sign() === true && later.state === 'boarding';
+    })());
+  check('and closing it is a separate thing', m.close() && m.state === 'closed');
   check('and once the coach has gone nothing else gets on', (() => {
     m.depart_();
     const late = book.issue({ route: 'sav', to: 'Millen' });

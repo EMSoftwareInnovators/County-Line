@@ -170,6 +170,7 @@ export function rng(seed) {
 }
 
 const pick = (list, r) => list[Math.floor(r() * list.length) % list.length];
+const pickFrom = pick;
 
 /**
  * @param spec { archetype, route, r } -- route forces where they are
@@ -177,8 +178,22 @@ const pick = (list, r) => list[Math.floor(r() * list.length) % list.length];
  */
 export function rollPassenger(spec) {
   const r = spec.r || Math.random;
-  const a = typeof spec.archetype === 'string'
+  let a = typeof spec.archetype === 'string'
     ? ARCHETYPE_BY_ID.get(spec.archetype) : spec.archetype;
+  if (!a) {
+    /* NOBODY SAID WHO. Which is the normal case: the shift knows a
+       coach is going to Savannah in half an hour and that somebody is
+       coming in for it, and who that somebody turns out to be is this
+       function's business.
+       A route was named, so it is somebody buying a ticket -- and one
+       whose archetype would plausibly be going that way, because a
+       soldier bound for Fort Gordon is not buying a seat to
+       Charleston. */
+    const able = ARCHETYPES.filter((x) => (x.want || 'ticket') === 'ticket'
+      && (!spec.route || x.routes === 'any' || !Array.isArray(x.routes)
+        || x.routes.includes(spec.route)));
+    a = pickFrom(able.length ? able : ARCHETYPES, r);
+  }
   if (!a) return null;
 
   let route = spec.route || null;

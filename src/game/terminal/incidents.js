@@ -53,7 +53,7 @@ export const INCIDENTS = [
     id: 'coffee-spill', kind: KIND.HOUSEKEEPING,
     text: 'Somebody has knocked a coffee over on the bench by the doors.',
     note: 'Spill in the lobby',
-    at: 'lobby-spill', clear: 'Mop it up',
+    at: 'lobby-mat', clear: 'Mop it up',
     after: 20, weight: 3,
   },
   {
