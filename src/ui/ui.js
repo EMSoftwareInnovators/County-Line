@@ -13,6 +13,8 @@
    the night grade. This one knows about a prompt, a reticle, a toast, an
    objective line and a panel -- the furniture, not the game.
    ============================================================ */
+import { Dialogue } from './dialogue.js';
+
 const $ = (id) => document.getElementById(id);
 
 export class UI {
@@ -36,6 +38,8 @@ export class UI {
       notice: $('notice'),
     };
     this._toasts = [];
+    /** The box you serve somebody through. See ui/dialogue.js. */
+    this.talk = new Dialogue();
   }
 
   /* ---------------- HUD ---------------- */

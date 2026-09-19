@@ -19,6 +19,7 @@
     "check:clerk": "node tools/clerk.mjs",
     "check:lum": "node tools/lum.mjs",
     "check:tour": "node tools/tour.mjs",
+    "check:talk": "node tools/talk.mjs",
     "shots:terminal": "node tools/terminal-shots.mjs",
     "build": "node tools/build.mjs",
     "app": "electron .",

@@ -20,6 +20,11 @@
    ============================================================ */
 import { launch, openGame, checker } from './browser.mjs';
 
+/* THE WINDOW IS A CONVERSATION and this harness has no hands on the
+   arrow keys, so it says the top line of the box directly rather than
+   pressing the station. Shift.serve is the same call the box's first
+   row makes; tools/talk.mjs is what drives the box itself. */
+
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
 
@@ -86,6 +91,18 @@ const night = await page.evaluate(async () => {
     if (!p || !p.action) return false;
     try { p.action(); } catch (e) { out.errors.push(`${id} action: ${e.message}`); return false; }
     out.presses[where(id)]++;
+    return true;
+  };
+
+  /* Serving somebody is work done AT THE WINDOW, and the window is in
+     the ticket hall. It is counted here rather than by pressing the
+     station because the station raises the dialogue box and this
+     harness has no hands on the arrow keys -- but the clerk is still
+     stood at the counter doing it, and the room tally has to say so or
+     it under-reports the public rooms by a fifth. */
+  const serve = () => {
+    if (!sh.serve()) return false;
+    out.presses[where('ticket-counter')]++;
     return true;
   };
 
@@ -158,16 +175,16 @@ const night = await page.evaluate(async () => {
     } else { stall = 0; stallSale = null; }
     if (at) {
       if (!sh.sale) {
-        if (press('ticket-counter')) out.served++;
+        if (serve()) out.served++;
       } else {
         const step = sh.sale.step;
         if (step === 'asked') {
-          if (!sh.sale.fare) { press('ticket-counter'); out.refused++; }
-          else press('ticket-counter');
+          if (!sh.sale.fare) { serve(); out.refused++; }
+          else serve();
         } else if (step === 'quoted') press('register');
         else if (step === 'paid') press('register');
         else if (step === 'changed') { if (press('ticket-printer')) out.printed++; }
-        else if (step === 'printed') { press('ticket-counter'); out.served++; }
+        else if (step === 'printed') { serve(); out.served++; }
       }
     }
 
@@ -333,10 +350,10 @@ const round = await page.evaluate(async () => {
     for (const inc of sh.incidents.open.slice()) press(inc.at);
     const at = sh.crowd.atWindow;
     if (at) {
-      if (!sh.sale) press('ticket-counter');
+      if (!sh.sale) sh.serve();
       else {
         const st = sh.sale.step;
-        if (st === 'asked' || st === 'printed') press('ticket-counter');
+        if (st === 'asked' || st === 'printed') sh.serve();
         else if (st === 'quoted' || st === 'paid') press('register');
         else if (st === 'changed') press('ticket-printer');
       }

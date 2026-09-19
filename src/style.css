@@ -105,6 +105,47 @@ body{
   padding-left:1.1cqw;
 }
 
+/* ---------------- dialogue ----------------
+   Serving somebody at a counter.
+
+   Final Rental put the customer's line and the clerk's possible
+   replies in one framed box at the foot of the screen, and it was the
+   right answer for the same reason it is here: a transaction with a
+   person in front of you is a CHOICE, and a choice wants to be seen all
+   at once rather than cycled through one reticle prompt at a time. What
+   is different is what it is made of -- that game's box was amber
+   video-store signage, and this one is the same bone-on-charcoal as the
+   rest of County Line, sat on the counter rather than over the picture.
+
+   It does not dim the world behind it. You are stood at a window in a
+   lit room, not in a menu. */
+#dialogue{display:grid;place-items:end center;padding-bottom:3cqw}
+.talk{
+  width:74cqw;max-width:74cqw;
+  background:rgba(14,14,16,.90);
+  border:0.28cqw solid var(--dim);
+  border-left:0.7cqw solid var(--accent);
+  padding:1.4cqw 2cqw 1.1cqw;
+}
+.talk-who{font-size:2.1cqw;color:var(--accent);letter-spacing:.14cqw}
+.talk-who #talk-tag{color:var(--dim);letter-spacing:0;margin-left:1cqw}
+.talk-says{
+  font-size:2.5cqw;color:var(--bone);font-style:italic;
+  margin:.5cqw 0 1cqw;
+}
+.talk-opts{list-style:none}
+.talk-opts li{
+  font-size:2.4cqw;color:var(--dim);padding:.18cqw 0;
+  display:flex;gap:1cqw;align-items:baseline;
+}
+.talk-opts li.sel{color:var(--bone)}
+.talk-opts li.sel .o-lbl::before{content:"> ";color:var(--accent)}
+.talk-opts li.off{opacity:.38}
+.talk-opts li .o-lbl{flex:1 1 auto}
+.talk-opts li .o-sub{flex:0 0 auto;font-size:2cqw;color:var(--dim)}
+.talk-opts li.sel .o-sub{color:var(--accent)}
+.talk-foot{margin-top:.8cqw;font-size:1.9cqw;color:var(--dim)}
+
 #notice{
   display:grid;place-items:center;align-content:end;
   padding-bottom:12cqw;font-size:2.6cqw;color:var(--dim);text-shadow:var(--shadow);

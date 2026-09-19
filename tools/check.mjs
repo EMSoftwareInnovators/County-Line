@@ -53,6 +53,7 @@ const BROWSER = [
   ['Richmond Central: doing the job with the keyboard', 'tools/clerk.mjs'],
   ['the Old Academy: can you see in here', 'tools/lum.mjs'],
   ['Richmond Central: the first-night walkthrough', 'tools/tour.mjs'],
+  ['Richmond Central: serving somebody through the box', 'tools/talk.mjs'],
 ];
 
 const server = spawn(process.execPath, ['serve.cjs'], {

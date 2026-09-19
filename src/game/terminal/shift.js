@@ -57,6 +57,7 @@ import { CrewRoom, DSTATE } from './drivers.js';
 import { PublicAddress, Telephone, CALL } from './pa.js';
 import { IncidentPool } from './incidents.js';
 import { rng, ARCHETYPES } from './people.js';
+import { conversation } from './counter.js';
 
 /** Terminal minutes per real second. 300 minutes in 40 real ones. */
 export const RATE = 300 / (40 * 60);
@@ -209,11 +210,31 @@ export class Shift {
     this.phase = PHASE.OPENING;
     this.now = 0;
     this._build();
-    /* The night man has left the lobby on and gone home. Everything
-       else is off, and putting it on is the first job. */
+    /* WHAT THE NIGHT MAN LEFT ON.
+     *
+     * The lobby, the front of the building, and the way to the office
+     * -- which is to say his own lights, and the ones he needed to walk
+     * out by. Everything else is off, and putting it up is the first
+     * job of the shift.
+     *
+     * THIS USED TO BE THE LOBBY ALONE, and it was the single worst bug
+     * in the game. The clerk starts at the front door and the switch
+     * bank is in the old docent library at the other end of the west
+     * wing, so the first thing every player did was walk out of the one
+     * lit room in the building into twenty-six unlit ones and try to
+     * find a panel they had not been told about. It was reported as
+     * "the lighting is unusable in every room except the first floor
+     * central room", twice, and twice it was looked for in the lighting
+     * rig -- which was measured, lit, and fine. The building was not too
+     * dark. It was SWITCHED OFF, and nothing said so.
+     *
+     * The job is unchanged: WORKING_ZONES still wants all seven and
+     * these are three of them. What is gone is being asked to find a
+     * light switch in the dark. */
     if (this.power) {
+      const ON = ['lobby', 'west-front', 'clerk', 'front-ext'];
       for (const c of this.power.system.circuits) {
-        c.switched = c.id === 'lobby' || c.id === 'front-ext';
+        c.switched = ON.includes(c.id);
       }
       this.power.system.revision++;
       this.power.apply();
@@ -513,6 +534,26 @@ export class Shift {
   }
 
   /* ---------------- checklists ---------------- */
+
+  /**
+   * Say the first thing the window offers.
+   *
+   * THE BOX MUST NOT BE THE ONLY WAY IN. Routing the ticket window
+   * through a piece of UI made the whole transaction undriveable by
+   * anything that is not a browser with a keyboard in front of it --
+   * which took out two harnesses immediately, and would have taken out
+   * anything else that ever needs to serve somebody without a person
+   * watching. The box chooses between these lines; this is what
+   * choosing the top one does, and it is the same call either way.
+   */
+  serve() {
+    const c = conversation(this, () => {});
+    if (!c) return false;
+    const o = c.options.find((x) => !x.disabled && x.act);
+    if (!o) return false;
+    o.act();
+    return true;
+  }
 
   jobs() { return this.phase === PHASE.CLOSING ? CLOSE_JOBS : OPEN_JOBS; }
 

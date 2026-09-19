@@ -56,6 +56,38 @@ const page = await openGame(browser, PORT);
 await page.evaluate(() => { window.__game.newGame(); });
 await page.waitForTimeout(700);
 
+/* Three passes, and the FIRST ONE IS THE ONE THAT MATTERED.
+
+   AS THE SHIFT STARTS is what a player actually walks into: Shift.start
+   leaves the lobby circuit on and every other one off, because the night
+   man went home and putting the zones up is the first job. So the first
+   several minutes of every game are spent in an unlit building, and the
+   bar there is not "can you work here" -- it is "can you cross the room
+   and find the switch bank". Two rounds of lighting work measured only
+   the lit building and reported it fixed, twice, while the person
+   playing it was in the dark one. A harness that measures a state the
+   player never sees is worse than no harness.
+
+   Then the building open and working, and then with the panel off. */
+/* TWO DIFFERENT CLAIMS ABOUT THE UNLIT BUILDING, and only one of them
+   is that it should be bright.
+
+   THE OPENING ROUTE must be properly lit, because the first job of the
+   shift is at the far end of it: the clerk starts at the front door and
+   the switch bank is in the old docent library, and being sent to find
+   a light switch in the dark is the bug this pass exists to catch.
+
+   EVERYWHERE ELSE is allowed to be dark -- that is the whole point of a
+   building with its zones off, and the brief asks for it -- but nothing
+   may be a VOID. A player who wanders into the east wing before putting
+   the zones up should find it gloomy and unwelcoming, not black. */
+const ROUTE = [
+  'academy.central', 'academy.indians', 'academy.west.docent',
+  'academy.west.store', 'academy.west.offices',
+];
+const ROUTE_BAR = { blind: 12, p10: 20, mean: 55 };
+const VOID_BAR = { blind: 52, p10: 1, mean: 24 };
+
 /* Open the terminal up exactly as a shift does: every zone on except
    the second floor's, which a clerk switches on only to go up. The
    building is measured in the state it is played in. */
@@ -63,8 +95,6 @@ await page.evaluate(() => {
   const g = window.__game;
   g.ui.setHudVisible(false);
   for (const d of g.level.doors) { d.locked = false; d.target = 0; d.amount = 0; }
-  for (const c of g.power.system.circuits) g.power.system.setSwitch(c.id, true);
-  g.power.apply();
   g.level.update(0.016);
 
   /* A REPEATABLE FRAME. Two stages of the tube make the same view
@@ -177,6 +207,50 @@ async function standable(r) {
   }, r);
 }
 
+/* ---- pass one: the building as the night man left it ---- */
+console.log('AS THE SHIFT STARTS -- lobby on, every other zone off.');
+console.log('The bar here is crossing the room, not working in it.\n');
+console.log('room                                     mean   p10   p50  blind%');
+console.log('-------------------------------------------------------------------');
+let unlit = 0;
+const startRows = [];
+for (const r of rooms) {
+  if (ONLY && !r.id.includes(ONLY)) continue;
+  const spots = await standable(r);
+  if (!spots.length) continue;
+  let worst = null;
+  for (const [x, z] of spots) {
+    let here = null;
+    for (const yaw of YAWS) {
+      const v = await sample(x, r.y + EYE, z, yaw);
+      if (!here || v.blind > here.blind) here = v;
+    }
+    if (!worst || here.blind < worst.blind) worst = here;
+  }
+  const onRoute = ROUTE.includes(r.id);
+  const bar = onRoute ? ROUTE_BAR : VOID_BAR;
+  const ok = worst.blind < bar.blind && worst.p10 >= bar.p10 && worst.mean >= bar.mean;
+  if (!ok) unlit++;
+  startRows.push({ id: r.id, ...worst, ok });
+  console.log(
+    `${ok ? ' ok ' : 'DARK'} ${onRoute ? '*' : ' '}${r.id.padEnd(33)}`
+    + ` ${worst.mean.toFixed(0).padStart(5)}`
+    + ` ${String(worst.p10).padStart(5)} ${String(worst.p50).padStart(5)}`
+    + ` ${worst.blind.toFixed(1).padStart(6)}`,
+  );
+}
+console.log('-------------------------------------------------------------------');
+console.log(`* = on the opening route, and held to the working standard.`);
+console.log(`${startRows.length - unlit}/${startRows.length} rooms pass; ${unlit} do not\n`);
+
+/* ---- pass two: open for business ---- */
+await page.evaluate(() => {
+  const g = window.__game;
+  for (const c of g.power.system.circuits) g.power.system.setSwitch(c.id, true);
+  g.power.apply();
+  g.level.update(0.016);
+});
+console.log('OPEN FOR BUSINESS -- every zone on.\n');
 console.log('room                                     mean   p10   p50  blind%');
 console.log('-------------------------------------------------------------------');
 let bad = 0;
@@ -242,4 +316,4 @@ console.log('-------------------------------------------------------------------
 console.log(`${rows.length - weak}/${rows.length} rooms go dark when the breaker does`);
 for (const l of page.logs) console.log(l);
 await browser.close();
-process.exit(bad + weak ? 1 : 0);
+process.exit(bad + weak + unlit ? 1 : 0);

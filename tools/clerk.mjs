@@ -137,15 +137,25 @@ check('the switch bank is reachable and reads its own label',
   p.id === 'station:switch.lobby' && /lobby|LOBBY/i.test(`${p.text} ${p.sub}`),
   `${p.text} — ${p.sub}`);
 
-/* Every zone the terminal uses, thrown one at a time from the bank. */
+/* Every zone the terminal needs, thrown one at a time from the bank.
+
+   ONLY THE ONES THAT ARE OFF. The night man leaves the lobby, the front
+   and the way to this office on when he goes -- see Shift.start -- so
+   flipping every switch on the bank would put two of them OUT and leave
+   the terminal darker than it started. A clerk does not throw a switch
+   that is already up, and neither does this. */
 const zones = ['west-front', 'east-front', 'clerk', 'west-rear', 'east-rear', 'platform'];
+const off = await page.evaluate((all) => all.filter((z) => {
+  const c = window.__game.power.system.circuit(z);
+  return c && !c.switched;
+}), zones);
 let thrown = 0;
-for (const z of zones) {
+for (const z of off) {
   const q = await at(`switch.${z}`);
   if (q.can) { await use(q.hold); thrown++; }
 }
-check('every zone on the bank can be thrown from in front of it',
-  thrown === zones.length, `${thrown} of ${zones.length}`);
+check('every zone that was off can be thrown from in front of it',
+  thrown === off.length, `${thrown} of ${off.length} (${zones.length - off.length} were already on)`);
 check('and the terminal is lit once they are',
   (await page.evaluate(() => window.__game.shift.done.has('lights'))) === true);
 
@@ -207,6 +217,20 @@ for (let i = 0; i < 8; i++) {
   if (!q.can) { moves.push(`STUCK at ${step}: ${where} offers "${q.text}"`); break; }
   moves.push(`${step} -> ${where}: ${q.text}`);
   await use(q.hold);
+  /* THE WINDOW OPENS A BOX, and the box is the interface -- one press
+     raises it on whoever is stood there, a second says the line the
+     highlight is on. That is the real keyboard flow and this harness
+     exists to walk it, so it presses twice rather than reaching past
+     the box into the sale. */
+  const box = await page.evaluate(() => {
+    const t = window.__game.ui.talk;
+    return t.open ? t.spec.options[t.sel].text : null;
+  });
+  if (box) {
+    moves.push(`       box: "${box}"`);
+    await page.keyboard.press('KeyE');
+    await page.waitForTimeout(160);
+  }
   if (step === 'printed') break;
 }
 for (const m of moves) console.log(`      ${m}`);

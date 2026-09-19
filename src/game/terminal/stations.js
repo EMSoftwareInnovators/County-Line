@@ -43,43 +43,21 @@ function window_(sh, ctx, st) {
   const p = sh.crowd.atWindow;
   if (!p) return { text: st.name, sub: 'Nobody waiting.', action: null, hold: 0 };
 
-  /* Somebody who is not buying a ticket. They still have to be dealt
-     with, and dealing with them is one press and a sentence. */
-  if (!sh.sale) {
-    const answer = {
-      nothing: 'Tell them which bay it goes from',
-      meet: 'Tell them whether it is in',
-      parcel: 'Send them round to the baggage desk',
-      refund: 'Put them on the next one',
-    }[p.req.want] || 'Deal with them';
-    return {
-      text: answer,
-      sub: `${p.req.who} — ${p.says}`,
-      action: () => {
-        sh.log(`${p.req.who}: ${p.req.want}.`);
-        sh.clearWindow();
-      },
-      hold: 0,
-    };
-  }
-
-  const line = sh.sale.promptAt('window', sh.drawer);
-  if (!line) return { text: st.name, sub: p.says, action: null, hold: 0 };
-
-  if (sh.sale.step === STEP.ASKED) {
-    return {
-      ...line,
-      action: () => {
-        if (!sh.sale.fare) { sh.log(`Turned away: ${p.req.to}.`); sh.clearWindow(); return; }
-        sh.sale.quote();
-      },
-      hold: 0,
-    };
-  }
-  if (sh.sale.step === STEP.PRINTED) {
-    return { ...line, action: () => sh.sale.finish(), hold: 0 };
-  }
-  return { ...line, action: null, hold: 0 };
+  /* THE WINDOW IS A CONVERSATION, so it opens the box rather than
+     doing a step. Everything that is said out loud is chosen from a
+     list in there; the register and the printer are still machines and
+     still under the reticle where they stand. See terminal/counter.js
+     for why the split is where it is. */
+  return {
+    text: `Serve ${p.req.who}`,
+    sub: p.says,
+    /* With a screen in front of the player this raises the box and the
+       player picks a line out of it. With no UI bound -- a harness, a
+       headless run -- it says the first thing the box would have
+       offered, so the counter still works. */
+    action: () => (sh.d.talk ? sh.d.talk() : sh.serve()),
+    hold: 0,
+  };
 }
 
 /* ============================================================

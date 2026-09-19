@@ -43,6 +43,7 @@ import { Shift, PHASE as SHIFT } from './terminal/shift.js';
 import { bindShift } from './terminal/stations.js';
 import { TerminalSound } from './terminal/sound.js';
 import { Tutorial } from './terminal/tutorial.js';
+import { openTalk, updateTalk } from './terminal/counter.js';
 
 /** Every image-degradation stage off. See the note at the call site. */
 const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
@@ -272,6 +273,7 @@ export class Game {
         ctx: () => this.ctx(),
         toast: (t, k) => this.ui.toast(t, k),
         say: (line) => this.ui.toast(line, 'pa'),
+        talk: () => openTalk(this),
         sfx: (cue, pan) => { if (this.sfx[cue]) this.sfx[cue](pan || 0); },
         seed: 19981020,
       })
@@ -571,15 +573,22 @@ export class Game {
 
     for (const n of this.npcs) n.update(dt, ctx);
 
+    /* ---- serving somebody, if a box is up ----
+       It takes the use key while it is open, so the reticle is asked
+       to stand down for the frame rather than the frame being cut
+       short: the clock, the fog and everything after this still have
+       to run while the player is stood at a window. */
+    const talking = updateTalk(this, i);
+
     /* ---- interaction ---- */
     const eye = eyePoint(this.player);
     const dir = forwardOf(this.player);
-    const useDown = i.isDown('interact');
+    const useDown = !talking && i.isDown('interact');
     this.level.interact.update(eye, dir, ctx, dt, useDown);
-    if (this.level.interact.activate(ctx, i.hit('interact'))) {
+    if (!talking && this.level.interact.activate(ctx, i.hit('interact'))) {
       /* an action ran; its own code says what happened */
     }
-    this.showPrompt();
+    this.showPrompt(talking);
 
     this.checkObjectives();
     if (this.shift && this.shift.running) {
@@ -622,11 +631,13 @@ export class Game {
     }
   }
 
-  showPrompt() {
+  showPrompt(talking) {
     const it = this.level.interact;
     const p = it.prompt;
-    this.ui.setReticle(!!it.target);
-    if (!p) { this.ui.setPrompt(''); this.ui.setHold(0); return; }
+    this.ui.setReticle(!talking && !!it.target);
+    /* The reticle says nothing while a box is up: two prompts offering
+       the same key different things is the one thing worse than none. */
+    if (!p || talking) { this.ui.setPrompt(''); this.ui.setHold(0); return; }
     const key = p.action && !p.disabled ? glyph('interact') : '';
     const hold = p.hold ? '<span class="hold">hold</span> ' : '';
     this.ui.setPrompt(`${key}${hold}${p.text}`, p.sub || '');
