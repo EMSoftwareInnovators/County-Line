@@ -127,7 +127,7 @@ export function buildActorMeshes(skin) {
  * a terminal with fifteen people in it needs and a test level with one
  * actor in it did not.
  *
- * Each entry is a coat, a shirt, trousers and hair. The palette is
+ * Each entry is a coat, a shirt, pants and hair. The palette is
  * 1998 and Georgia in October: denim, work green, a raincoat, a
  * uniform, a good overcoat. Nothing is bright, because nothing in this
  * building is.
