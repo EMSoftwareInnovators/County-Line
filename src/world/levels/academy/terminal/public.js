@@ -80,11 +80,18 @@ function lobby(b) {
   crt(b, { x: ft(-10.5), y: TOP, z: CZ1 - inch(4), face: 'south', w: ftin(1, 1), h: ftin(1, 0) });
 
   /* ---- the two stations the job actually happens at ---- */
+  /* THE WINDOW IS WHERE THE PERSON IS, not where the counter is.
+     A box drawn around the counter swallows the register and the
+     printer standing on it -- the clerk looks at the drawer and the
+     game says "serving" -- and it is also the wrong thing to look at.
+     You look at the passenger. So the box is the air on the customer
+     side, from waist to head height, and the counter top is below the
+     sight line rather than across it. */
   b.station({
     id: 'ticket-counter', name: 'Ticket counter', room: r.id,
     box: {
-      x0: CX0, x1: CX1, z0: CZ0 - ftin(2, 0), z1: CZ1,
-      y0: ftin(2, 0), y1: ftin(4, 6),
+      x0: CX0, x1: CX1, z0: CZ0 - ftin(2, 6), z1: CZ0 - inch(2),
+      y0: ftin(3, 8), y1: ftin(5, 10),
     },
     idle: 'Nobody waiting.',
     priority: 3,

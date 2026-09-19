@@ -52,24 +52,34 @@ function clerkOffice(b) {
      the waiting room is at x = -45, and a six-foot desk whose end is
      three feet from a jamb is a desk you edge past sideways. */
   const DX0 = ft(-53.5), DX1 = ft(-47.5);
-  const DZ0 = ft(-23.5), DZ1 = ft(-21);
-  desk(b, { x0: DX0, x1: DX1, z0: DZ0, z1: DZ1, chair: [ft(-50.5), ft(-20)] });
+  /* THE DESK SITS IN THE MIDDLE OF THE ROOM, not against the north
+     wall, and that is not a composition choice. The switch bank is on
+     that wall and a desk two feet off it leaves nineteen inches to
+     stand in -- three inches less than a body -- so seven of the
+     twelve switches were simply unreachable. The room is ten foot
+     three deep: four feet in front of the panels, the desk, and three
+     feet in front of the bank. */
+  const DZ0 = ft(-26.5), DZ1 = ft(-24);
+  desk(b, { x0: DX0, x1: DX1, z0: DZ0, z1: DZ1, chair: [ft(-50.5), ft(-23)] });
   const TOP = ftin(2, 6);
-  phone(b, { x: ft(-52.5), y: TOP, z: ft(-22.2) });
-  papers(b, { x: ft(-50.5), y: TOP, z: ft(-22.2), w: ftin(1, 0), d: ftin(1, 4), h: inch(2) });
-  papers(b, { x: ft(-48.7), y: TOP, z: ft(-22.2), w: ftin(0, 10), d: ftin(1, 2), h: inch(4) });
-  crt(b, { x: ft(-48.4), y: TOP, z: ft(-23), face: 'east', w: ftin(1, 2), h: ftin(1, 1) });
+  phone(b, { x: ft(-52.5), y: TOP, z: ft(-25.2) });
+  papers(b, { x: ft(-50.5), y: TOP, z: ft(-25.2), w: ftin(1, 0), d: ftin(1, 4), h: inch(2) });
+  papers(b, { x: ft(-48.7), y: TOP, z: ft(-25.2), w: ftin(0, 10), d: ftin(1, 2), h: inch(4) });
+  crt(b, { x: ft(-48.4), y: TOP, z: ft(-26), face: 'east', w: ftin(1, 2), h: ftin(1, 1) });
 
   b.station({
     id: 'clerk-desk', name: 'Clerk desk', room: r.id,
-    box: { x0: DX0, x1: DX1, z0: DZ0 - ftin(2, 0), z1: DZ1, y0: ftin(1, 6), y1: ftin(3, 6) },
+    /* THE DESK, NOT WHAT IS ON IT. A box up to desk height and no
+       higher, so that the telephone and the shift log standing on it
+       are above it and answer the reticle in their own right. */
+    box: { x0: DX0, x1: DX1, z0: DZ0, z1: DZ1, y0: ftin(1, 0), y1: TOP - inch(1) },
     idle: 'A clipboard, a route binder and somebody else’s coffee ring.',
     priority: 2,
   });
   b.station({
     id: 'shift-log', name: 'Shift log', room: r.id,
     box: {
-      x0: ft(-51.1), x1: ft(-49.9), z0: ft(-22.9), z1: ft(-21.5),
+      x0: ft(-51.1), x1: ft(-49.9), z0: ft(-25.9), z1: ft(-24.5),
       y0: TOP, y1: TOP + ftin(0, 8),
     },
     priority: 5,
@@ -77,7 +87,7 @@ function clerkOffice(b) {
   b.station({
     id: 'clerk-phone', name: 'Telephone', room: r.id,
     box: {
-      x0: ft(-53.3), x1: ft(-51.7), z0: ft(-22.9), z1: ft(-21.5),
+      x0: ft(-53.3), x1: ft(-51.7), z0: ft(-25.9), z1: ft(-24.5),
       y0: TOP, y1: TOP + ftin(0, 10),
     },
     priority: 5,
@@ -85,15 +95,15 @@ function clerkOffice(b) {
 
   /* ---- the PA amplifier and its microphone, on a shelf beside the desk ---- */
   block(b, {
-    x0: ft(-54.5), x1: ft(-52.6), z0: ft(-24.5), z1: ft(-22.5),
+    x0: ft(-54.5), x1: ft(-52.6), z0: ft(-23.5), z1: ft(-21.5),
     y0: ftin(2, 6), y1: ftin(3, 4), material: M.officeSteel, tag: 'pa-amp',
   });
   block(b, {
-    x0: ft(-53.9), x1: ft(-53.3), z0: ft(-23.9), z1: ft(-23.3),
+    x0: ft(-53.9), x1: ft(-53.3), z0: ft(-22.9), z1: ft(-22.3),
     y0: ftin(3, 4), y1: ftin(4, 2), material: M.chrome, tag: 'pa-mic', solid: false,
   });
   sign(b, {
-    x: ft(-53.5), z: ft(-25.4), y: ftin(4, 6), face: 'north',
+    x: ft(-53.5), z: ft(-24.4), y: ftin(4, 6), face: 'north',
     w: ftin(1, 10), h: ftin(0, 6), material: M.plate('P.A.', { size: 13 }),
   });
   b.device({ id: 'pa-amp', circuit: 'clerk', draw: 1.6, label: 'P.A. amplifier' });
@@ -102,7 +112,7 @@ function clerkOffice(b) {
   b.station({
     id: 'pa-desk', name: 'Public address', room: r.id,
     box: {
-      x0: ft(-54.6), x1: ft(-52.5), z0: ft(-24.6), z1: ft(-22.4),
+      x0: ft(-54.6), x1: ft(-52.5), z0: ft(-23.6), z1: ft(-21.4),
       y0: ftin(2, 4), y1: ftin(4, 4),
     },
     priority: 4,
@@ -179,10 +189,17 @@ function clerkOffice(b) {
      Twelve labelled toggles in two columns of six. Each one is its own
      station, because flipping a light switch is a physical act and a
      menu of twelve rows is not. */
+  /* THE BANK IS AT SWITCH HEIGHT, which is not a detail: a column of
+     six boxes running down to sixteen inches off the floor is a column
+     where the reticle, looking down from five foot five, crosses every
+     box above the one you want before it reaches it. Four-inch
+     spacing from five foot two puts the bottom row at three foot two
+     and the whole bank inside a hand's reach, which is where an
+     electrician puts one anyway. */
   const SW_Z = r.z1 - inch(2);
   const SW_X = ft(-51.5);
-  const SW_TOP = ftin(4, 10);
-  const CW = ftin(1, 3), RH = ftin(0, 7);
+  const SW_TOP = ftin(5, 2);
+  const CW = ftin(1, 3), RH = ftin(0, 4);
   block(b, {
     x0: SW_X - CW, x1: SW_X + CW, z0: SW_Z - inch(2), z1: SW_Z,
     y0: SW_TOP - RH * 6 - inch(3), y1: SW_TOP + inch(3),
@@ -199,9 +216,12 @@ function clerkOffice(b) {
     });
     b.station({
       id: `switch.${c.id}`, name: c.label, room: r.id,
+      /* THIN, and hard against the plate. A box that stands a foot
+         out into the room is a box the ray meets on its way down to
+         the switch below it. */
       box: {
         x0: x - CW / 2 + inch(1), x1: x + CW / 2 - inch(1),
-        z0: SW_Z - ftin(1, 0), z1: SW_Z,
+        z0: SW_Z - inch(4), z1: SW_Z - inch(1),
         y0: y - RH / 2, y1: y + RH / 2,
       },
       data: { circuit: c.id },
@@ -598,16 +618,19 @@ function breakRoom(b) {
     },
     priority: 3,
   });
+  /* The time clock goes at the west end of the same wall, well clear
+     of the notice board: two stations a foot apart are two stations
+     the reticle cannot tell apart. */
   b.station({
     id: 'time-clock', name: 'Time clock', room: r.id,
     box: {
-      x0: r.x0 + ftin(7, 0), x1: r.x0 + ftin(8, 6), z0: r.z1 - ftin(1, 0), z1: r.z1,
+      x0: r.x0 + ftin(2, 6), x1: r.x0 + ftin(4, 0), z0: r.z1 - ftin(0, 8), z1: r.z1,
       y0: ftin(4, 0), y1: ftin(5, 6),
     },
     priority: 4,
   });
   block(b, {
-    x0: r.x0 + ftin(7, 2), x1: r.x0 + ftin(8, 4), z0: r.z1 - inch(4), z1: r.z1 - inch(1),
+    x0: r.x0 + ftin(2, 8), x1: r.x0 + ftin(3, 10), z0: r.z1 - inch(4), z1: r.z1 - inch(1),
     y0: ftin(4, 2), y1: ftin(5, 4), material: M.officeSteel, tag: 'time-clock', solid: false,
   });
   phone(b, { x: r.x0 + ftin(5, 0), y: ftin(3, 2), z: r.z0 + ftin(1, 4) });

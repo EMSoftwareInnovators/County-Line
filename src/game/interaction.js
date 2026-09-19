@@ -74,6 +74,15 @@ export class Interactable {
   }
 }
 
+/** Is that solid's middle inside this box: i.e. is it the thing itself. */
+function inBox(s, box) {
+  if (!box) return false;
+  const x = (s.x0 + s.x1) / 2, y = (s.y0 + s.y1) / 2, z = (s.z0 + s.z1) / 2;
+  return x >= box.x0 - 0.02 && x <= box.x1 + 0.02
+    && y >= box.y0 - 0.35 && y <= box.y1 + 0.35
+    && z >= box.z0 - 0.02 && z <= box.z1 + 0.02;
+}
+
 export class InteractionSystem {
   /** @param collision a CollisionWorld, for the line-of-sight test */
   constructor(collision) {
@@ -125,12 +134,32 @@ export class InteractionSystem {
        explicit "am I in the back room" test. A ray against the collider
        costs almost nothing and is right everywhere. */
     if (this.collision) {
-      const c = best.center();
-      const dx = c[0] - eye.x, dy = c[1] - eye.y, dz = c[2] - eye.z;
-      const len = Math.hypot(dx, dy, dz) || 1;
-      const hit = this.collision.raycast(eye.x, eye.y, eye.z, dx / len, dy / len, dz / len, len - 0.05);
-      /* A door's own collider must not hide the door. */
-      if (hit && !(hit.solid.door && hit.solid.door === best.owner)) return null;
+      const own = best.shape();
+      /* LINE OF SIGHT TO THE BIT YOU ARE LOOKING AT, not to the middle
+       * of the thing. Casting at the center is wrong for anything flat
+       * against a wall: the middle of a three-inch-deep switch box is
+       * two and a half inches off the plaster, so the sight line to it
+       * runs most of the way into the wall and half a switch bank
+       * stops answering. What the player is looking at is the point
+       * the ray met, and that is what has to be visible. */
+      const dx = dir[0], dy = dir[1], dz = dir[2];
+      const len = Math.max(0.05, bestT);
+      const hit = this.collision.raycast(eye.x, eye.y, eye.z, dx, dy, dz, len - 0.02);
+      /* A THING CANNOT HIDE ITSELF.
+       *
+       * Two cases, and they are the same case. A door's own leaf is
+       * between you and the door. And a station's box is drawn AROUND
+       * the thing it belongs to -- the cash drawer's box is the cash
+       * drawer, the vending machine's box is the vending machine -- so
+       * the middle of that box is inside a solid prop and the line of
+       * sight to it is blocked by the prop you are looking at.
+       *
+       * Twenty of the terminal's fifty-two stations failed this way,
+       * and every one of them would have been "the register does not
+       * work" with no further information. So a blocker whose own
+       * middle lies inside the interactable's box is not a blocker. */
+      if (hit && !(hit.solid.door && hit.solid.door === best.owner)
+        && !inBox(hit.solid, own.box)) return null;
     }
     return best;
   }

@@ -137,6 +137,64 @@ check('every station can be walked up to', unreachable.length === 0,
   `${(await page.evaluate(() => window.__game.level.stations.size))} stations`);
 
 /* ============================================================
+   AND THE RETICLE FINDS IT FROM THERE
+
+   Standing room is not the same as being able to USE the thing. The
+   interaction ray refuses anything the collider says is behind
+   something else, and a station box drawn around a solid prop is a box
+   whose middle is inside that prop -- so the register hides the
+   register. This stands the player where the check above says a body
+   fits, aims at the station, and asks the game's own ray what it
+   thinks it is looking at.
+   ============================================================ */
+console.log('\n-- and the reticle finds it from there --');
+const aimed = await page.evaluate(() => {
+  const g = window.__game;
+  const col = g.level.collision;
+  const p = g.player;
+  const R = p.r, H = 1.4;
+  const bad = [];
+  for (const [id, st] of g.level.stations) {
+    const b = st.box;
+    if (!b) continue;
+    const c = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, z: (b.z0 + b.z1) / 2 };
+    const rx = (b.x1 - b.x0) / 2, rz = (b.z1 - b.z0) / 2;
+    /* the floor this station is on */
+    const y = b.y0 > 3 ? 5.283 : (b.y0 < -0.3 ? -0.914 : 0);
+    let hit = null, stood = null;
+    for (let a = 0; a < 24 && !hit; a++) {
+      const th = (a / 24) * Math.PI * 2;
+      for (const reach of [0.7, 1.0, 1.35]) {
+        const x = c.x + Math.cos(th) * (rx + reach);
+        const z = c.z + Math.sin(th) * (rz + reach);
+        if (!col.fits(x, y, z, R, H)) continue;
+        /* AND IN THE RIGHT ROOM: a body "fits" three feet above the
+           garden as happily as it fits on a floor. */
+        const inRoom = g.level.roomAt(x, y + 0.1, z);
+        if (st.room && (!inRoom || inRoom.id !== st.room)) continue;
+        p.x = x; p.y = y; p.z = z;
+        const dx = c.x - x, dz = c.z - z, dy = c.y - (y + p.eye);
+        p.yaw = Math.atan2(dx, dz);
+        p.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+        const eye = { x, y: y + p.eye, z };
+        const cp = Math.cos(p.pitch);
+        const dir = [Math.sin(p.yaw) * cp, Math.sin(p.pitch), Math.cos(p.yaw) * cp];
+        const t = g.level.interact.cast(eye, dir, g.ctx());
+        stood = { x, z, saw: t ? t.id : 'nothing' };
+        if (t && t.id === `station:${id}`) { hit = t; break; }
+      }
+    }
+    if (!hit) bad.push({ id, stood });
+  }
+  return bad;
+});
+for (const b of aimed) {
+  console.log(`      ${b.id}  ${b.stood ? `stood, but the ray saw ${b.stood.saw}` : 'no standing room'}`);
+}
+check('every station answers the reticle from somewhere a body fits',
+  aimed.length === 0, aimed.length ? `${aimed.length} do not` : 'all of them');
+
+/* ============================================================
    THE PANEL
 
    Thirteen ways in three cabinets, a switch bank, and one trip that
