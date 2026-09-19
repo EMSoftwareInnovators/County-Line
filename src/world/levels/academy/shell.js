@@ -243,7 +243,7 @@ export function buildShell(b) {
          which faced the railroad cut. Its stoop is on the measured plan. */
       DOOR(ft(43), {
         width: D.EXT_DOOR_W, sill: 0, head: D.EXT_DOOR_H,
-        door: { id: 'west-side', name: 'west door', hinge: 'x0', swing: -1 },
+        door: { id: 'west-side', name: 'west door', hinge: 'x0', swing: -1 , exterior: true },
       }),
       w1(ft(50.5)), w1(ft(57)),
     ],
@@ -270,7 +270,7 @@ export function buildShell(b) {
       w1(ft(12)),
       DOOR(D.Z_SERVICE_S + (D.Z_SERVICE_N - D.Z_SERVICE_S) / 2, {
         width: D.EXT_DOOR_W, sill: 0, head: D.EXT_DOOR_H,
-        door: { id: 'east-side-entry', name: 'east door', hinge: 'x0', swing: 1 },
+        door: { id: 'east-side-entry', name: 'east door', hinge: 'x0', swing: 1 , exterior: true },
       }),
     ],
     upper: [w2(ft(12)), w2(ft(19.5))],
@@ -283,7 +283,7 @@ export function buildShell(b) {
       w1(ft(27.5)), w1(ft(34)),
       DOOR(ft(43), {
         width: D.EXT_DOOR_W, sill: 0, head: D.EXT_DOOR_H,
-        door: { id: 'east-side-vestibule', name: 'east door', hinge: 'x0', swing: -1 },
+        door: { id: 'east-side-vestibule', name: 'east door', hinge: 'x0', swing: -1 , exterior: true },
       }),
       w1(ft(51.5)), w1(ft(57.5)),
     ],
@@ -327,6 +327,7 @@ export function buildShell(b) {
         DOOR(ft(20), {
           width: D.EXT_DOOR_W, sill: 0, head: D.EXT_DOOR_H,
           door: {
+            exterior: true,
             id: s < 0 ? 'west-hall-porch' : 'east-hall-porch',
             name: 'porch door', hinge: 'x0', swing: s < 0 ? 1 : -1,
           },
@@ -357,6 +358,7 @@ export function buildShell(b) {
         DOOR(0, {
           width: D.DBL_W, sill: 0, head: D.DBL_H,
           door: {
+            exterior: true,
             id: north ? 'central-rear' : 'central-front',
             name: north ? 'rear doors' : 'front doors',
             leaves: 2, swing: north ? -1 : 1,
@@ -372,7 +374,7 @@ export function buildShell(b) {
            because there is no terrace over the rear porch. */
         north ? w2(0) : DOOR(0, {
           width: D.EXT_DOOR_W, sill: D.FLOOR2, head: D.FLOOR2 + D.EXT_DOOR_H,
-          door: { id: 'gallery-door', name: 'terrace door', hinge: 'x0', swing: -1 },
+          door: { id: 'gallery-door', name: 'terrace door', hinge: 'x0', swing: -1 , exterior: true },
         }),
         w2(ft(14)),
       ],

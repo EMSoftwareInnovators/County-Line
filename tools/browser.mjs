@@ -98,6 +98,17 @@ export async function openGame(browser, port, opts = {}) {
   if (opts.mute !== false) {
     await page.evaluate(() => { window.__game.audio.setMuted(true); });
   }
+  /* NO WALKTHROUGH UNLESS A HARNESS ASKS FOR ONE.
+   *
+   * It is on by default for players, which means every harness that
+   * calls newGame() gets a supervisor walking the building, opening
+   * doors in front of them and narrating. That is correct for a first
+   * night and ruinous for a test: the door harness lost four checks to
+   * doors the supervisor had propped open. A harness that wants the
+   * tour turns it back on before newGame, as tools/tour.mjs does. */
+  if (opts.walkthrough !== true) {
+    await page.evaluate(() => { window.__game.settings.values.walkthrough = false; });
+  }
   page.logs = logs;
   return page;
 }

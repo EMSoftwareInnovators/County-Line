@@ -42,11 +42,12 @@ import { Fleet } from './terminal/fleet.js';
 import { Shift, PHASE as SHIFT } from './terminal/shift.js';
 import { bindShift } from './terminal/stations.js';
 import { TerminalSound } from './terminal/sound.js';
+import { Tutorial } from './terminal/tutorial.js';
 
 /** Every image-degradation stage off. See the note at the call site. */
 const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
 import { createPlayer, updatePlayer, buildCamera, forwardOf, eyePoint } from './player.js';
-import { Npc, patrol } from './npc.js';
+import { spawnTestActor } from './npc.js';
 import { buildActorMeshes, makeActorSkin, drawActor, ACTOR_HEIGHT, WARDROBE } from './actor.js';
 import { Interactable } from './interaction.js';
 import { graphFromLevel } from './nav.js';
@@ -286,6 +287,11 @@ export class Game {
       this.terminalSound = new TerminalSound();
     }
     if (this.shift) bindShift(this.level, this.shift, this.ctx());
+    /* ---- the walkthrough ----
+       Built whenever there is a shift to be walked through; whether it
+       actually RUNS is decided at newGame(), because it is a thing that
+       happens on a first night and not on a reload. */
+    this.tutorial = this.shift ? new Tutorial() : null;
     this.roomLights = {};
     for (const r of this.level.rooms) this.roomLights[r.id] = true;
     this.level.chunkShade = {};
@@ -297,35 +303,13 @@ export class Game {
 
   /** Everybody in the world this frame: test actors, passengers, crew. */
   allActors() {
-    if (!this.shift || !this.shift.running) return this.npcs;
-    return this.npcs.concat(this.shift.actors());
+    const tour = this.tutorial ? this.tutorial.actors() : [];
+    if (!this.shift || !this.shift.running) return this.npcs.concat(tour);
+    return this.npcs.concat(this.shift.actors(), tour);
   }
 
   spawnNpcs() {
-    this.npcs = [];
-    const route = this.level.marks.patrol;
-    if (!route) return;
-    /* One test actor. It walks a triangle in the hall, which is enough to
-       show that an NPC can be placed, pathed, collided, animated, drawn
-       and looked at. It is not a character and it has nothing to say. */
-    const npc = new Npc({
-      id: 'test-actor', name: 'test actor',
-      x: route[0].x, y: route[0].y, z: route[0].z,
-      states: patrol(route, 1.4),
-      state: 'walk',
-      data: { at: 0 },
-    });
-    this.npcs.push(npc);
-    this.level.interact.add(new Interactable({
-      id: 'npc:test-actor',
-      cylFn: () => npc.cylinder(),
-      describe: () => ({
-        text: 'Get their attention',
-        sub: 'test actor',
-        action: () => this.ui.toast('The test actor does not react. Nothing here talks yet.'),
-        hold: 0,
-      }),
-    }));
+    this.npcs = spawnTestActor(this.level, (t) => this.ui.toast(t));
   }
 
   startAmbience() {
@@ -510,6 +494,13 @@ export class Game {
     this.loadLevel(this.campaign.def.shift(0).level);
     this.campaign.start(0, this.ctx());
     this.beginPlay();
+    /* AFTER beginPlay, because the shift has to be running before the
+       walkthrough can wait on its jobs. A first night only: Continue
+       restores whatever state the tour was left in, and a player who
+       has turned it off never meets the supervisor at all. */
+    if (this.tutorial && this.settings.get('walkthrough')) {
+      this.tutorial.start(this.ctx());
+    }
     this.ui.toast('Test shift started');
   }
 
@@ -532,6 +523,9 @@ export class Game {
     if (this.power) this.power.restore(w.power);
     if (this.fleet && this.fleet.enabled) this.fleet.restore(w.fleet);
     if (this.shift && w.shift) this.shift.restore(w.shift, this.ctx());
+    if (this.tutorial && w.tutorial) {
+      this.tutorial.restore(w.tutorial, this.ctx());
+    }
     if (this.campaign.phase !== PHASE.ACTIVE) this.campaign.phase = PHASE.ACTIVE;
     this.beginPlay();
     this.ui.toast('Shift resumed');
@@ -570,6 +564,7 @@ export class Game {
       this.shift.checkZones();
       if (this.terminalSound) this.terminalSound.update(dt, this);
     }
+    if (this.tutorial && this.tutorial.running) this.tutorial.update(dt, this.ctx());
 
     const ctx = this.ctx();
     updatePlayer(this.player, dt, i, ctx);
@@ -589,7 +584,8 @@ export class Game {
     this.checkObjectives();
     if (this.shift && this.shift.running) {
       this.ui.setClock(this.shift.clock, 'NIGHT CLERK');
-      this.ui.setObjective(this.shift.objective());
+      const tour = this.tutorial && this.tutorial.running ? this.tutorial.objective() : '';
+      this.ui.setObjective(tour || this.shift.objective());
     } else {
       this.ui.setClock(this.campaign.clockString(),
         this.campaign.shift ? this.campaign.shift.name.toUpperCase() : '');
@@ -662,6 +658,7 @@ export class Game {
         get fleet() { return this.game.fleet; },
         get shift() { return this.game.shift; },
         toast: (t, k) => this.ui.toast(t, k),
+        speak: (who, line) => this.ui.toast(`${who}: ${line}`, 'say'),
       };
     }
     this._ctx.collision = this.level.collision;
@@ -677,6 +674,7 @@ export class Game {
     if (this.power) out.power = this.power.save();
     if (this.fleet && this.fleet.enabled) out.fleet = this.fleet.save();
     if (this.shift) out.shift = this.shift.save();
+    if (this.tutorial) out.tutorial = this.tutorial.save();
     return out;
   }
 

@@ -94,6 +94,17 @@ body{
   background:rgba(10,10,10,.68);
 }
 
+/* The supervisor, on the first night. Not the PA -- that is the room
+   talking and this is a person stood in front of you -- and not a plain
+   toast either, which is the game's own voice. Bone, upright, and a rule
+   down the left so a line of speech is never mistaken for a system
+   message. */
+.toast.say{
+  color:#e6e0cf;background:rgba(14,16,20,.78);
+  border-left:0.5cqw solid var(--accent);
+  padding-left:1.1cqw;
+}
+
 #notice{
   display:grid;place-items:center;align-content:end;
   padding-bottom:12cqw;font-size:2.6cqw;color:var(--dim);text-shadow:var(--shadow);

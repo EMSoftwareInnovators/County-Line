@@ -72,6 +72,15 @@ export function defaultSettings() {
     textureStability: 1,       // index into TEXTURE_STABILITY
     fieldOfView: 65,           // degrees, vertical
 
+    /* ---- how much help ---- */
+    /* The first-night walkthrough. On by default because the building
+       is twenty-seven rooms and fifty-two stations and nobody finds the
+       breaker panels on their own; off for anyone who has done it once,
+       and it can also be ended from inside by telling the supervisor to
+       get on with it. It changes nothing about the shift either way --
+       the five opening jobs are the same jobs. */
+    walkthrough: true,
+
     /* ---- bindings ---- */
     keyBinds: defaultKeyBinds(),
     padBinds: {},              // empty means "whatever the pad deserves"

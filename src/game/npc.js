@@ -24,9 +24,27 @@
    County Line passenger or clerk actually does is a later stage's job.
    ============================================================ */
 import { angleTowards, angleDelta } from '../engine/mathx.js';
+import { Interactable } from './interaction.js';
 import { makeAnim, updateAnim, ACTOR_HEIGHT, ACTOR_RADIUS } from './actor.js';
 
 const ARRIVE = 0.22;      // meters from a waypoint before it counts as reached
+/**
+ * And how far BELOW one you may be and still have reached it.
+ *
+ * Arrival used to be measured in plan only, which is right for a floor
+ * and wrong for anything with a rise in it. The ramp from the coach
+ * yard up to the west service door climbs two foot ten in about three
+ * feet, so its top and its foot are nearly the same point on a map: a
+ * walker sent to the top registered as arrived while still standing at
+ * the bottom, moved on to the next waypoint, and spent the rest of the
+ * route pressed against the wall of a building it was standing below.
+ *
+ * Generous, because it only has to reject "I am on the wrong level of
+ * this ramp" and never "I am on a slightly uneven floor". A walker that
+ * genuinely cannot climb is caught by the stuck detector below, as
+ * before.
+ */
+const ARRIVE_Y = 0.55;
 
 export class Npc {
   constructor(spec = {}) {
@@ -127,7 +145,8 @@ export class Npc {
       const wp = this.path[this.pathIndex];
       const dx = wp.x - this.x, dz = wp.z - this.z;
       const d = Math.hypot(dx, dz);
-      if (d < ARRIVE) {
+      const dy = Math.abs((wp.y === undefined ? this.y : wp.y) - this.y);
+      if (d < ARRIVE && dy < ARRIVE_Y) {
         this.pathIndex++;
         if (this.pathIndex >= this.path.length) this.stop();
       } else {
@@ -179,4 +198,39 @@ export function patrol(points, pause = 1.6) {
       update: (n, dt, ctx) => { if (n.stateT > pause) n.setState('walk', ctx); },
     },
   };
+}
+
+/**
+ * The testbed's one test actor.
+ *
+ * A Stage 1 leftover, and deliberately kept: it is the smallest proof
+ * that an NPC can be placed, pathed, collided, animated, drawn and
+ * looked at, and it is the thing tools/play.mjs points at. It lives
+ * here rather than in game.js because it is a fixture of a level, not a
+ * feature of the game, and game.js has a terminal to run.
+ *
+ * @param say  what to do when somebody tries to talk to it
+ * @returns the npcs to add, or [] on a level with no patrol route
+ */
+export function spawnTestActor(level, say) {
+  const route = level.marks.patrol;
+  if (!route) return [];
+  const npc = new Npc({
+    id: 'test-actor', name: 'test actor',
+    x: route[0].x, y: route[0].y, z: route[0].z,
+    states: patrol(route, 1.4),
+    state: 'walk',
+    data: { at: 0 },
+  });
+  level.interact.add(new Interactable({
+    id: 'npc:test-actor',
+    cylFn: () => npc.cylinder(),
+    describe: () => ({
+      text: 'Get their attention',
+      sub: 'test actor',
+      action: () => say('The test actor does not react. Nothing here talks yet.'),
+      hold: 0,
+    }),
+  }));
+  return [npc];
 }

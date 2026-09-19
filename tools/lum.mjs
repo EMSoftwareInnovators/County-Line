@@ -8,18 +8,25 @@
    respectable mean. What a player experiences is the DARK TAIL: how
    much of what they are looking at carries no information.
 
-   So this reports four numbers per view and the one that matters is
-   `blind` -- the percentage of the frame below luma 24, which is where
-   texture detail stops existing. A room a player can work in has blind
-   under 8% and a p10 of at least 24.
+   So this reports four numbers per view, against three thresholds:
 
-   BOTH THRESHOLDS COME FROM THE OUTPUT FORMAT, not from taste. The tube
-   quantizes to 15 bits, so the channel steps in eights: 0, 8, 16, 24.
-   A pixel under 24 has at most three levels beneath it and a texture
-   drawn there has nowhere to put its detail -- it is a flat patch
-   whatever the artist did. p10 is the same statement about the darkest
-   tenth of the frame: at 24 the dark decile still spans three or four
-   steps and reads as a surface; below it, as a hole.
+     blind  under 7%    the part of the frame carrying no detail
+     p10    at least 28 the darkest tenth still reads as a surface
+     mean   at least 62 the room is lit, not merely not black
+
+   THE FIRST TWO COME FROM THE OUTPUT FORMAT. The tube quantizes to 15
+   bits, so the channel steps in eights: 0, 8, 16, 24. A pixel under 24
+   has at most three levels beneath it and a texture drawn there has
+   nowhere to put its detail. p10 says the same thing about the darkest
+   tenth of the frame.
+
+   THE THIRD COMES FROM BEING WRONG TWICE. A building can clear both of
+   the others and still be reported by the person playing it as too dark
+   to play, because "no part of this is a hole" is not the same claim as
+   "this room is lit". The mean is worthless ALONE -- that was the first
+   mistake, and the note above stands -- but as a floor underneath the
+   other two it is the one that catches a room that is uniformly dim
+   rather than patchy. All three, or the room fails.
 
    THE SECOND HALF of the run is the opposite check, and it is the same
    test read backwards. A room that is workable with its breaker on and
@@ -190,7 +197,7 @@ for (const r of rooms) {
     }
     if (!worst || here.blind < worst.blind) worst = here;
   }
-  const ok = worst.blind < 8 && worst.p10 >= 24;
+  const ok = worst.blind < 7 && worst.p10 >= 28 && worst.mean >= 62;
   if (!ok) bad++;
   rows.push({ id: r.id, ...worst, ok });
   console.log(
@@ -224,7 +231,7 @@ for (const r of rows) {
     const v = await sample(x, room.y + EYE, z, yaw);
     if (!out || v.mean > out.mean) out = v;
   }
-  const dark = !(out.blind < 8 && out.p10 >= 24);
+  const dark = !(out.blind < 7 && out.p10 >= 28 && out.mean >= 62);
   if (!dark) weak++;
   console.log(
     `${dark ? ' ok ' : 'WEAK'} ${r.id.padEnd(34)} ${r.mean.toFixed(0).padStart(4)}`

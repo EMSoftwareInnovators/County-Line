@@ -181,89 +181,139 @@ export const ROOM_CIRCUIT = (() => {
 const REACH = 2.2;
 
 export const SCHEDULE = [
-  /* ---- public, first floor ---- */
-  { id: 'academy.central', fit: 'pendant', nx: 4, nz: 2, mount: 11.25, target: 0.80 },
+  /* ---- public, first floor ----
+     The rooms a whole shift is spent in. These carry a working level:
+     you count change, read a manifest and check a tag against a ticket
+     in them, and the brief is explicit that normal work must not be
+     frustrating. */
+  { id: 'academy.central', fit: 'pendant', mount: 11.25, target: 0.92 },
   /* THE TASK LIGHTS. A room's grid lights the room; these light the
      work. Two four-foot strips over the ticket counter, hung lower
      than the pendants and on the same way, which is exactly what a bus
      company does to a hall it has to count change in. */
   {
-    id: 'academy.central', fit: 'strip', mount: 9.5, target: 0.62, len: ftin(4, 0),
+    id: 'academy.central', fit: 'strip', mount: 9.5, target: 0.70, len: ftin(4, 0),
     at: [[ft(-16), ft(4.6)], [ft(-8), ft(4.6)]],
   },
-  { id: 'academy.indians', fit: 'pendant', nx: 2, nz: 3, mount: 11.5, target: 0.82 },
-  { id: 'academy.giftshop', fit: 'pendant', nx: 1, nz: 4, mount: 11.5, target: 0.78 },
-  { id: 'academy.americana.main', fit: 'pendant', nx: 1, nz: 5, mount: 11.5, target: 0.80 },
+  { id: 'academy.indians', fit: 'pendant', mount: 11.5, target: 0.92 },
+  { id: 'academy.giftshop', fit: 'pendant', mount: 11.5, target: 0.88 },
+  { id: 'academy.americana.main', fit: 'pendant', mount: 11.5, target: 0.90 },
   /* over the transfers and refunds window at the north end */
   {
-    id: 'academy.americana.main', fit: 'strip', mount: 9.5, target: 0.55, len: ftin(4, 0),
+    id: 'academy.americana.main', fit: 'strip', mount: 9.5, target: 0.60, len: ftin(4, 0),
     at: [[ft(43), ft(4)]],
   },
   /* and over the newsstand counter, down the west wall */
   {
-    id: 'academy.giftshop', fit: 'strip', mount: 9.5, target: 0.55, len: ftin(4, 0),
+    id: 'academy.giftshop', fit: 'strip', mount: 9.5, target: 0.60, len: ftin(4, 0),
     axis: 'z', at: [[ft(26), ft(-18.5)]],
   },
 
   /* ---- staff and service, first floor ----
      Chain-hung fluorescent, ten feet up, which is what a bus company
-     screws into a fifteen-foot room it has to work in. */
-  { id: 'academy.west.docent', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.74, len: ftin(4, 0) },
-  { id: 'academy.west.store', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.56 },
-  { id: 'academy.west.offices', fit: 'strip', nx: 2, nz: 3, mount: 10, target: 0.62, len: ftin(4, 0) },
-  { id: 'academy.west.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.6, len: ftin(4, 0), axis: 'z' },
-  { id: 'academy.west.restroom', fit: 'strip', nx: 1, nz: 1, mount: 9.5, target: 0.62, len: ftin(4, 0) },
-  { id: 'academy.west.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.78 },
-  { id: 'academy.east.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.62, len: ftin(4, 0), axis: 'z' },
-  { id: 'academy.east.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.78 },
-  { id: 'academy.east.entry', fit: 'strip', nx: 1, nz: 1, mount: 10, target: 0.6, len: ftin(4, 0) },
-  { id: 'academy.east.animal', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.72, len: ftin(4, 0) },
+     screws into a fifteen-foot room it has to work in. Barely under the
+     public rooms: these are workrooms, and a bus company lights a
+     baggage room it loses suitcases in better than its own lobby. */
+  { id: 'academy.west.docent', fit: 'strip', mount: 10, target: 0.88, len: ftin(4, 0) },
+  { id: 'academy.west.store', fit: 'utility', mount: 10, target: 0.72 },
+  { id: 'academy.west.offices', fit: 'strip', mount: 10, target: 0.80, len: ftin(4, 0) },
+  { id: 'academy.west.rearhall', fit: 'strip', mount: 10, target: 0.76, len: ftin(4, 0), axis: 'z' },
+  /* a four-foot-deep room takes one row down its length, not a grid */
+  { id: 'academy.west.restroom', fit: 'strip', nz: 1, mount: 9.5, target: 0.80, len: ftin(4, 0) },
+  { id: 'academy.west.stairhall', fit: 'pendant', mount: 10.75, target: 0.86 },
+  { id: 'academy.east.rearhall', fit: 'strip', mount: 10, target: 0.76, len: ftin(4, 0), axis: 'z' },
+  { id: 'academy.east.stairhall', fit: 'pendant', mount: 10.75, target: 0.86 },
+  { id: 'academy.east.entry', fit: 'strip', nz: 1, mount: 10, target: 0.76, len: ftin(4, 0) },
+  { id: 'academy.east.animal', fit: 'strip', mount: 10, target: 0.88, len: ftin(4, 0) },
   /* over the scale and the tag desk, which is where the work is */
   {
-    id: 'academy.east.animal', fit: 'strip', mount: 8.5, target: 0.5, len: ftin(4, 0),
+    id: 'academy.east.animal', fit: 'strip', mount: 8.5, target: 0.56, len: ftin(4, 0),
     axis: 'z', at: [[ft(27.25), ft(29.5)]],
   },
-  { id: 'academy.east.staff', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.76, len: ftin(4, 0) },
-  { id: 'academy.east.service', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.56 },
-  { id: 'academy.east.vestibule', fit: 'utility', nx: 1, nz: 1, mount: 9.5, target: 0.54 },
-  { id: 'academy.east.council', fit: 'utility', nx: 1, nz: 2, mount: 10, target: 0.60 },
+  { id: 'academy.east.staff', fit: 'strip', mount: 10, target: 0.86, len: ftin(4, 0) },
+  { id: 'academy.east.service', fit: 'utility', mount: 10, target: 0.74 },
+  { id: 'academy.east.vestibule', fit: 'utility', mount: 9.5, target: 0.74 },
+  { id: 'academy.east.council', fit: 'utility', mount: 10, target: 0.76 },
 
   /* ---- the upper floor ----
-     A bulb on a cord per room, and dimmer bulbs than downstairs. The bus
-     company inherited a whole second story it never needed and lights it
-     like the store room it uses it as. This is most of why upstairs
-     reads as unfamiliar, and it is on purpose. */
-  { id: 'academy.upper.west.rotating', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.54 },
-  { id: 'academy.upper.west.landing', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.5 },
-  { id: 'academy.upper.west.history', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.52 },
-  { id: 'academy.upper.center.war', fit: 'pendant', nx: 1, nz: 3, mount: 8.5, target: 0.58 },
-  { id: 'academy.upper.center.mammals', fit: 'pendant', nx: 1, nz: 3, mount: 8.5, target: 0.58 },
-  { id: 'academy.upper.east.natural', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.54 },
-  { id: 'academy.upper.east.landing', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.5 },
-  { id: 'academy.upper.east.minerals', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.54 },
-  { id: 'academy.upper.east.archives', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.54 },
+     A bulb on a cord, and dimmer bulbs than downstairs. The bus company
+     inherited a whole second story it never needed and lights it like
+     the store room it uses it as. This is most of why upstairs reads as
+     unfamiliar, and it is on purpose -- but it is a floor the player is
+     sent to do an errand on, so unfamiliar is as far as it goes. The
+     grid is derived like everywhere else, which is the change that
+     matters up here: these rooms are the biggest in the building and
+     had four bulbs between eleven hundred square feet. */
+  { id: 'academy.upper.west.rotating', fit: 'utility', mount: 12, target: 0.68 },
+  { id: 'academy.upper.west.landing', fit: 'utility', mount: 12, target: 0.72 },
+  { id: 'academy.upper.west.history', fit: 'utility', mount: 12, target: 0.68 },
+  { id: 'academy.upper.center.war', fit: 'pendant', mount: 8.5, target: 0.72 },
+  { id: 'academy.upper.center.mammals', fit: 'pendant', mount: 8.5, target: 0.72 },
+  { id: 'academy.upper.east.natural', fit: 'utility', mount: 12, target: 0.68 },
+  { id: 'academy.upper.east.landing', fit: 'utility', mount: 12, target: 0.72 },
+  { id: 'academy.upper.east.minerals', fit: 'utility', mount: 12, target: 0.70 },
+  { id: 'academy.upper.east.archives', fit: 'utility', mount: 12, target: 0.68 },
 ];
+
+/* ============================================================
+   HOW MANY FITTINGS A ROOM GETS
+
+   THE GRID IS DERIVED FROM THE ROOM, not typed into the table.
+
+   It used to be typed in, and the table was wrong almost everywhere,
+   because `nx: 2, nz: 2` looks equally reasonable next to a twelve-foot
+   store room and next to the thirty-one by thirty-eight foot gallery
+   over the west wing -- and those are a hundred and twenty square feet
+   per lamp and two hundred and ninety. Four bare bulbs in eleven
+   hundred square feet is not a dark room by choice, it is a room nobody
+   counted. Half the building was lit like that, which is why it stayed
+   unplayable after the levels went up: the levels were right and the
+   COUNT was wrong.
+
+   So a row says what kind of fitting and how bright, and the spacing
+   below says how far apart that kind goes. A room takes as many as it
+   needs to hold that spacing, rounded to a whole number and never fewer
+   than one. Rooms may still say `nx`/`nz` when the answer is not a grid
+   -- a four-foot-deep restroom wants one row of two, not two by two --
+   and `at` when somebody hung a lamp over a work surface on purpose.
+
+   The spacings are what the fitting can actually cover at the height it
+   hangs, which is why they differ: a pendant eleven feet up throws
+   further than a bare bulb screwed to a twelve-foot ceiling with a
+   shade the size of a teacup.
+   ============================================================ */
+const SPACING = {
+  pendant: ft(12.5),
+  strip: ft(11),
+  utility: ft(10.5),
+};
+
+/** How many fittings fit across a span, at that kind's spacing. */
+const countFor = (span, fit) =>
+  Math.max(1, Math.round(span / (SPACING[fit] || ft(11))));
 
 /**
  * Where the fittings in a room actually hang.
  *
- * A row is normally a GRID -- nx by nz, spread evenly, which is what a
- * contractor does to a room with nothing in it yet. A row may instead
- * give `at`, a list of world coordinates, which is what happens when
- * somebody later hangs a light over the thing people actually work at:
- * the ticket counter, the tag desk, the refund window. Those are
- * separate rows on the same room, and that is the point -- the room
- * has its general light AND its task light, and they are different
- * fittings at different heights answering different questions.
+ * A row is normally a GRID, spread evenly, which is what a contractor
+ * does to a room with nothing in it yet. A row may instead give `at`, a
+ * list of world coordinates, which is what happens when somebody later
+ * hangs a light over the thing people actually work at: the ticket
+ * counter, the tag desk, the refund window. Those are separate rows on
+ * the same room, and that is the point -- the room has its general
+ * light AND its task light, and they are different fittings at
+ * different heights answering different questions.
  */
 export function positions(r, row) {
   if (row.at) return row.at;
+  const nx = row.nx || countFor(r.w, row.fit);
+  const nz = row.nz || countFor(r.d, row.fit);
   const out = [];
-  for (let i = 0; i < row.nx; i++) {
-    for (let j = 0; j < row.nz; j++) {
+  for (let i = 0; i < nx; i++) {
+    for (let j = 0; j < nz; j++) {
       out.push([
-        r.x0 + r.w * ((i + 0.5) / row.nx),
-        r.z0 + r.d * ((j + 0.5) / row.nz),
+        r.x0 + r.w * ((i + 0.5) / nx),
+        r.z0 + r.d * ((j + 0.5) / nz),
       ]);
     }
   }
@@ -412,6 +462,19 @@ export function declareLights(b) {
   b.light(fillLight(0, ft(120), ft(20), ft(400), 0.07));
   for (const x of [ft(-70), ft(70)]) {
     b.light(pointLight(x, ftin(22, 0), D.Z_FACADE - ft(58), ft(80), 0.16));
+  }
+
+  /* ---- EVERY ROOM IN THE BUILDING IS LIT ----
+     Not "every room somebody remembered". The schedule is a hand-written
+     list and rooms.js is the truth, and a room that falls out of the
+     first while staying in the second is a room with no ceiling fitting
+     in it at all -- which is not a dark room by choice, it is a bug that
+     looks exactly like one. Cheap to check, and it can only ever fire
+     while a room is being added. */
+  const lit = new Set(SCHEDULE.map((row) => row.id));
+  const unlit = ROOMS.filter((r) => !lit.has(r.id)).map((r) => r.id);
+  if (unlit.length) {
+    throw new Error(`rooms with no ceiling fitting: ${unlit.join(', ')}`);
   }
 
   /* ---- the fittings, room by room ---- */

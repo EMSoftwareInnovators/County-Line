@@ -68,6 +68,13 @@ export class Door {
     this.openText = spec.openText || `Open the ${this.name}`;
     this.closeText = spec.closeText || `Close the ${this.name}`;
     this.autoClose = spec.autoClose || 0;
+    /* A door in the envelope rather than in a partition. The building
+       distinguishes them for real reasons -- an exterior door is on the
+       opening and closing procedure, it is what "unlock the front
+       doors" means, and it is the one kind of door nobody walking the
+       building at handover would prop open. See shell.js, which is the
+       only place that sets it. */
+    this.exterior = !!spec.exterior;
 
     /** 0 shut, 1 fully open. Animated. */
     this.amount = 0;

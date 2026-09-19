@@ -196,9 +196,17 @@ export class CollisionWorld {
    * Samples rather than sweeps: the step is a quarter of a meter, which is
    * finer than anything a person is asked to squeeze through.
    */
-  clearPath(x0, z0, x1, z1, y, r, height) {
+  /**
+   * @param opt.throughDoors  treat a shut door as the opening it is.
+   *   For the NAVIGATION GRAPH, which is built once, at eight o'clock,
+   *   with every door in the building shut. A door is a thing that
+   *   opens; a route that refuses to go through one is not a route that
+   *   is blocked, it is a building with no interior.
+   */
+  clearPath(x0, z0, x1, z1, y, r, height, opt) {
     const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.25);
-    const list = this.near(x0, z0, x1, z1, r + 0.5);
+    let list = this.near(x0, z0, x1, z1, r + 0.5);
+    if (opt && opt.throughDoors) list = list.filter((s) => !s.door);
     for (let i = 1; i <= n; i++) {
       const t = i / n;
       if (!this.fits(x0 + (x1 - x0) * t, y, z0 + (z1 - z0) * t, r, height, list)) return false;
