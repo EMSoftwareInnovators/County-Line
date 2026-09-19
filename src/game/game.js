@@ -38,6 +38,7 @@ import { Campaign, TEST_CAMPAIGN, PHASE } from './campaign.js';
 import { Sfx } from './sfx.js';
 import { Debug } from './debug.js';
 import { Power } from './terminal/power.js';
+import { Fleet } from './terminal/fleet.js';
 
 /** Every image-degradation stage off. See the note at the call site. */
 const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
@@ -244,6 +245,11 @@ export class Game {
       this.power.bind(this.level, this.ctx());
       this.power.apply();
     }
+    /* ---- the coaches ----
+       One mesh, built once, and a matrix per bus. The fleet adds itself
+       to level.movers, so a coach standing at a berth is eight and a
+       half feet of solid on the apron like anything else. */
+    this.fleet = new Fleet(this.materials, this.level);
     this.roomLights = {};
     for (const r of this.level.rooms) this.roomLights[r.id] = true;
     this.level.chunkShade = {};
@@ -480,7 +486,9 @@ export class Game {
     const levelId = (this.save.data.player && this.save.data.player.level) || 'testbed';
     this.loadLevel(levelId);
     this.save.restore(this.campaign, this.player, this.level);
-    if (this.power) this.power.restore(this.save.data.world && this.save.data.world.power);
+    const w = this.save.data.world || {};
+    if (this.power) this.power.restore(w.power);
+    if (this.fleet && this.fleet.enabled) this.fleet.restore(w.fleet);
     if (this.campaign.phase !== PHASE.ACTIVE) this.campaign.phase = PHASE.ACTIVE;
     this.beginPlay();
     this.ui.toast('Shift resumed');
@@ -509,6 +517,7 @@ export class Game {
     this.campaign.update(dt);
     this.level.update(dt);
     if (this.power) this.power.update(dt);
+    if (this.fleet) this.fleet.update(dt);
 
     const ctx = this.ctx();
     updatePlayer(this.player, dt, i, ctx);
@@ -592,6 +601,7 @@ export class Game {
         roomLit: (id) => this.roomLit(id),
         toggleRoomLights: (id) => this.toggleRoomLights(id),
         get power() { return this.game.power; },
+        get fleet() { return this.game.fleet; },
         toast: (t, k) => this.ui.toast(t, k),
       };
     }
@@ -600,6 +610,14 @@ export class Game {
     this._ctx.onStep = (m, run) => this.sfx.footstep(m, run);
     this._ctx.onLand = (h) => this.sfx.land(h);
     return this._ctx;
+  }
+
+  /** Everything about the world that belongs in the save. */
+  worldExtras() {
+    const out = {};
+    if (this.power) out.power = this.power.save();
+    if (this.fleet && this.fleet.enabled) out.fleet = this.fleet.save();
+    return out;
   }
 
   /**
@@ -738,7 +756,7 @@ export class Game {
   autosave() {
     this.profile.addPlaytime(0);
     const ok = this.save.autosave(this.campaign, this.player, this.level, this.playtime,
-      this.power ? { power: this.power.save() } : null);
+      this.worldExtras());
     if (!ok && !this._saveWarned) {
       this._saveWarned = true;
       this.ui.toast('This browser will not let the game save. Progress is kept until you close the tab.', 'warn');

@@ -48,6 +48,14 @@ export class Level {
     this.chunks = [];
     /** [{ mesh, matrix() }] -- door leaves and anything else that moves. */
     this.dynamic = [];
+    /**
+     * Anything that moves and gets in the way: a door leaf, a coach
+     * standing at a berth. Each one is asked for its colliders once a
+     * frame. The doors are added by the builder; the game adds the
+     * rest, which is how a forty-foot bus can block a platform without
+     * world/ knowing what a bus is.
+     */
+    this.movers = [];
     this.collision = new CollisionWorld();
     this.interact = new InteractionSystem(this.collision);
     this.doors = [];
@@ -153,6 +161,11 @@ export class Level {
     for (let i = 0; i < this.doors.length; i++) {
       this.doors[i].update(dt);
       this.doors[i].contributeSolids(dyn);
+    }
+    for (let i = 0; i < this.movers.length; i++) {
+      const m = this.movers[i];
+      if (m.update) m.update(dt);
+      if (m.contributeSolids) m.contributeSolids(dyn);
     }
     this.collision.refresh();
   }

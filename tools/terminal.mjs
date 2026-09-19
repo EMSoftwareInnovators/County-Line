@@ -349,6 +349,128 @@ check('the panel read-out lists every way with its load',
   diag.rows >= wiring.circuits && diag.mentionsLoad, `${diag.rows} rows`);
 check('and it is behind the developer flag, not on the HUD', diag.gated === true);
 
+/* ============================================================
+   THE YARD AND THE COACHES
+
+   Four berths, one mesh, and a bus that has to get from the gate to
+   berth two without driving through the building -- and that has to be
+   solid while it stands there, because the alternative is a player who
+   walks through forty feet of coach to reach a door.
+   ============================================================ */
+console.log('\n-- the coach yard --');
+
+const yard = await page.evaluate(() => {
+  const g = window.__game;
+  const f = g.fleet;
+  if (!f || !f.enabled) return null;
+  const y = f.yard;
+  const gaps = [];
+  for (let i = 1; i < y.bays.length; i++) gaps.push(y.bays[i].z - y.bays[i - 1].z);
+  return {
+    bays: y.bays.length,
+    /* One level: nothing in this yard is a step. */
+    step: Math.abs(y.platform - y.grade),
+    gaps: gaps.map((m) => +(m / 0.3048).toFixed(1)),
+    ids: y.bays.map((b) => b.id),
+    stations: [...g.level.stations.keys()].filter((k) => k.startsWith('bay-')).length,
+  };
+});
+check('the yard has berths, and each one has a number and a station',
+  yard && yard.bays >= 3 && yard.bays <= 4 && yard.stations === yard.bays,
+  yard ? `${yard.bays} bays, ${yard.stations} stations, ids ${yard.ids.join(',')}` : 'no yard');
+check('the berths are far enough apart to walk between two coaches',
+  yard.gaps.every((d) => d >= 16), `${yard.gaps.join(', ')} ft centers`);
+check('and the whole yard is one level, so nobody steps off anything',
+  yard.step < 0.1, `${(yard.step / 0.3048 * 12).toFixed(1)} in`);
+
+const drive = await page.evaluate(() => {
+  const g = window.__game;
+  const f = g.fleet;
+  const F = (m) => +(m / 0.3048).toFixed(1);
+  const R = g.player.r;
+  const c = f.add({ id: 'harness-1', route: 'ATL', sign: 'ATLANTA', bay: 2 });
+  const path = [];
+  c.arrive();
+  let t = 0;
+  while (c.state !== 'at-bay' && t < 60) {
+    g.level.update(0.05); f.update(0.05); t += 0.05;
+    path.push([c.x, c.z]);
+  }
+  g.level.update(0.05);
+  const bay = f.bay(2);
+  const door = c.doorPoint();
+  /* Did it drive through the building on the way in? The west wall of
+     the Academy is at X_W_OUT; nothing in the path may be east of it. */
+  const wall = g.level.marks.plan ? -56.37 * 0.3048 : -17.18;
+  const out = {
+    arrived: c.state === 'at-bay',
+    seconds: +t.toFixed(1),
+    nose: F(c.x + 31 * 0.3048),
+    z: F(c.z),
+    yaw: +(c.yaw / Math.PI).toFixed(2),
+    throughTheBuilding: path.some(([x]) => x > wall),
+    inside: !g.level.collision.fits(c.x, c.y + 0.1, c.z, R, 1.4),
+    atDoor: g.level.collision.fits(door.x, c.y + 0.1, door.z, R, 1.4),
+    inLine: g.level.collision.fits(bay.boardX, g.level.marks.yard.platform + 0.3, bay.boardZ, R, 1.4),
+    solids: g.level.collision.all.filter((s) => s.tag === 'coach').length,
+    atBay: !!f.atBay(2),
+    otherBay: !!f.atBay(3),
+  };
+  /* and away again */
+  c.depart();
+  t = 0;
+  while (c.state !== 'gone' && t < 90) { g.level.update(0.05); f.update(0.05); t += 0.05; }
+  g.level.update(0.05);
+  out.left = c.state === 'gone';
+  out.swept = f.sweep();
+  g.level.update(0.05);
+  out.solidsAfter = g.level.collision.all.filter((s) => s.tag === 'coach').length;
+  out.drawsAfter = g.level.dynamic.filter((d) => d.coach).length;
+  return out;
+});
+check('a coach drives in from the gate and berths itself',
+  drive.arrived, `${drive.seconds} s, nose at ${drive.nose} ft, z ${drive.z}, yaw ${drive.yaw}pi`);
+check('without driving through the building', drive.throughTheBuilding === false);
+check('a berthed coach is solid', drive.inside === true);
+check('there is standing room at its door', drive.atDoor === true);
+check('and on the concrete where its line forms', drive.inLine === true);
+check('the yard knows what is at which berth',
+  drive.atBay === true && drive.otherBay === false);
+check('it leaves the way it came', drive.left === true);
+check('and sweeping takes its collider and its draw calls with it',
+  drive.solidsAfter === 0 && drive.drawsAfter === 0 && drive.swept === 1);
+
+const fleetSave = await page.evaluate(() => {
+  const g = window.__game;
+  const f = g.fleet;
+  const a = f.add({ id: 's1', route: 'SAV', sign: 'SAVANNAH', bay: 1 });
+  const b = f.add({ id: 's2', route: 'MCN', sign: 'MACON', bay: 3 });
+  a.arrive(); b.arrive();
+  for (let t = 0; t < 40; t += 0.05) { g.level.update(0.05); f.update(0.05); }
+  const blob = JSON.parse(JSON.stringify(f.save()));
+  f.restore(blob);
+  g.level.update(0.05);
+  const out = {
+    rows: blob.length,
+    back: f.coaches.length,
+    signs: f.coaches.map((c) => c.sign).sort().join(','),
+    bays: f.coaches.map((c) => c.bay.id).sort().join(','),
+    solids: g.level.collision.all.filter((s) => s.tag === 'coach').length,
+    /* one mesh for all of them, however many are standing */
+    meshes: new Set(g.level.dynamic.filter((d) => d.coach).map((d) => d.mesh)).size,
+  };
+  for (const c of f.coaches.slice()) { c.state = 'gone'; }
+  f.sweep();
+  g.level.update(0.05);
+  return out;
+});
+check('two coaches at two berths go into the save and come back',
+  fleetSave.rows === 2 && fleetSave.back === 2,
+  `${fleetSave.signs} at bays ${fleetSave.bays}`);
+check('and they are solid again when they do', fleetSave.solids === 2);
+check('however many there are, there is one coach mesh and one roll each',
+  fleetSave.meshes === 3, `${fleetSave.meshes} distinct meshes for 2 coaches`);
+
 check('no page errors', page.logs.filter((l) => l.startsWith('[pageerror]')).length === 0,
   page.logs.join(' | '));
 

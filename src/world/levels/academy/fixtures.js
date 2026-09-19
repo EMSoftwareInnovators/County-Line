@@ -35,7 +35,8 @@ import { ft, ftin, inch } from '../../../engine/units.js';
 import * as D from './dimensions.js';
 import { fillLight, pointLight, wiredDown, wiredFill } from '../../lighting.js';
 import { ROOMS, room } from './rooms.js';
-import { pendant, strip, utility, sconce, lantern, flood } from './fittings.js';
+import { pendant, strip, utility, sconce, lantern, flood, pole, bulkhead } from './fittings.js';
+import { YARD } from './terminal/platform.js';
 
 /* ============================================================
    THE PANEL SCHEDULE
@@ -131,16 +132,27 @@ export const ROOM_CIRCUIT = (() => {
 
    `target` is where the gloom is actually decided:
 
-       0.68 - 0.72   the lobby and the waiting rooms: a working level
-       0.48 - 0.62   halls, baggage, the break room, the restroom, the
+       0.78 - 0.88   the lobby and the waiting rooms: a working level
+       0.60 - 0.66   halls, baggage, the break room, the restroom, the
                      clerk's office -- all of which also collect spill
                      from whatever is next to them, so they are set
                      lower than they read
-       0.40 - 0.46   stores, closets, records
-       0.32 - 0.44   the whole upper floor
+       0.44 - 0.50   stores, closets, records
+       0.42 - 0.54   the whole upper floor
 
    Ambient adds about 0.13 to all of it. Nothing in the building reaches
    1.0 except the lamps themselves.
+
+   THESE NUMBERS WENT UP ONCE, BY A QUARTER, AND THEY WERE MEASURED
+   BOTH TIMES. The first set was tuned against the sampler -- 0.72 on
+   the boards under a pendant, which is a perfectly respectable number
+   -- and the rendered lobby came back at a MEAN PIXEL OF 32 OF 255,
+   with two fifths of the frame near black. A ticket hall you have to
+   squint in is not atmosphere, it is a bug, and the brief says so in
+   as many words. So the harness in tools/lum was pointed at nine views
+   and the targets raised until the rooms people work in sat in the
+   fifties and sixties. The building is still dark. It is no longer
+   dark in the places somebody is trying to count change.
 
    WHY THE LIGHT DOES NOT LEAK EVERYWHERE, given radii of thirty feet in
    rooms half that across and no shadowing of any kind: the half-lambert
@@ -154,25 +166,48 @@ const REACH = 2.2;
 
 const SCHEDULE = [
   /* ---- public, first floor ---- */
-  { id: 'academy.central', fit: 'pendant', nx: 3, nz: 2, mount: 11.25, target: 0.72 },
-  { id: 'academy.indians', fit: 'pendant', nx: 2, nz: 2, mount: 11.5, target: 0.68 },
-  { id: 'academy.giftshop', fit: 'pendant', nx: 1, nz: 3, mount: 11.5, target: 0.7 },
-  { id: 'academy.americana.main', fit: 'pendant', nx: 1, nz: 3, mount: 11.5, target: 0.62 },
+  { id: 'academy.central', fit: 'pendant', nx: 4, nz: 2, mount: 11.25, target: 0.72 },
+  /* THE TASK LIGHTS. A room's grid lights the room; these light the
+     work. Two four-foot strips over the ticket counter, hung lower
+     than the pendants and on the same way, which is exactly what a bus
+     company does to a hall it has to count change in. */
+  {
+    id: 'academy.central', fit: 'strip', mount: 9.5, target: 0.62, len: ftin(4, 0),
+    at: [[ft(-16), ft(4.6)], [ft(-8), ft(4.6)]],
+  },
+  { id: 'academy.indians', fit: 'pendant', nx: 2, nz: 3, mount: 11.5, target: 0.74 },
+  { id: 'academy.giftshop', fit: 'pendant', nx: 1, nz: 4, mount: 11.5, target: 0.76 },
+  { id: 'academy.americana.main', fit: 'pendant', nx: 1, nz: 4, mount: 11.5, target: 0.72 },
+  /* over the transfers and refunds window at the north end */
+  {
+    id: 'academy.americana.main', fit: 'strip', mount: 9.5, target: 0.55, len: ftin(4, 0),
+    at: [[ft(43), ft(4)]],
+  },
+  /* and over the newsstand counter, down the west wall */
+  {
+    id: 'academy.giftshop', fit: 'strip', mount: 9.5, target: 0.55, len: ftin(4, 0),
+    axis: 'z', at: [[ft(26), ft(-18.5)]],
+  },
 
   /* ---- staff and service, first floor ----
      Chain-hung fluorescent, ten feet up, which is what a bus company
      screws into a fifteen-foot room it has to work in. */
-  { id: 'academy.west.docent', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.58, len: ftin(4, 0) },
+  { id: 'academy.west.docent', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.62, len: ftin(4, 0) },
   { id: 'academy.west.store', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.46 },
-  { id: 'academy.west.offices', fit: 'strip', nx: 2, nz: 3, mount: 10, target: 0.42, len: ftin(4, 0) },
-  { id: 'academy.west.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.48, len: ftin(4, 0), axis: 'z' },
+  { id: 'academy.west.offices', fit: 'strip', nx: 2, nz: 3, mount: 10, target: 0.5, len: ftin(4, 0) },
+  { id: 'academy.west.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.6, len: ftin(4, 0), axis: 'z' },
   { id: 'academy.west.restroom', fit: 'strip', nx: 1, nz: 1, mount: 9.5, target: 0.62, len: ftin(4, 0) },
-  { id: 'academy.west.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.58 },
-  { id: 'academy.east.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.5, len: ftin(4, 0), axis: 'z' },
-  { id: 'academy.east.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.58 },
+  { id: 'academy.west.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.66 },
+  { id: 'academy.east.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.62, len: ftin(4, 0), axis: 'z' },
+  { id: 'academy.east.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.66 },
   { id: 'academy.east.entry', fit: 'strip', nx: 1, nz: 1, mount: 10, target: 0.6, len: ftin(4, 0) },
-  { id: 'academy.east.animal', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.52, len: ftin(4, 0) },
-  { id: 'academy.east.staff', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.5, len: ftin(4, 0) },
+  { id: 'academy.east.animal', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.62, len: ftin(4, 0) },
+  /* over the scale and the tag desk, which is where the work is */
+  {
+    id: 'academy.east.animal', fit: 'strip', mount: 8.5, target: 0.5, len: ftin(4, 0),
+    axis: 'z', at: [[ft(27.25), ft(29.5)]],
+  },
+  { id: 'academy.east.staff', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.6, len: ftin(4, 0) },
   { id: 'academy.east.service', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.44 },
   { id: 'academy.east.vestibule', fit: 'utility', nx: 1, nz: 1, mount: 9.5, target: 0.44 },
   { id: 'academy.east.council', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.4 },
@@ -182,19 +217,31 @@ const SCHEDULE = [
      company inherited a whole second story it never needed and lights it
      like the store room it uses it as. This is most of why upstairs
      reads as unfamiliar, and it is on purpose. */
-  { id: 'academy.upper.west.rotating', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.36 },
-  { id: 'academy.upper.west.landing', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.42 },
-  { id: 'academy.upper.west.history', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.34 },
-  { id: 'academy.upper.center.war', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.44 },
-  { id: 'academy.upper.center.mammals', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.44 },
-  { id: 'academy.upper.east.natural', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.32 },
-  { id: 'academy.upper.east.landing', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.42 },
-  { id: 'academy.upper.east.minerals', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.4 },
-  { id: 'academy.upper.east.archives', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.34 },
+  { id: 'academy.upper.west.rotating', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.46 },
+  { id: 'academy.upper.west.landing', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.5 },
+  { id: 'academy.upper.west.history', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.44 },
+  { id: 'academy.upper.center.war', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.54 },
+  { id: 'academy.upper.center.mammals', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.54 },
+  { id: 'academy.upper.east.natural', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.42 },
+  { id: 'academy.upper.east.landing', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.5 },
+  { id: 'academy.upper.east.minerals', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.5 },
+  { id: 'academy.upper.east.archives', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.44 },
 ];
 
-/** Where the fittings in a room actually hang. */
+/**
+ * Where the fittings in a room actually hang.
+ *
+ * A row is normally a GRID -- nx by nz, spread evenly, which is what a
+ * contractor does to a room with nothing in it yet. A row may instead
+ * give `at`, a list of world coordinates, which is what happens when
+ * somebody later hangs a light over the thing people actually work at:
+ * the ticket counter, the tag desk, the refund window. Those are
+ * separate rows on the same room, and that is the point -- the room
+ * has its general light AND its task light, and they are different
+ * fittings at different heights answering different questions.
+ */
 function positions(r, row) {
+  if (row.at) return row.at;
   const out = [];
   for (let i = 0; i < row.nx; i++) {
     for (let j = 0; j < row.nz; j++) {
@@ -283,9 +330,50 @@ const EXTERIOR = [
 
   /* The two historic side doors: the west one is the coach platform
      route, the east ones are staff and service. */
-  { c: 'platform', fit: 'lantern', x: D.X_W_OUT, z: ft(43), y: ftin(8, 6), face: 'west', mount: 8.5, target: 0.54 },
-  { c: 'platform', fit: 'lantern', x: D.X_E_OUT, z: ft(43), y: ftin(8, 6), face: 'east', mount: 8.5, target: 0.52 },
-  { c: 'platform', fit: 'lantern', x: D.X_E_OUT, z: ft(19.5), y: ftin(8, 6), face: 'east', mount: 8.5, target: 0.52 },
+  { c: 'platform', fit: 'lantern', x: D.X_W_OUT, z: ft(43), y: ftin(8, 6), face: 'west', mount: 11.5, target: 0.54 },
+  { c: 'platform', fit: 'lantern', x: D.X_E_OUT, z: ft(43), y: ftin(8, 6), face: 'east', mount: 11.5, target: 0.52 },
+  { c: 'platform', fit: 'lantern', x: D.X_E_OUT, z: ft(19.5), y: ftin(8, 6), face: 'east', mount: 11.5, target: 0.52 },
+
+  /* ============================================================
+     THE COACH YARD
+
+     THE FIRST CUT OF THIS HAD NO LIGHT IN IT AT ALL, which nobody
+     noticed until the whole yard came back from the screenshot harness
+     at ninety-seven per cent black. The fittings were there -- three
+     floods drawn on the canopy fascia -- but they were drawn in
+     platform.js, and vertex light is BAKED AS GEOMETRY IS CREATED, so
+     anything declared after the shell lights nothing. Every light in
+     the building is declared here, before a single wall exists, and
+     that is not a style rule.
+
+     Three kinds, because a yard has three jobs:
+
+       BULKHEADS under the canopy soffit, over the walking lane and
+       the coach doors. This is the light passengers read a ticket by.
+       FLOODS on the canopy fascia, aimed west over the berths, so a
+       driver can see the painted lines and a loader can see a bay
+       door.
+       TWO POLES in the drive aisle, twenty-one feet up, which is what
+       a company puts in a yard it reverses forty-foot coaches around
+       in -- high enough to be out of a driver's mirror.
+
+     Nothing is fixed to the 1856 elevation. See platform.js.
+     ============================================================ */
+  ...[ft(20), ft(34), ft(48), ft(62), ft(76)].map((z) => ({
+    c: 'platform', fit: 'bulkhead',
+    x: YARD.platX0 + ftin(4, 0), z, y: D.GRADE + ftin(11, 2),
+    mount: 11.2, target: 0.58,
+  })),
+  ...[ft(21), ft(45), ft(69)].map((z) => ({
+    c: 'platform', fit: 'flood',
+    x: YARD.platX0 - inch(8), z, y: D.GRADE + ftin(10, 2), face: 'west',
+    mount: 10.2, target: 0.44,
+  })),
+  ...[ft(22), ft(51), ft(80)].map((z) => ({
+    c: 'platform', fit: 'pole',
+    x: ft(-136), z, y: D.GRADE + ftin(21, 0), arm: 'east',
+    mount: 21, target: 0.4,
+  })),
 ];
 
 /* ============================================================
@@ -324,8 +412,11 @@ export function declareLights(b) {
   for (const e of EXTERIOR) {
     const out = (e.face === 'south' || e.face === 'west') ? -1 : 1;
     const alongX = e.face === 'north' || e.face === 'south';
-    const lx = alongX ? e.x : e.x + out * inch(7);
-    const lz = alongX ? e.z + out * inch(7) : e.z;
+    /* A fitting on a wall stands seven inches off it; one hanging from
+       a soffit or a pole arm is already where it is. */
+    const off = e.face ? inch(7) : 0;
+    const lx = alongX ? e.x : e.x + out * off;
+    const lz = alongX ? e.z + out * off : e.z;
     /* A single fitting outdoors, so the one-lamp arithmetic is right
        here: what the falloff leaves directly under it, at REACH. */
     const reach = ft(e.mount) * REACH;
@@ -364,6 +455,8 @@ export function buildFixtures(b) {
     b.detail(2.4);
     if (e.fit === 'lantern') lantern(b, e);
     else if (e.fit === 'flood') flood(b, e);
+    else if (e.fit === 'pole') pole(b, { ...e, ground: D.GRADE + inch(1) });
+    else if (e.fit === 'bulkhead') bulkhead(b, e);
     else sconce(b, e);
   }
 }

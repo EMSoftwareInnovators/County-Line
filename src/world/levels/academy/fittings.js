@@ -217,6 +217,52 @@ export function flood(b, spec) {
 }
 
 /**
+ * A yard light: a steel pole with a shoebox head on a short arm.
+ *
+ * The one fitting in this file that is not screwed to the building,
+ * because a drive aisle a hundred and forty feet from the front door
+ * has nothing to screw a light to. Two of them is what a company puts
+ * in a yard it reverses coaches around in the dark, and the height is
+ * what stops the head being in a driver's mirror.
+ *
+ * @param spec { x, z, ground, y: the head's height, arm: which way the
+ *               head leans off the pole ('east'|'west') }
+ */
+export function pole(b, spec) {
+  const M = b.M;
+  const out = spec.arm === 'west' ? -1 : 1;
+  const r = inch(3);
+  /* the pole, and a concrete base you would trip over if you tried */
+  trimBox(b, spec.x - r, spec.ground, spec.z - r, spec.x + r, spec.y, spec.z + r,
+    M.fixtureMetal);
+  trimBox(b, spec.x - inch(8), spec.ground, spec.z - inch(8),
+    spec.x + inch(8), spec.ground + inch(10), spec.z + inch(8), M.apron);
+  /* the arm out to the head */
+  trimBox(b, spec.x + Math.min(0, out * ftin(2, 6)), spec.y - inch(3), spec.z - inch(2),
+    spec.x + Math.max(0, out * ftin(2, 6)), spec.y + inch(1), spec.z + inch(2),
+    M.fixtureMetal);
+  /* and the head: a shallow aluminum box with a lens under it */
+  const hx = spec.x + out * ftin(2, 2);
+  trimBox(b, hx - ftin(1, 2), spec.y - inch(5), spec.z - ftin(0, 10),
+    hx + ftin(1, 2), spec.y, spec.z + ftin(0, 10), M.fixtureMetal);
+  glow(b, hx - ftin(1, 0), spec.y - inch(6), spec.z - ftin(0, 8),
+    hx + ftin(1, 0), spec.y - inch(5), spec.z + ftin(0, 8), M.lampGlass, 1.35);
+}
+
+/**
+ * A bulkhead under a canopy: an enamelled reflector and a lamp in it,
+ * bolted up to the soffit rather than to anything historic.
+ */
+export function bulkhead(b, spec) {
+  const M = b.M;
+  const w = spec.w || ftin(1, 2);
+  trimBox(b, spec.x - w, spec.y - inch(2), spec.z - w,
+    spec.x + w, spec.y, spec.z + w, M.fixtureEnamel);
+  glow(b, spec.x - w + inch(2), spec.y - inch(6), spec.z - w + inch(2),
+    spec.x + w - inch(2), spec.y - inch(2), spec.z + w - inch(2), M.lampGlass, 1.3);
+}
+
+/**
  * Surface conduit, which is most of what makes the retrofit legible.
  * Runs along a wall at a height, in a straight line, with a box at each
  * end. `axis` is which way it runs.
@@ -247,4 +293,4 @@ export function surfaceBox(b, spec) {
   trimBox(b, x0, spec.y - h / 2, z0, x1, spec.y + h / 2, z1, spec.material || M.conduit);
 }
 
-export const FITTINGS = { pendant, strip, utility, sconce, lantern, flood };
+export const FITTINGS = { pendant, strip, utility, sconce, lantern, flood, pole, bulkhead };
