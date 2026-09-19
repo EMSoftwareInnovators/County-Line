@@ -43,6 +43,11 @@ const input = await import('../src/engine/input.js');
 const { Door } = await import('../src/game/door.js');
 const { InteractionSystem, Interactable } = await import('../src/game/interaction.js');
 const { MeshBuilder } = await import('../src/engine/mesh.js');
+const routes = await import('../src/game/terminal/routes.js');
+const cash = await import('../src/game/terminal/money.js');
+const { TicketBook } = await import('../src/game/terminal/tickets.js');
+const { Manifest, BOARD } = await import('../src/game/terminal/manifest.js');
+const svc = await import('../src/game/terminal/service.js');
 
 let fails = 0;
 let group = '';
@@ -759,6 +764,293 @@ section('save');
   check('and the corbel table has a readable rhythm under it',
     D.CORBEL_PITCH > D.CORBEL_W && D.CORBEL_PROJ > 0.1,
     `${(D.CORBEL_PITCH * 39.37).toFixed(0)} in pitch`);
+}
+
+/* ============================================================
+   THE JOB: ROUTES, FARES, MONEY, TICKETS, MANIFESTS
+
+   All four are plain data and arithmetic with no DOM anywhere near
+   them, which is the point of keeping them out of the level: a fare
+   that is wrong is wrong in a millisecond here rather than after a
+   browser launch and a walk to the counter.
+   ============================================================ */
+section('routes and fares');
+{
+  check('four routes out of Augusta, each with the towns it passes through',
+    routes.ROUTES.length === 4 && routes.ROUTES.every((r) => r.stops.length >= 4),
+    routes.ROUTES.map((r) => `${r.code}:${r.stops.length}`).join(' '));
+  check('every route ends at the city it is named for',
+    routes.ROUTES.every((r) => {
+      const last = r.stops[r.stops.length - 1];
+      return last.name.toUpperCase() === r.name;
+    }));
+  check('and the mileages climb along the way',
+    routes.ROUTES.every((r) => r.stops.every((s, i) => i === 0 || s.miles > r.stops[i - 1].miles)));
+
+  const atl = routes.fareFor({ route: 'atl', to: 'Atlanta', cls: 'adult' });
+  const way = routes.fareFor({ route: 'atl', to: 'Thomson', cls: 'adult' });
+  check('a fare is base plus mileage', atl === routes.toQuarter(450 + 145 * 16),
+    cash.money(atl));
+  check('and a stop on the way costs less than the far end',
+    way < atl && way > 0, `${cash.money(way)} to Thomson`);
+  check('every fare on the card lands on a quarter',
+    routes.allStops().every((s) => routes.fareFor({ route: s.route, to: s.name }) % 25 === 0));
+  check('a child is half and a senior is not',
+    routes.fareFor({ route: 'atl', to: 'Atlanta', cls: 'child' })
+      === routes.toQuarter(atl * 0.5)
+    && routes.fareFor({ route: 'atl', to: 'Atlanta', cls: 'senior' })
+      === routes.toQuarter(atl * 0.85));
+  check('a return is dearer than one way and cheaper than two',
+    (() => {
+      const rt = routes.fareFor({ route: 'atl', to: 'Atlanta', roundTrip: true });
+      return rt > atl && rt < atl * 2;
+    })(), cash.money(routes.fareFor({ route: 'atl', to: 'Atlanta', roundTrip: true })));
+  check('a route that does not go there sells nothing',
+    routes.fareFor({ route: 'atl', to: 'Savannah' }) === 0);
+
+  check('two bags are free and the third is not',
+    routes.baggageFee([20, 30]) === 0 && routes.baggageFee([20, 30, 15]) === routes.FARE.extraBag);
+  check('and a heavy one is charged whatever else is on the desk',
+    routes.baggageFee([70]) === routes.FARE.heavyFee);
+
+  check('tonight is five coaches between eight and one',
+    routes.NIGHT.length === 5
+    && routes.NIGHT.every((n) => n.time >= 0 && n.time <= 5 * 60),
+    routes.NIGHT.map((n) => `${routes.clockAt(n.time)} ${n.kind}`).join(' '));
+  check('they do not all want the same bay at the same time',
+    (() => {
+      for (const a of routes.NIGHT) {
+        for (const b of routes.NIGHT) {
+          if (a === b || a.bay !== b.bay) continue;
+          if (Math.abs(a.time - b.time) < 45) return false;
+        }
+      }
+      return true;
+    })());
+  check('the clock reads back as a time of night',
+    routes.clockAt(0) === '20:00' && routes.clockAt(195) === '23:15'
+    && routes.boardTime(195) === '11:15 PM', routes.boardTime(0));
+}
+
+section('money');
+{
+  check('money is cents and prints like money',
+    cash.money(2775) === '$27.75' && cash.money(0) === '$0.00' && cash.money(-125) === '-$1.25');
+  const c = cash.makeChange(2775 - 2000 > 0 ? 5000 - 2775 : 0);
+  check('change out of a fifty for a $27.75 fare is exact',
+    c.ok && c.parts.reduce((a, p) => a + p.cents, 0) === 2225, cash.sayChange(c.parts));
+  check('and it is counted out largest first',
+    c.parts.every((p, i) => i === 0 || p.cents / p.n <= c.parts[i - 1].cents / c.parts[i - 1].n));
+  check('a drawer with no fives says so rather than guessing',
+    (() => {
+      const r = cash.makeChange(1000, { b1: 3, c25: 4 });
+      return !r.ok && r.short > 0;
+    })());
+
+  const d = new cash.Drawer();
+  const opened = d.total;
+  check('the opening float is a hundred and fifty dollars', opened === 15000, cash.money(opened));
+  check('taking a twenty puts twenty in', (() => {
+    d.take(cash.partsOf({ b20: 1 }), 'fare');
+    return d.total === opened + 2000;
+  })());
+  check('and giving change takes it back out', (() => {
+    const ch = d.change(2225);
+    return ch.ok && d.give(ch.parts, 'change') && d.total === opened + 2000 - 2225;
+  })());
+  check('a drawer will not give what it does not have',
+    d.give(cash.partsOf({ b50: 1 }), 'nope') === false);
+  check('and it survives a save', (() => {
+    const blob = JSON.parse(JSON.stringify(d.save()));
+    const e = new cash.Drawer();
+    e.restore(blob);
+    return e.total === d.total;
+  })());
+  check('somebody buying a $27.75 ticket hands over at least that much',
+    (() => {
+      let ok = true;
+      let rng = 0;
+      const fake = () => { rng = (rng * 9301 + 49297) % 233280; return rng / 233280; };
+      for (let i = 0; i < 200; i++) {
+        const o = cash.offerFor(2775, fake);
+        if (o.paid < 2775) ok = false;
+      }
+      return ok;
+    })());
+}
+
+section('tickets and claim checks');
+{
+  const book = new TicketBook();
+  const first = book.issue({ route: 'sav', to: 'Statesboro', cls: 'adult', issued: 30 });
+  const second = book.issue({ route: 'atl', to: 'Atlanta', cls: 'child', issued: 34 });
+  check('a ticket comes off a numbered roll, and the roll moves on',
+    first && second && second.serial === first.serial + 1,
+    `${first.serial} then ${second.serial}`);
+  check('the roll does not start at one',
+    first.serial > 10000, String(first.serial));
+  check('a ticket carries its fare, not a reference to one',
+    first.fare === routes.fareFor({ route: 'sav', to: 'Statesboro' }), cash.money(first.fare));
+  check('and prints something a person can read',
+    /SAVANNAH \/ Statesboro/.test(first.text), first.text);
+  check('a destination the route does not serve prints nothing',
+    book.issue({ route: 'sav', to: 'Atlanta' }) === null);
+  check('the clerk may charge something other than the card',
+    book.issue({ route: 'atl', to: 'Atlanta', fare: 100 }).fare === 100);
+
+  const bag = book.check({ route: 'sav', to: 'Statesboro', weight: 38, fee: 0, issued: 31 });
+  check('a bag gets its own claim number off its own roll',
+    bag.claim !== first.serial && bag.claim > 10000, bag.text);
+  check('a voided ticket keeps its serial', (() => {
+    const t = book.issue({ route: 'mcn', to: 'Macon' });
+    return book.void(t.serial) && t.voided && book.ticket(t.serial) === t;
+  })());
+  check('takings add up over what was not voided',
+    book.takings() > 0 && book.takings() < 100000, cash.money(book.takings()));
+  check('the book survives a save', (() => {
+    const blob = JSON.parse(JSON.stringify(book.save()));
+    const b2 = new TicketBook();
+    b2.restore(blob);
+    return b2.next === book.next && b2.ticket(first.serial).fare === first.fare
+      && b2.bag(bag.claim).weight === 38;
+  })());
+}
+
+section('boarding');
+{
+  const book = new TicketBook();
+  const m = new Manifest({ id: 'gcl-1509', route: 'sav', bay: 2, depart: 225, driver: 'Odom' });
+  const mine = book.issue({ route: 'sav', to: 'Savannah' });
+  const theirs = book.issue({ route: 'atl', to: 'Madison' });
+  const refunded = book.issue({ route: 'sav', to: 'Millen' });
+  book.void(refunded.serial);
+
+  check('nothing boards a coach that is not boarding', m.check(mine) === BOARD.NOT_OPEN);
+  m.coach = 'gcl-1509';
+  m.open();
+  check('the right ticket goes on', m.lift(mine) === BOARD.OK && m.boarded.length === 1);
+  check('the same ticket does not go on twice', m.lift(mine) === BOARD.LIFTED);
+  check('a ticket for another route does not', m.lift(theirs) === BOARD.WRONG_ROUTE);
+  check('and neither does a refunded one', m.lift(refunded) === BOARD.VOIDED);
+  check('a bag going the same way loads', (() => {
+    const b = book.check({ route: 'sav', to: 'Savannah', weight: 41 });
+    return m.load(b) && b.where === 'loaded' && b.departure === m.id;
+  })());
+  check('a bag going somewhere else does not', (() => {
+    const b = book.check({ route: 'atl', to: 'Atlanta', weight: 22 });
+    return m.load(b) === false;
+  })());
+  check('a manifest with a coach and people on it has nothing wrong with it',
+    m.problems(book).length === 0, m.problems(book).join('; '));
+  check('the driver cannot sign it until it is closed',
+    m.sign() === false && m.close() && m.sign() === true);
+  check('and once the coach has gone nothing else gets on', (() => {
+    m.depart_();
+    const late = book.issue({ route: 'sav', to: 'Millen' });
+    return m.check(late) === BOARD.GONE;
+  })());
+  check('the manifest survives a save', (() => {
+    const blob = JSON.parse(JSON.stringify(m.save()));
+    const m2 = Manifest.load(blob);
+    return m2.boarded.length === m.boarded.length && m2.signed === m.signed
+      && m2.state === m.state;
+  })());
+  check('the board line reads like a departure board',
+    (() => {
+      const n = new Manifest({ id: 'x', route: 'atl', bay: 1, depart: 55 });
+      const l = n.boardLine();
+      return l.time === '20:55' && l.name === 'ATLANTA' && l.bay === 1 && l.status === 'ON TIME';
+    })());
+}
+
+section('selling a ticket');
+{
+  const book = new TicketBook();
+  const drawer = new cash.Drawer();
+  let done = null;
+  const sale = new svc.Sale({
+    who: 'the man with the holdall',
+    route: 'sav', to: 'Savannah', cls: 'adult', roundTrip: false,
+    bags: [34], paid: 5000,
+    onDone: (r) => { done = r; },
+  });
+
+  check('a window with nobody at it offers nothing',
+    sale.promptAt('window') === null && sale.promptAt('register') === null);
+  check('serving them works out what they are asking for',
+    sale.serve() && sale.fare === routes.fareFor({ route: 'sav', to: 'Savannah' })
+    && sale.step === svc.STEP.ASKED, `${cash.money(sale.fare)}, ${sale.asking}`);
+  check('and the window asks you to quote it',
+    /Quote the fare/.test(sale.promptAt('window').text), sale.promptAt('window').text);
+  check('the register has nothing to say until it is quoted',
+    sale.promptAt('register') === null);
+  check('quoting moves it on', sale.quote() && sale.quoted === sale.fare);
+  check('now the register wants the money',
+    /Take \$50\.00/.test(sale.promptAt('register').text), sale.promptAt('register').text);
+  check('taking it works out the change',
+    sale.take() && sale.changeDue === 5000 - sale.total, cash.money(sale.changeDue));
+  check('and the register counts it out of this drawer',
+    /Count out/.test(sale.promptAt('register', drawer).text),
+    sale.promptAt('register', drawer).sub);
+  check('the printer waits for the change to be counted',
+    sale.promptAt('printer') === null);
+  const ch = sale.change(drawer);
+  check('counting it out succeeds when the drawer can make it', ch.ok === true);
+  check('the printer now has a ticket to print',
+    /Print the ticket/.test(sale.promptAt('printer').text));
+  check('printing issues one ticket and one claim check per bag',
+    !!sale.issue(book, 40) && book.tickets.size === 1 && book.checks.size === 1,
+    sale.ticket.text);
+  check('the claim check carries the baggage charge, not the ticket',
+    sale.ticket.fare === sale.quoted);
+  check('and handing it over finishes the sale',
+    !!sale.finish() && done && done.ticket === sale.ticket && sale.step === svc.STEP.IDLE);
+  check('the passenger paid what they paid and got what they were owed',
+    done.took === 5000 && done.gave === 5000 - (sale.quoted + sale.bagFee));
+  check('and the clerk charged the card price',
+    done.overOrUnder === 0);
+
+  check('a destination the route does not serve is refused at the window',
+    (() => {
+      const bad = new svc.Sale({ route: 'sav', to: 'Atlanta' });
+      bad.serve();
+      return bad.fare === 0 && /do not go there/.test(bad.promptAt('window').text);
+    })());
+  check('somebody who is short does not get a ticket',
+    (() => {
+      const s2 = new svc.Sale({ route: 'mcn', to: 'Macon', paid: 100 });
+      s2.serve(); s2.quote();
+      return s2.take() === false && /short/.test(s2.trouble);
+    })());
+  check('and a drawer that cannot make change says so instead of inventing it',
+    (() => {
+      const thin = new cash.Drawer({ b1: 1 });
+      const s3 = new svc.Sale({ route: 'mcn', to: 'Macon', paid: 5000 });
+      s3.serve(); s3.quote(); s3.take();
+      const r = s3.change(thin);
+      return !r.ok && /short of change/.test(s3.trouble)
+        && /No change in the drawer/.test(s3.promptAt('register', thin).text);
+    })());
+  check('a clerk who quotes the wrong number is recorded, not corrected',
+    (() => {
+      const s4 = new svc.Sale({ route: 'mcn', to: 'Macon', paid: 5000 });
+      s4.serve(); s4.quote(s4.fare - 500); s4.take();
+      s4.change(new cash.Drawer()); s4.issue(book, 50);
+      const out = s4.finish();
+      return out.overOrUnder === -500;
+    })());
+
+  check('bags move by the cart-load and not one at a time', (() => {
+    const b = new TicketBook();
+    for (let i = 0; i < 6; i++) b.check({ route: 'sav', to: 'Savannah', weight: 30, where: 'desk' });
+    for (let i = 0; i < 2; i++) b.check({ route: 'atl', to: 'Atlanta', weight: 30, where: 'desk' });
+    const moved = svc.moveBags(b, 'sav', 'desk', 'staging');
+    return moved === 6
+      && svc.bagsFor(b, 'sav', 'staging').length === 6
+      && svc.bagsFor(b, 'atl', 'desk').length === 2;
+  })());
+  check('and the desk says what it is charging for in words',
+    /3 pieces, 1 over the allowance/.test(svc.bagLine([20, 30, 40])), svc.bagLine([20, 30, 60]));
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nall good');
