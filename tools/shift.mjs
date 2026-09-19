@@ -61,11 +61,31 @@ const night = await page.evaluate(async () => {
     if (!st || !st.handler) return null;
     try { return st.handler(ctx, st); } catch (e) { out.errors.push(`${id}: ${e.message}`); return null; }
   };
+  /* WHERE THE WORK IS.
+     The brief asks for sixty to seventy per cent of the player's time
+     in the public rooms, twenty to thirty in the service side and five
+     to fifteen upstairs. A handler harness cannot measure time spent
+     standing about, but it can measure every press and where it
+     happened, which is the same question asked honestly: if the work
+     is in the lobby then the player is in the lobby. */
+  const PUBLIC = new Set(['academy.central', 'academy.indians',
+    'academy.americana.main', 'academy.giftshop', 'academy.west.restroom']);
+  const where = (id) => {
+    const st = L.stations.get(id);
+    const room = st && st.room ? st.room : '';
+    if (room.startsWith('academy.upper')) return 'upstairs';
+    if (room.startsWith('academy.grounds')) return 'platform';
+    if (PUBLIC.has(room)) return 'public';
+    return 'service';
+  };
+  out.presses = { public: 0, service: 0, upstairs: 0, platform: 0 };
+
   /** Press the key at a station, if it is offering anything. */
   const press = (id) => {
     const p = read(id);
     if (!p || !p.action) return false;
     try { p.action(); } catch (e) { out.errors.push(`${id} action: ${e.message}`); return false; }
+    out.presses[where(id)]++;
     return true;
   };
 
@@ -253,6 +273,22 @@ check('and something went wrong that had to be dealt with',
   `${night.incidentsRaised} raised, ${night.incidentsCleared} cleared`);
 check('the one errand upstairs happened exactly once',
   night.upstairsVisits >= 1, `${night.upstairsVisits}`);
+
+console.log('\n-- where the night was spent --');
+{
+  const p = night.presses;
+  const total = p.public + p.service + p.upstairs + p.platform || 1;
+  const pc = (n) => `${Math.round((n / total) * 100)}%`;
+  console.log(`      public rooms   ${String(p.public).padStart(4)}  ${pc(p.public)}`);
+  console.log(`      service side   ${String(p.service).padStart(4)}  ${pc(p.service)}`);
+  console.log(`      the platform   ${String(p.platform).padStart(4)}  ${pc(p.platform)}`);
+  console.log(`      upstairs       ${String(p.upstairs).padStart(4)}  ${pc(p.upstairs)}`);
+  const pub = p.public / total, up = p.upstairs / total;
+  check('most of the work is in the rooms the public can see',
+    pub >= 0.5, pc(p.public));
+  check('and hardly any of it is upstairs',
+    up > 0 && up <= 0.15, pc(p.upstairs));
+}
 
 console.log('\n-- the log --');
 for (const l of night.logLines.slice(0, 26)) console.log(`      ${l}`);

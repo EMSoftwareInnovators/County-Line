@@ -1,9 +1,15 @@
 # COUNTY LINE
 
-A first-person horror game. This repository is at **Stage 2: the Old
-Academy** — the architectural reconstruction of the building the game is
-set in, standing on the Stage 1 engine. There is still no *game* in it,
-and that is deliberate: Stage 2 builds the place, not what happens there.
+A first-person horror game. This repository is at **Stage 3: Richmond
+Central** — the building of Stage 2 leased to a bus company, wired to a
+breaker panel, and given a night's work to do. There is a game in it
+now: one complete, replayable overnight shift, eight to one, with
+tickets to sell, bags to check, coaches to load and paperwork to
+close out.
+
+There is still nothing frightening in it, and that is deliberate.
+County Line should be fun before it becomes scary, and this is the
+stage that has to be fun.
 
 County Line is a spiritual follow-up to
 [FINAL RENTAL](https://github.com/EMSoftwareInnovators/Final-Rental), and
@@ -80,8 +86,32 @@ layout. `docs/academy/` holds 24 views of it, and `docs/academy/review/`
 the same 24 with the CRT switched off for comparison against the
 reference photographs.
 
-Stage 2 contains no bus terminal, no story, no campaign nights and no
-scares. What it is *not* is listed at the end of that document.
+### Richmond Central Coach Terminal
+
+Georgia Coach Lines took a fifteen-year lease on the empty Academy in
+the spring of 1998 and opened a terminal in it in the August. **The bus
+company adapted to the Old Academy; the Old Academy did not adapt to
+the bus company** — which is a rule about the source as much as about
+the fiction. Nothing under `src/world/levels/academy/terminal/` cuts a
+wall, a door, a window, a floor or a ceiling. It is furniture,
+equipment, signage and paint, and deleting the directory gives the 1856
+building back.
+
+![the ticket hall at half past eight](docs/terminal/02-lit-public-room.png)
+
+One night: five hours of terminal time in forty real minutes, five
+coaches, fifteen passenger archetypes, a fare card built on road
+mileages, a cash drawer counted in at eight and reconciled at one,
+checked baggage on numbered claim checks, manifests signed at the bay,
+a public address that can only say things the building knows, twelve
+ordinary things that go wrong, and thirteen electrical circuits on
+three panels in the room the museum called the Docent Library.
+
+**[docs/RICHMOND-CENTRAL.md](docs/RICHMOND-CENTRAL.md)** documents the
+premise, what went in which room and what forced it, the shape of a
+shift, the five moves of a transaction, the electrical schedule, and
+where every part of it is in the source. `docs/terminal/` holds twenty
+views of it.
 
 ### The greybox testbed
 
@@ -259,6 +289,16 @@ and the eight canonical connections opened, walked and shut again.
 `tools/unit.mjs` checks the dimensional arithmetic without a browser, so a
 station that stops closing fails in milliseconds.
 
+For Stage 3 there are three more. `tools/terminal.mjs` asks whether the
+fit-out left the building walkable — clearance either side of all
+thirty-eight openings, standing room at every station, and whether the
+interaction ray actually reaches each one — and then exercises the
+panel, the load model and the yard. `tools/shift.mjs` **plays the whole
+night in about fifteen seconds**, through the stations' own handlers,
+then saves it, goes back to the title, continues, and carries on.
+`tools/clerk.mjs` does the same job with the keyboard: real interaction
+ray, real use key, one whole transaction and one coach sent.
+
 `npm run build` produces `dist/web`, which is what gets uploaded. A built
 page is marked as production and **withholds the developer hooks** — no
 `window.__game`, no module namespace, nothing to reach into a level with
@@ -282,13 +322,18 @@ COUNTY_LINE_FIREFOX="/Applications/Firefox.app/Contents/MacOS/firefox" npm test
 
 ---
 
-## What Stage 2 is not
+## What Stage 3 is not
 
-No bus terminal, ticket counters, coach bays, baggage or passengers. No
-buses. No job, no shift gameplay, no story, no campaign nights. No ghosts,
-no paranormal events, no scares. No final lighting and no final
-decorative props — the building is lit to be *read*, not to be
-atmospheric.
+No story and no campaign nights. **No Route 117**: no anomalous
+tickets, no strange passengers, no supernatural manifests, no
+impossible calls, no altered clocks, no ghosts and no scares. The
+building settles every couple of minutes because a
+hundred-and-ninety-six-year-old building with the heat off does, and it
+is given no trigger, no cue and no reaction so that it stays nothing.
+
+No final voice acting: an announcement is a line of text and a chime.
+No final character art: six wardrobes on one rig, so that fifteen
+people in a lobby are not the same person fifteen times.
 
 The historic plan has been kept where it is inconvenient: the staircases
 have not been moved, the awkward rooms have not been merged, no real door

@@ -22,27 +22,31 @@ const ft = (f) => f * 0.3048;
  * doing while it is taken.
  */
 const SHOTS = [
-  ['01-lobby-counter', { x: ft(-9), y: 0, z: ft(-6), yaw: -0.55, pitch: 0.05 }],
-  ['02-lobby-board', { x: ft(2), y: 0, z: ft(2), yaw: 0.35, pitch: 0.22 }],
-  ['03-lobby-from-doors', { x: 0, y: 0, z: ft(-14), yaw: 0, pitch: 0.06 }],
-  ['04-waiting-room', { x: ft(-30), y: 0, z: ft(-14), yaw: -0.6, pitch: 0.02 }],
-  ['05-newsstand', { x: ft(31), y: 0, z: ft(-10), yaw: -2.1, pitch: 0.02 }],
-  ['06-clerk-desk', { x: ft(-49.5), y: 0, z: ft(-18.5), yaw: 3.1416, pitch: -0.04 }],
-  ['07-breaker-panels', { x: ft(-44.4), y: 0, z: ft(-23.5), yaw: Math.PI, pitch: 0.06 }],
-  ['08-switch-bank', { x: ft(-51.5), y: 0, z: ft(-22.5), yaw: 0, pitch: 0.16 }],
-  ['09-baggage-room', { x: ft(27), y: 0, z: ft(26), yaw: 0.5, pitch: 0.02 }],
-  ['10-dispatch-floor', { x: ft(26), y: 0, z: ft(12), yaw: 1.2, pitch: 0.02 }],
-  ['11-platform-walk', { x: ft(-60), y: ft(-2.8), z: ft(24), yaw: 0, pitch: 0.02 }],
-  ['12-platform-bays', { x: ft(-62), y: ft(-3), z: ft(30), yaw: -0.5, pitch: 0.06 }],
-  ['13-coach-side', { x: ft(-80), y: ft(-2.8), z: ft(50), yaw: 2.0, pitch: 0.03 }],
-  ['14-yard-from-aisle', { x: ft(-126), y: ft(-2.8), z: ft(52), yaw: 1.3, pitch: 0.04 }],
-  ['15-facade-at-night', { x: 0, y: ft(-3), z: ft(-92), yaw: 0, pitch: 0.13 }],
-  ['16-upstairs-dark', { x: ft(-36), y: ft(17.33), z: ft(15), yaw: 1.5708, pitch: 0.02 }],
-  ['17-upstairs-lit', { x: ft(-36), y: ft(17.33), z: ft(15), yaw: 1.5708, pitch: 0.02 },
+  /* ---- the nine the completion report is written against ---- */
+  ['01-texture-stability', { x: ft(-30), y: 0, z: ft(-16), yaw: -0.25, pitch: -0.28 }],
+  ['02-lit-public-room', { x: 0, y: 0, z: ft(-14), yaw: 0, pitch: 0.06 }],
+  ['03-dark-and-light', { x: ft(-32), y: 0, z: ft(20), yaw: -1.0, pitch: 0.04 }],
+  ['04-breaker-panels', { x: ft(-44.4), y: 0, z: ft(-22.6), yaw: Math.PI, pitch: 0.10 }],
+  ['05-ticket-counter', { x: ft(-12), y: 0, z: ft(-3), yaw: 0.08, pitch: 0.02 }],
+  ['06-platform-and-coach', { x: ft(-58), y: ft(-2.8), z: ft(26), yaw: -0.38, pitch: 0.03 }],
+  ['07-coach-close', { x: ft(-80), y: ft(-2.8), z: ft(50), yaw: 2.0, pitch: 0.03 }],
+  ['08-upstairs', { x: ft(-36), y: ft(17.33), z: ft(15), yaw: 1.5708, pitch: 0.02 },
     (g) => { g.power.system.setSwitch('floor2-west', true); g.power.apply(); }],
-  ['18-east-wing-tripped', { x: ft(27), y: 0, z: ft(26), yaw: 0.5, pitch: 0.02 },
+  ['09-exterior-night', { x: ft(-126), y: ft(-2.8), z: ft(52), yaw: 1.3, pitch: 0.04 }],
+
+  /* ---- and the rest of the fit-out, for looking at ---- */
+  ['10-lobby-board', { x: ft(2), y: 0, z: ft(2), yaw: 0.35, pitch: 0.22 }],
+  ['11-waiting-room', { x: ft(-30), y: 0, z: ft(-14), yaw: -0.6, pitch: 0.02 }],
+  ['12-newsstand', { x: ft(31), y: 0, z: ft(-10), yaw: -2.1, pitch: 0.02 }],
+  ['13-clerk-desk', { x: ft(-49.5), y: 0, z: ft(-21.2), yaw: 3.1416, pitch: -0.06 }],
+  ['14-switch-bank', { x: ft(-51.5), y: 0, z: ft(-22.2), yaw: 0, pitch: 0.02 }],
+  ['15-baggage-room', { x: ft(27), y: 0, z: ft(26), yaw: 0.5, pitch: 0.02 }],
+  ['16-dispatch-floor', { x: ft(26), y: 0, z: ft(12), yaw: 1.2, pitch: 0.02 }],
+  ['17-platform-walk', { x: ft(-60), y: ft(-2.8), z: ft(36), yaw: Math.PI, pitch: 0.02 }],
+  ['18-facade-at-night', { x: 0, y: ft(-3), z: ft(-92), yaw: 0, pitch: 0.13 }],
+  ['19-east-wing-tripped', { x: ft(27), y: 0, z: ft(26), yaw: 0.5, pitch: 0.02 },
     (g) => { g.power.system.trip('east-rear', 'harness'); g.power.apply(); }],
-  ['19-lobby-tripped', { x: ft(-9), y: 0, z: ft(-6), yaw: -0.55, pitch: 0.05 },
+  ['20-lobby-tripped', { x: 0, y: 0, z: ft(-14), yaw: 0, pitch: 0.06 },
     (g) => { g.power.system.trip('lobby', 'harness'); g.power.apply(); }],
 ];
 
@@ -85,6 +89,46 @@ await page.evaluate(() => {
      them where they belong and nothing else knows the geometry. */
   for (let t = 0; t < 40; t += 0.05) { g.level.update(0.05); g.fleet.update(0.05); }
   g.level.update(0.016);
+});
+
+/* ---- and a terminal with people in it ----
+   A lobby with nobody in it is a photograph of a room. The shift is
+   opened and worked for half an hour of terminal time so that there is
+   a line at the window, somebody sitting in the waiting room, and a
+   driver in the break room. */
+await page.evaluate(() => {
+  const g = window.__game;
+  const sh = g.shift;
+  const ctx = g.ctx();
+  const press = (id) => {
+    const st = g.level.stations.get(id);
+    const p = st && st.handler(ctx, st);
+    if (p && p.action) { p.action(); return true; }
+    return false;
+  };
+  press('register');
+  for (const c of g.power.system.circuits) {
+    if (!c.id.startsWith('floor2')) g.power.system.setSwitch(c.id, true);
+  }
+  g.power.apply(); sh.checkZones();
+  press('gate-board'); press('lobby-mat'); press('time-clock');
+  let acc = 0;
+  while (sh.now < 42) {
+    g.level.update(0.05); g.power.update(0.05); g.fleet.update(0.05);
+    sh.update(0.05, ctx); sh.checkZones();
+    acc += 0.05;
+    if (acc < 1) continue;
+    acc = 0;
+    /* Serve a few, so some of them are sitting down rather than all
+       standing in one line. */
+    if (sh.book.tickets.size < 3 && sh.sale) {
+      const st = sh.sale.step;
+      if (st === 'asked' || st === 'printed') press('ticket-counter');
+      else if (st === 'quoted' || st === 'paid') press('register');
+      else if (st === 'changed') press('ticket-printer');
+    }
+  }
+  g.ui.setHudVisible(false);
 });
 
 for (const [name, at, before] of SHOTS) {

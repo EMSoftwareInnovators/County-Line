@@ -450,15 +450,29 @@ changes. Both are development-only and a shipped build has neither.
 
 ---
 
-## What Stage 2 is not
+## What Stage 2 was not — and what Stage 3 changed
 
-No bus terminal, ticket counters, coach bays, baggage or passengers. No
-buses, and no Bus 117. No job, no shift gameplay, no story, no campaign
-nights. No ghosts, no paranormal events, no scares. No final lighting and
-no final decorative props — the building is lit to be *read*, not to be
-atmospheric, and the garden carries turf, a gravel walk and a few shrubs
-rather than period planting, because a courtyard full of planting only
-makes it harder to judge whether the architecture is right.
+Stage 2 held no bus terminal, no ticket counters, no coach bays, no
+baggage, no passengers, no buses, no job and no shift, and it was lit
+to be *read* rather than to be atmospheric.
+
+**Stage 3 added all of those, and this document still describes the
+building.** That is the point of keeping them apart: the terminal is a
+tenant. It is in `src/world/levels/academy/terminal/`, it is furniture
+and equipment and paint, and it cuts nothing. The room schedule, the
+door schedule, the dimensions and the departures from the printed plan
+below are unchanged by it, and would survive the lease ending. See
+[RICHMOND-CENTRAL.md](RICHMOND-CENTRAL.md) for the tenant.
+
+Two things in Stage 2 did change, and both are the building rather than
+the terminal: it is **night** now, and lit by the retrofit electrical
+installation the brief made canonical, and the **west ground is wider**
+than the east one to hold the coach yard — `WEST_YARD` in
+`dimensions.js`. The garden, the forecourt, the front lawn, the rear
+porch and the footprint are untouched.
+
+Still not here: Bus 117, any story, any campaign night, any ghost, any
+paranormal event and any scare.
 
 The historic plan has been kept where it is inconvenient. The staircases
 have not been moved, the awkward rooms have not been merged, no door has
