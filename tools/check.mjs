@@ -48,6 +48,9 @@ const BROWSER = [
   ['the shipped web build', 'tools/production.mjs'],
   ['the Old Academy: every doorway', 'tools/academy-doors.mjs'],
   ['the Old Academy: invariants and routes A-K', 'tools/academy.mjs'],
+  ['Richmond Central: circulation, the panel, the yard', 'tools/terminal.mjs'],
+  ['Richmond Central: the whole night, and putting it down', 'tools/shift.mjs'],
+  ['Richmond Central: doing the job with the keyboard', 'tools/clerk.mjs'],
 ];
 
 const server = spawn(process.execPath, ['serve.cjs'], {
