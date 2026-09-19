@@ -179,6 +179,34 @@ export function counter(b, spec) {
   trimBox(b, sx0, SHELF, sz0, sx1, SHELF + inch(1.5), sz1, M.formica);
 }
 
+/**
+ * Where the places on a bench are, for somebody to sit in.
+ *
+ * The level knows where the seats are because the level put them
+ * there. A passenger looking for somewhere to sit asks the level, not
+ * the geometry, and that is what stops the npc code from containing a
+ * copy of these numbers.
+ */
+export function benchSeats(spec) {
+  const alongX = spec.axis !== 'z';
+  const n = spec.seats || 4;
+  const SEAT = ftin(1, 5);
+  const half = (n * SEAT) / 2;
+  /* Facing away from the back rail, or along the run if there is none. */
+  const yaw = spec.back === 'far' ? (alongX ? 0 : -Math.PI / 2)
+    : (alongX ? Math.PI : Math.PI / 2);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = -half + (i + 0.5) * SEAT;
+    out.push({
+      x: spec.x + (alongX ? a : 0),
+      z: spec.z + (alongX ? 0 : a),
+      yaw,
+    });
+  }
+  return out;
+}
+
 /** A run of terminal seating: a steel frame with vinyl pans on it. */
 export function bench(b, spec) {
   const M = b.M;

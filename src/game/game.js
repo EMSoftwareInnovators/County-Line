@@ -44,7 +44,7 @@ import { Fleet } from './terminal/fleet.js';
 const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
 import { createPlayer, updatePlayer, buildCamera, forwardOf, eyePoint } from './player.js';
 import { Npc, patrol } from './npc.js';
-import { buildActorMeshes, makeActorSkin, drawActor, ACTOR_HEIGHT } from './actor.js';
+import { buildActorMeshes, makeActorSkin, drawActor, ACTOR_HEIGHT, WARDROBE } from './actor.js';
 import { Interactable } from './interaction.js';
 import { graphFromLevel } from './nav.js';
 
@@ -116,8 +116,14 @@ export class Game {
     this.post = new PostFX(this.canvas, rw, rh);
 
     this.materials = buildMaterials();
-    this.actorSkin = makeActorSkin(makeTex);
-    this.actorMeshes = buildActorMeshes(this.actorSkin);
+    /* One mesh set per wardrobe. Six of them, because a terminal with
+       fifteen people in it and one skin is a terminal full of the same
+       person -- and because the meshes are a few dozen triangles each,
+       so the whole cast costs less than a window. */
+    this.actorSkins = WARDROBE.map((_, i) => makeActorSkin(makeTex, i));
+    this.actorMeshSets = this.actorSkins.map((sk) => buildActorMeshes(sk));
+    this.actorSkin = this.actorSkins[0];
+    this.actorMeshes = this.actorMeshSets[0];
 
     setInput(this.input);
     this.settings.apply(this.systems());
@@ -257,6 +263,12 @@ export class Game {
     this.raster.far = this.level.far;
     this.spawnNpcs();
     return this.level;
+  }
+
+  /** Everybody in the world this frame: test actors, passengers, crew. */
+  allActors() {
+    if (!this.shift || !this.shift.running) return this.npcs;
+    return this.npcs.concat(this.shift.actors());
   }
 
   spawnNpcs() {
@@ -786,11 +798,15 @@ export class Game {
 
       this.level.draw(rz, { identity: m.id });
 
-      for (const n of this.npcs) {
+      for (const n of this.allActors()) {
         if (n.hidden) continue;
         const room = this.level.roomAt(n.x, n.y + 1, n.z);
-        const lit = !room || this.roomLit(room.id);
-        drawActor(rz, this.actorMeshes, n, lit ? 1 : 0.25);
+        /* Somebody standing in a room whose breaker is off is a
+           silhouette, not a person. chunkLit is what the panel wrote. */
+        const lit = room ? this.level.chunkLit[room.id] : undefined;
+        const shade = lit === undefined ? 1 : 0.22 + 0.78 * lit;
+        const set = this.actorMeshSets[(n.skin || 0) % this.actorMeshSets.length];
+        drawActor(rz, set, n, shade);
       }
 
       this.debug.drawCollision(rz, this.level, this.player, m.id);

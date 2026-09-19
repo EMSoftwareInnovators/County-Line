@@ -38,7 +38,7 @@ import * as D from '../dimensions.js';
 import { room } from '../rooms.js';
 import {
   bench, board, counter, crt, papers, phone, rack, sign, stanchions,
-  standOn, trash, vending, floorMat, block,
+  standOn, trash, vending, floorMat, block, benchSeats,
 } from './props.js';
 
 /* The lobby's fixed obstructions, named so the furniture can keep out of
@@ -165,9 +165,12 @@ function lobby(b) {
   /* ---- seating: the east half, in facing pairs, clear of the columns,
          of the center axis and of both cross routes. None of it is in
          the west half, because that is where the line stands. ---- */
+  const lobbySeats = [];
   for (const z of [ft(-4), ft(4)]) {
-    bench(b, { x: ft(11), z, axis: 'x', seats: 4, back: 'near' });
-    bench(b, { x: ft(11), z: z - ftin(3, 6), axis: 'x', seats: 4, back: 'far' });
+    const a = { x: ft(11), z, axis: 'x', seats: 4, back: 'near' };
+    const c = { x: ft(11), z: z - ftin(3, 6), axis: 'x', seats: 4, back: 'far' };
+    bench(b, a); bench(b, c);
+    lobbySeats.push(...benchSeats(a), ...benchSeats(c));
   }
 
   /* ---- brochure rack, bins, and a mat at each set of double doors ---- */
@@ -187,6 +190,34 @@ function lobby(b) {
   floorMat(b, {
     x0: -D.DBL_W / 2 - inch(4), x1: D.DBL_W / 2 + inch(4),
     z0: D.Z_CENTRAL_N - ftin(3, 6), z1: D.Z_CENTRAL_N - inch(2),
+  });
+
+  /* ============================================================
+     WHERE PEOPLE STAND
+
+     The level put the counter, the stanchions and the benches here, so
+     the level is what knows where the line forms and where the seats
+     are. A passenger asks for a place; it does not measure the
+     furniture. See game/terminal/people.js, which contains none of
+     these numbers.
+     ============================================================ */
+  b.mark('service', {
+    /* The window: where somebody stands to be served, and which way
+       they face doing it. */
+    window: { x: (CX0 + CX1) / 2 + ftin(3, 0), z: CZ0 - ftin(2, 0), yaw: 0 },
+    /* The line behind them, back through the stanchions. Six deep,
+       which is as many as will stand in the west half without being in
+       the way of the front doors. */
+    line: Array.from({ length: 6 }, (_, i) => ({
+      x: (CX0 + CX1) / 2 + ftin(3, 0), z: CZ0 - ftin(4, 6) - i * ftin(2, 6),
+    })),
+    /* Where people come in and go out. */
+    entrance: { x: 0, z: D.Z_CENTRAL_S + ftin(5, 0) },
+    outside: { x: 0, z: D.Z_CENTRAL_S - ftin(8, 0) },
+    /* And the door to the platform corridor, which is the way out to a
+       coach: through the north-west doorway, not the rear doors. */
+    gates: { x: D.X_BAY_W - ftin(2, 0), z: D.CENTRAL_DOOR_Z },
+    seats: lobbySeats,
   });
 
   /* ---- signage over the four side doorways ----
@@ -216,11 +247,15 @@ function departureWaiting(b) {
 
   /* Four facing pairs down the middle of the room, running east-west, so
      nothing sits in front of a window sill at two foot nine. */
+  const seats = [];
   for (let i = 0; i < 3; i++) {
     const z = r.z0 + ftin(6, 0) + i * ftin(7, 0);
-    bench(b, { x: r.cx - ftin(4, 0), z, axis: 'x', seats: 5, back: 'near' });
-    bench(b, { x: r.cx - ftin(4, 0), z: z + ftin(3, 6), axis: 'x', seats: 5, back: 'far' });
+    const a = { x: r.cx - ftin(4, 0), z, axis: 'x', seats: 5, back: 'near' };
+    const c = { x: r.cx - ftin(4, 0), z: z + ftin(3, 6), axis: 'x', seats: 5, back: 'far' };
+    bench(b, a); bench(b, c);
+    seats.push(...benchSeats(a), ...benchSeats(c));
   }
+  b.mark('waiting', { room: r.id, seats });
 
   /* the gate board, on the wall by the doorway back to the lobby */
   board(b, {
@@ -278,9 +313,13 @@ function arrivals(b) {
   b.detail(2.4);
 
   /* looser seating than the departure room: two runs and some singles */
-  bench(b, { x: r.cx, z: r.z0 + ftin(7, 0), axis: 'x', seats: 4, back: 'near' });
-  bench(b, { x: r.cx, z: r.z0 + ftin(13, 0), axis: 'x', seats: 4, back: 'near' });
-  bench(b, { x: r.x0 + ftin(4, 0), z: r.z0 + ftin(20, 0), axis: 'z', seats: 3, back: 'near' });
+  const seats = [];
+  for (const spec of [
+    { x: r.cx, z: r.z0 + ftin(7, 0), axis: 'x', seats: 4, back: 'near' },
+    { x: r.cx, z: r.z0 + ftin(13, 0), axis: 'x', seats: 4, back: 'near' },
+    { x: r.x0 + ftin(4, 0), z: r.z0 + ftin(20, 0), axis: 'z', seats: 3, back: 'near' },
+  ]) { bench(b, spec); seats.push(...benchSeats(spec)); }
+  b.mark('arrivals', { room: r.id, seats });
 
   /* ---- the customer service desk, north end ---- */
   const CZ = r.z1 - ftin(5, 0);

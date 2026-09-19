@@ -611,6 +611,30 @@ function breakRoom(b) {
     y0: ftin(4, 2), y1: ftin(5, 4), material: M.officeSteel, tag: 'time-clock', solid: false,
   });
   phone(b, { x: r.x0 + ftin(5, 0), y: ftin(3, 2), z: r.z0 + ftin(1, 4) });
+
+  /* ============================================================
+     WHERE THE CREW STAND
+
+     Same idea as the passengers' marks in public.js: the level put the
+     table and the time clock here, so the level is what says where a
+     driver waits out a turnaround. game/terminal/drivers.js has none
+     of these numbers in it.
+     ============================================================ */
+  b.mark('crew', {
+    room: r.id,
+    /* Round the table, which is what the room is for. */
+    table: [
+      { x: r.cx - ftin(4, 0), z: r.cz, yaw: Math.PI / 2 },
+      { x: r.cx + ftin(4, 0), z: r.cz, yaw: -Math.PI / 2 },
+      { x: r.cx, z: r.cz - ftin(4, 0), yaw: 0 },
+      { x: r.cx, z: r.cz + ftin(4, 0), yaw: Math.PI },
+    ],
+    coffee: { x: r.x0 + ftin(3, 6), z: r.z0 + ftin(3, 6), yaw: Math.PI },
+    clock: { x: r.x0 + ftin(7, 9), z: r.z1 - ftin(2, 6), yaw: 0 },
+    /* The way in and out of the crew side: down the east hall, through
+       the dispatch floor, out the west door. */
+    door: { x: r.cx, z: r.z0 + ftin(2, 0) },
+  });
   trash(b, { x: r.x1 - ftin(2, 6), z: r.z1 - ftin(2, 0) });
   bench(b, { x: r.cx, z: r.z1 - ftin(3, 6), axis: 'x', seats: 3, back: 'far' });
 }

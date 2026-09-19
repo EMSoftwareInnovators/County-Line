@@ -121,29 +121,58 @@ export function buildActorMeshes(skin) {
 }
 
 /**
- * A neutral developer skin. One 64x64 sheet, six flat regions, no faces
- * and no wardrobe: this is a crash-test dummy, not a character.
+ * WARDROBES. A 64x64 sheet apiece, six flat regions, no faces: these
+ * are still not characters, and at this internal resolution a face
+ * would be four pixels of mud. What they are is TELLABLE APART, which
+ * a terminal with fifteen people in it needs and a test level with one
+ * actor in it did not.
+ *
+ * Each entry is a coat, a shirt, trousers and hair. The palette is
+ * 1998 and Georgia in October: denim, work green, a raincoat, a
+ * uniform, a good overcoat. Nothing is bright, because nothing in this
+ * building is.
  */
-export function makeActorSkin(makeTex) {
+export const WARDROBE = [
+  { coat: '#4d6070', shirt: '#46586a', legs: '#3a4450', hair: '#3b3129', skin: '#9c7f6a' },
+  { coat: '#5a4a3a', shirt: '#6d6152', legs: '#33302c', hair: '#221c17', skin: '#8a6a52' },
+  { coat: '#3f4f3c', shirt: '#4a5a46', legs: '#2f3630', hair: '#4a3b2a', skin: '#b3917a' },
+  { coat: '#6a6257', shirt: '#7b7469', legs: '#41403c', hair: '#6b6258', skin: '#c2a289' },
+  { coat: '#2f3b4a', shirt: '#3a4757', legs: '#262d38', hair: '#1d1a17', skin: '#7b5c44' },
+  { coat: '#6d4a44', shirt: '#7d5a52', legs: '#3c3330', hair: '#3a2b22', skin: '#a98567' },
+];
+
+/**
+ * One wardrobe as a sheet. `n` indexes WARDROBE; the driver's uniform
+ * is the last one and gets the company stripe on the chest.
+ */
+export function makeActorSkin(makeTex, n = 0) {
+  const w = WARDROBE[((n | 0) % WARDROBE.length + WARDROBE.length) % WARDROBE.length];
   const atlas = {
     chest: [0, 0, 32, 32], back: [32, 0, 32, 32],
     body: [0, 32, 16, 32], arms: [16, 32, 16, 32],
     legs: [32, 32, 16, 32], shoe: [48, 32, 16, 16],
     face: [48, 0, 16, 16], hair: [48, 16, 16, 16],
   };
+  const dark = (css, k) => {
+    const v = parseInt(css.slice(1), 16);
+    const r = Math.round(((v >> 16) & 255) * k);
+    const g2 = Math.round(((v >> 8) & 255) * k);
+    const b = Math.round((v & 255) * k);
+    return `#${((r << 16) | (g2 << 8) | b).toString(16).padStart(6, '0')}`;
+  };
   const tex = makeTex(64, 64, (g) => {
     const put = (r, css) => { g.fillStyle = css; g.fillRect(r[0], r[1], r[2], r[3]); };
-    put(atlas.chest, '#4d6070');
-    put(atlas.back, '#42525f');
-    put(atlas.body, '#46586a');
-    put(atlas.arms, '#4f6273');
-    put(atlas.legs, '#3a4450');
+    put(atlas.chest, w.coat);
+    put(atlas.back, dark(w.coat, 0.86));
+    put(atlas.body, w.shirt);
+    put(atlas.arms, w.coat);
+    put(atlas.legs, w.legs);
     put(atlas.shoe, '#23262a');
-    put(atlas.face, '#9c7f6a');
-    put(atlas.hair, '#3b3129');
-    /* A stripe down the chest panel, so which way an actor is facing is
-       unmistakable from across a very large room. */
-    g.fillStyle = '#c8b46a';
+    put(atlas.face, w.skin);
+    put(atlas.hair, w.hair);
+    /* A placket down the chest panel, so which way somebody is facing
+       is unmistakable from across a very large room. */
+    g.fillStyle = dark(w.shirt, 0.72);
     g.fillRect(atlas.chest[0] + 14, atlas.chest[1] + 4, 4, 24);
   });
   return { tex, atlas };
