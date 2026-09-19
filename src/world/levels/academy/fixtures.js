@@ -450,6 +450,28 @@ export function buildFixtures(b) {
     }
   }
 
+  /* ============================================================
+     WHAT THE FITTINGS SOUND LIKE
+
+     A four-foot fluorescent strip hums at a hundred and twenty hertz
+     and it is one of the two sounds a 1998 back office has. Every
+     strip in the schedule gets an emitter at the fitting, which means
+     the hum is in the room the fitting is in and stops with that
+     room's breaker -- see game/terminal/sound.js, which gates them on
+     the circuit. The pendants and the bulbs on cords are silent,
+     because incandescent lamps are.
+     ============================================================ */
+  for (const row of SCHEDULE) {
+    if (row.fit !== 'strip') continue;
+    const r = room(row.id);
+    for (const [x, z] of positions(r, row)) {
+      b.ambience({
+        kind: 'fluorescent', x, y: mountY(r, row), z,
+        maxDist: ft(26), gain: 0.34, room: row.id,
+      });
+    }
+  }
+
   for (const e of EXTERIOR) {
     b.chunk(CIRCUIT_BY_ID.get(e.c).rooms[0]);
     b.detail(2.4);

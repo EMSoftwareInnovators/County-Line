@@ -329,5 +329,14 @@ export function buildPlatform(b) {
     material: M.plate('COACHES ONLY', { size: 12 }),
   });
 
+  /* The yard's own air: a hundred and forty feet of open asphalt with
+     a canopy over one edge of it, which sounds like nothing at all and
+     is the reason stepping out of the side door reads as stepping
+     outside. */
+  b.ambience({
+    kind: 'air', x: YARD.platX0 + ftin(6, 0), y: G + ftin(5, 0), z: ft(50),
+    maxDist: ft(90), gain: 0.2, cutoff: 300, room: 'academy.grounds.west',
+  });
+
   void SITE; void ftin;
 }

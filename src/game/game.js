@@ -41,6 +41,7 @@ import { Power } from './terminal/power.js';
 import { Fleet } from './terminal/fleet.js';
 import { Shift, PHASE as SHIFT } from './terminal/shift.js';
 import { bindShift } from './terminal/stations.js';
+import { TerminalSound } from './terminal/sound.js';
 
 /** Every image-degradation stage off. See the note at the call site. */
 const REVIEW_POST = { dither: false, bleed: 0, scan: 1, ghost: 0, grain: 0, vignette: 0 };
@@ -270,9 +271,20 @@ export class Game {
         ctx: () => this.ctx(),
         toast: (t, k) => this.ui.toast(t, k),
         say: (line) => this.ui.toast(line, 'pa'),
+        sfx: (cue, pan) => { if (this.sfx[cue]) this.sfx[cue](pan || 0); },
         seed: 19981020,
       })
       : null;
+    if (this.shift) {
+      /* The chime before the clerk speaks, which is the sound a
+         terminal makes more than any other. */
+      this.shift.pa.opt.onStart = () => this.sfx.paChime(0);
+      this.shift.phone.opt.onRing = (c) => {
+        this.ui.toast(`The telephone is ringing in the office. (${c.who})`);
+        this.sfx.phoneRing(0);
+      };
+      this.terminalSound = new TerminalSound();
+    }
     if (this.shift) bindShift(this.level, this.shift, this.ctx());
     this.roomLights = {};
     for (const r of this.level.rooms) this.roomLights[r.id] = true;
@@ -556,6 +568,7 @@ export class Game {
       /* The switch bank is not a station, so the zone job is checked
          against the panel rather than pressed. */
       this.shift.checkZones();
+      if (this.terminalSound) this.terminalSound.update(dt, this);
     }
 
     const ctx = this.ctx();

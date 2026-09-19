@@ -139,6 +139,156 @@ export class Sfx {
     }, { maxDist: opt.maxDist || 9, gain: opt.gain === undefined ? 0.5 : opt.gain, bus: 'ambience' });
   }
 
+  /* ============================================================
+     RICHMOND CENTRAL
+
+     A bus station at night is four sounds and a lot of room tone: a
+     printer, a drawer, a chime before somebody talks, and outside, air.
+     None of these is a recording. They are all two or three oscillators
+     and a band-passed burst of noise, which is what the rest of this
+     file is and what a 1998 machine could do.
+     ============================================================ */
+
+  /** The two-tone chime before an announcement. Ding-dong, and lower. */
+  paChime(pan = 0) {
+    this.audio.tone({ freq: 784, type: 'sine', gain: 0.10, a: 0.006, d: 0.5, pan, bus: 'sfx' });
+    this.audio.tone({ freq: 523, type: 'sine', gain: 0.11, a: 0.006, d: 0.7, when: 0.34, pan, bus: 'sfx' });
+    /* the amplifier's own hiss coming up under it */
+    this.audio.noise({ filter: 'highpass', freq: 3200, gain: 0.02, a: 0.05, d: 1.2, pan, bus: 'sfx' });
+  }
+
+  /** A dot-matrix ticket printer: a platen and about a second of racket. */
+  ticketPrint(pan = 0) {
+    for (let i = 0; i < 9; i++) {
+      this.audio.noise({
+        filter: 'bandpass', freq: 1800 + (i % 3) * 400, q: 6,
+        gain: 0.05, a: 0.001, d: 0.045, when: i * 0.075, pan, bus: 'sfx',
+      });
+    }
+    this.audio.noise({ filter: 'bandpass', freq: 520, q: 2, gain: 0.06, a: 0.004, d: 0.18, when: 0.72, pan, bus: 'sfx' });
+  }
+
+  /** The drawer: a bell, and then the drawer coming back in. */
+  registerBell(pan = 0) {
+    this.audio.tone({ freq: 1320, type: 'triangle', gain: 0.09, a: 0.001, d: 0.45, pan, bus: 'sfx' });
+    this.audio.tone({ freq: 1975, type: 'sine', gain: 0.04, a: 0.001, d: 0.3, pan, bus: 'sfx' });
+    this.audio.noise({ filter: 'lowpass', freq: 300, q: 1, gain: 0.09, a: 0.002, d: 0.14, when: 0.38, pan, bus: 'sfx' });
+  }
+
+  /** A rubber stamp on a manifest. */
+  stamp(pan = 0) {
+    this.audio.noise({ filter: 'bandpass', freq: 240, q: 1.2, gain: 0.11, a: 0.001, d: 0.09, pan, bus: 'sfx' });
+  }
+
+  /** Paper: a claim check torn off, a carton put down. */
+  paper(pan = 0) {
+    this.audio.noise({
+      filter: 'highpass', freq: 2600, gain: 0.05, a: 0.004, d: 0.17,
+      rate: 0.9 + Math.random() * 0.25, pan, bus: 'sfx',
+    });
+  }
+
+  /** The desk telephone. Two bursts of warble, the 1998 electronic kind. */
+  phoneRing(pan = 0) {
+    for (const t of [0, 0.42]) {
+      for (let i = 0; i < 14; i++) {
+        this.audio.tone({
+          freq: i % 2 ? 1040 : 1330, type: 'square', gain: 0.045,
+          a: 0.001, d: 0.024, when: t + i * 0.026, filter: 'lowpass',
+          cutoff: 2600, pan, bus: 'sfx',
+        });
+      }
+    }
+  }
+
+  /** Air brakes letting go: the loudest thing in the yard. */
+  coachAir(pan = 0) {
+    this.audio.noise({ filter: 'highpass', freq: 1400, gain: 0.14, a: 0.004, d: 0.9, pan, bus: 'sfx' });
+    this.audio.noise({ filter: 'bandpass', freq: 700, q: 1.4, gain: 0.07, a: 0.02, d: 1.4, pan, bus: 'sfx' });
+  }
+
+  /** A two-stroke starting cold. */
+  coachStart(pan = 0) {
+    this.audio.noise({ filter: 'lowpass', freq: 220, q: 1, gain: 0.10, a: 0.05, d: 0.9, pan, bus: 'sfx' });
+    for (let i = 0; i < 5; i++) {
+      this.audio.tone({
+        freq: 58 + i * 5, type: 'sawtooth', gain: 0.07, a: 0.01, d: 0.22,
+        when: i * 0.13, filter: 'lowpass', cutoff: 380, pan, bus: 'sfx',
+      });
+    }
+  }
+
+  /** The building settling: a joist, a sash, ninety-six years of pine.
+      NOT a ghost. An 1856 building does this all night and always has. */
+  settle(pan = 0) {
+    const f = 90 + Math.random() * 120;
+    this.audio.tone({
+      freq: f, type: 'sine', gain: 0.045, a: 0.05, d: 0.55,
+      filter: 'lowpass', cutoff: 500, pan, bus: 'sfx',
+    });
+    this.audio.noise({
+      filter: 'bandpass', freq: f * 4, q: 5, gain: 0.03, a: 0.02, d: 0.35,
+      when: 0.04, pan, bus: 'sfx',
+    });
+  }
+
+  /** A coach standing at a bay with its engine running. */
+  dieselIdle(x, y, z, opt = {}) {
+    return this.audio.emitter(x, y, z, (ctx, dest) => {
+      const parts = [];
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 420;
+      lp.connect(dest);
+      for (const [f, g, type] of [[29, 1, 'sawtooth'], [58, 0.5, 'sawtooth'], [87, 0.22, 'square']]) {
+        const o = ctx.createOscillator();
+        o.type = type; o.frequency.value = f;
+        const gg = ctx.createGain(); gg.gain.value = g * 0.16;
+        o.connect(gg).connect(lp); o.start();
+        parts.push(o);
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = this.audio.noiseBuf; src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 180; bp.Q.value = 0.8;
+      const ng = ctx.createGain(); ng.gain.value = 0.1;
+      src.connect(bp).connect(ng).connect(dest); src.start();
+      parts.push(src);
+      return { stop: () => parts.forEach((o) => { try { o.stop(); } catch (e) { /* gone */ } }) };
+    }, { maxDist: opt.maxDist || 34, gain: opt.gain === undefined ? 0.5 : opt.gain, bus: 'ambience' });
+  }
+
+  /** A belt on rollers, which is most of the noise in the east wing. */
+  conveyorRun(x, y, z, opt = {}) {
+    return this.audio.emitter(x, y, z, (ctx, dest) => {
+      const src = ctx.createBufferSource();
+      src.buffer = this.audio.noiseBuf; src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 1.4;
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth'; o.frequency.value = 47;
+      const og = ctx.createGain(); og.gain.value = 0.05;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 260;
+      src.connect(bp).connect(dest);
+      o.connect(og).connect(lp).connect(dest);
+      src.start(); o.start();
+      return { stop: () => { for (const n of [src, o]) { try { n.stop(); } catch (e) { /* gone */ } } } };
+    }, { maxDist: opt.maxDist || 14, gain: opt.gain === undefined ? 0.4 : opt.gain, bus: 'ambience' });
+  }
+
+  /** A 1974 vending machine's compressor, which cycles all night. */
+  compressor(x, y, z, opt = {}) {
+    return this.audio.emitter(x, y, z, (ctx, dest) => {
+      const o = ctx.createOscillator();
+      o.type = 'triangle'; o.frequency.value = 61;
+      const g = ctx.createGain(); g.gain.value = 0.14;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 220;
+      o.connect(g).connect(lp).connect(dest); o.start();
+      return { stop: () => { try { o.stop(); } catch (e) { /* gone */ } } };
+    }, { maxDist: opt.maxDist || 8, gain: opt.gain === undefined ? 0.45 : opt.gain, bus: 'ambience' });
+  }
+
   /** Broadband air: a room's own tone, or wind through an open door. */
   airbed(x, y, z, opt = {}) {
     return this.audio.emitter(x, y, z, (ctx, dest) => {

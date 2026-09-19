@@ -257,6 +257,136 @@ check('the one errand upstairs happened exactly once',
 console.log('\n-- the log --');
 for (const l of night.logLines.slice(0, 26)) console.log(`      ${l}`);
 
+/* ============================================================
+   AND IT SURVIVES BEING PUT DOWN
+
+   A shift is forty real minutes and people do not play forty minutes
+   without stopping. So the whole of it -- the clock, the roll, the
+   drawer, the manifests, who is in the line and what they are holding,
+   which coaches are at which bay, what has tripped and what is still
+   outstanding -- goes through the game's OWN save path and comes back.
+   Not a private serializer: autosave to storage, back to the title,
+   CONTINUE.
+   ============================================================ */
+console.log('\n-- putting it down and picking it up --');
+
+const round = await page.evaluate(async () => {
+  const g = window.__game;
+  g.newGame();
+  await new Promise((r) => setTimeout(r, 400));
+  const sh = g.shift;
+  const ctx = g.ctx();
+  const press = (id) => {
+    const st = g.level.stations.get(id);
+    const p = st && st.handler(ctx, st);
+    if (p && p.action) { p.action(); return true; }
+    return false;
+  };
+  /* Open up, then work an hour and a half of it. */
+  press('register');
+  for (const c of g.power.system.circuits) {
+    if (!c.id.startsWith('floor2')) g.power.system.setSwitch(c.id, true);
+  }
+  g.power.apply(); sh.checkZones();
+  press('gate-board'); press('lobby-mat'); press('time-clock');
+  let acc = 0;
+  while (sh.now < 95) {
+    g.level.update(0.05); g.power.update(0.05); g.fleet.update(0.05);
+    sh.update(0.05, ctx); sh.checkZones();
+    acc += 0.05; if (acc < 1) continue; acc = 0;
+    for (const inc of sh.incidents.open.slice()) press(inc.at);
+    const at = sh.crowd.atWindow;
+    if (at) {
+      if (!sh.sale) press('ticket-counter');
+      else {
+        const st = sh.sale.step;
+        if (st === 'asked' || st === 'printed') press('ticket-counter');
+        else if (st === 'quoted' || st === 'paid') press('register');
+        else if (st === 'changed') press('ticket-printer');
+      }
+    }
+    press('baggage-tags');
+    for (let b = 1; b <= 4; b++) press(`bay-${b}`);
+  }
+
+  const before = {
+    clock: sh.clock24,
+    tickets: sh.book.tickets.size,
+    roll: sh.book.next,
+    bags: sh.book.checks.size,
+    drawer: sh.drawer.total,
+    people: sh.crowd.people.filter((p) => p.state !== 'gone').length,
+    line: sh.crowd.lineLength,
+    coaches: g.fleet.coaches.filter((c) => c.present).length,
+    manifests: [...sh.manifests.values()].map((m) => `${m.id}:${m.state}:${m.boarded.length}`),
+    open: sh.incidents.open.map((i) => i.id).sort(),
+    zones: g.power.system.circuits.filter((c) => c.switched).length,
+    log: sh.logLines.length,
+  };
+  const stored = g.autosave();
+
+  /* Right back to the title and in again, the way a player does it. */
+  g.toTitle();
+  await new Promise((r) => setTimeout(r, 150));
+  g.continueGame();
+  await new Promise((r) => setTimeout(r, 500));
+
+  const sh2 = g.shift;
+  const after = {
+    clock: sh2.clock24,
+    tickets: sh2.book.tickets.size,
+    roll: sh2.book.next,
+    bags: sh2.book.checks.size,
+    drawer: sh2.drawer.total,
+    people: sh2.crowd.people.filter((p) => p.state !== 'gone').length,
+    line: sh2.crowd.lineLength,
+    coaches: g.fleet.coaches.filter((c) => c.present).length,
+    manifests: [...sh2.manifests.values()].map((m) => `${m.id}:${m.state}:${m.boarded.length}`),
+    open: sh2.incidents.open.map((i) => i.id).sort(),
+    zones: g.power.system.circuits.filter((c) => c.switched).length,
+    log: sh2.logLines.length,
+  };
+
+  /* and it has to keep running afterwards */
+  let threw = '';
+  try {
+    const c2 = g.ctx();
+    for (let i = 0; i < 1200; i++) {
+      g.level.update(0.05); g.power.update(0.05); g.fleet.update(0.05);
+      sh2.update(0.05, c2);
+    }
+  } catch (e) { threw = e.message; }
+  return { stored, before, after, threw, ranOn: sh2.clock24 };
+});
+
+check('the shift saved mid-night', round.stored === true);
+check('and came back at the same time', round.before.clock === round.after.clock,
+  `${round.before.clock} -> ${round.after.clock}`);
+check('with the same roll, tickets and bags',
+  round.before.roll === round.after.roll
+  && round.before.tickets === round.after.tickets
+  && round.before.bags === round.after.bags,
+  `roll ${round.after.roll}, ${round.after.tickets} tickets, ${round.after.bags} bags`);
+check('the same money in the drawer', round.before.drawer === round.after.drawer,
+  `${(round.after.drawer / 100).toFixed(2)}`);
+/* Somebody who has already walked out of the building is not restored,
+   and should not be: the save carries the terminal, not its history. */
+check('the same people still in the building, and the same line',
+  round.before.people === round.after.people && round.before.line === round.after.line,
+  `${round.after.people} in the building, ${round.after.line} at the window`);
+check('the same coaches standing at the bays',
+  round.before.coaches === round.after.coaches, `${round.after.coaches}`);
+check('the same manifests in the same states',
+  round.before.manifests.join('|') === round.after.manifests.join('|'),
+  round.after.manifests.join('  '));
+check('the same things still outstanding',
+  round.before.open.join(',') === round.after.open.join(','),
+  round.after.open.join(', ') || 'nothing');
+check('the same zones lit', round.before.zones === round.after.zones, `${round.after.zones}`);
+check('and it carries on from there',
+  round.threw === '' && round.ranOn !== round.after.clock,
+  round.threw || `ran on to ${round.ranOn}`);
+
 check('no page errors', page.logs.filter((l) => l.startsWith('[pageerror]')).length === 0,
   page.logs.slice(0, 3).join(' | '));
 

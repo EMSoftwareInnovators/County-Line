@@ -147,6 +147,7 @@ function register(sh, ctx, st) {
         const notes = sh.drawer.change ? null : null;
         void notes;
         sh.drawer.take(noteBreakdown(sale.paid), 'fare');
+        if (sh.d.sfx) sh.d.sfx('registerBell');
       },
       hold: 0,
     };
@@ -165,6 +166,7 @@ function register(sh, ctx, st) {
       action: () => {
         const got = sale.change(sh.drawer);
         if (got.ok) sh.drawer.give(got.parts, 'change');
+        if (sh.d.sfx) sh.d.sfx('registerBell');
       },
       hold: 0,
     };
@@ -197,8 +199,10 @@ function printer(sh, ctx, st) {
     ...line,
     action: () => {
       sale.issue(sh.book, Math.round(sh.now));
+      if (sh.d.sfx) sh.d.sfx('ticketPrint');
       if (sale.checks.length) {
         sh.log(`${sale.checks.length} checked to ${sale.req.to}.`);
+        if (sh.d.sfx) sh.d.sfx('paper');
       }
     },
     hold: 0.35,
@@ -418,7 +422,11 @@ function bay(sh, ctx, st, n) {
       text: 'Sign the manifest off',
       sub: `${m.boarded.length} aboard, ${m.loaded.length} bags`
         + (drv ? ` — ${drv.name}` : ''),
-      action: () => { m.sign(); sh.log(`${m.time} manifest signed.`); },
+      action: () => {
+        m.sign();
+        sh.log(`${m.time} manifest signed.`);
+        if (sh.d.sfx) sh.d.sfx('stamp');
+      },
       hold: 0.8,
     };
   }
