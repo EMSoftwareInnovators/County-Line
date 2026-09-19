@@ -65,6 +65,30 @@ function glow(b, x0, y0, z0, x1, y1, z1, m, strength = 1.45) {
 }
 
 /**
+ * The BODY of a fitting -- the enameled shade, the fluorescent channel,
+ * the porcelain base.
+ *
+ * These were sampled like any other geometry, and that is wrong for the
+ * same reason the glass is: the lamp is INSIDE the thing. Every one of
+ * these surfaces faces up or sideways, every fitting in this building
+ * throws down, so the sampler gave a shade its ambient value and nothing
+ * else -- and ambient times a dark metal texture is black. Eleven
+ * pendants in the ticket hall rendered as black slabs hanging in the
+ * air, which reads as a hole in the ceiling rather than a lamp, and put
+ * a measurable dent in the frame on top of it.
+ *
+ * So a body states its shade as well. Lower than the glass, because it
+ * is the outside of a shade and not the lamp, and high enough to read as
+ * painted metal with a light under it. It still goes out with its
+ * circuit, which is the whole reason none of this is F_EMIT.
+ */
+function body(b, x0, y0, z0, x1, y1, z1, m, lit = 0.62) {
+  b.mb.shadeFixed = { lit, dark: 0.12 };
+  trimBox(b, x0, y0, z0, x1, y1, z1, m);
+  b.mb.shadeFixed = null;
+}
+
+/**
  * An enameled pendant on a stem.
  *
  * @param spec { x, z, ceil, drop, dia }
@@ -75,15 +99,15 @@ export function pendant(b, spec) {
   const y = spec.ceil - (spec.drop === undefined ? ftin(4, 0) : spec.drop);
   const hs = inch(1);
   // the canopy at the ceiling, and the stem down from it
-  trimBox(b, spec.x - inch(3), spec.ceil - inch(2), spec.z - inch(3),
-    spec.x + inch(3), spec.ceil, spec.z + inch(3), M.fixtureMetal);
-  trimBox(b, spec.x - hs, y + inch(3), spec.z - hs,
-    spec.x + hs, spec.ceil - inch(2), spec.z + hs, M.fixtureMetal);
+  body(b, spec.x - inch(3), spec.ceil - inch(2), spec.z - inch(3),
+    spec.x + inch(3), spec.ceil, spec.z + inch(3), M.fixtureMetal, 0.42);
+  body(b, spec.x - hs, y + inch(3), spec.z - hs,
+    spec.x + hs, spec.ceil - inch(2), spec.z + hs, M.fixtureMetal, 0.42);
   // the shade: two steps, so it reads as a cone at this resolution
-  trimBox(b, spec.x - dia * 0.28, y + inch(2), spec.z - dia * 0.28,
-    spec.x + dia * 0.28, y + inch(5), spec.z + dia * 0.28, M.fixtureEnamel);
-  trimBox(b, spec.x - dia / 2, y - inch(1), spec.z - dia / 2,
-    spec.x + dia / 2, y + inch(2), spec.z + dia / 2, M.fixtureEnamel);
+  body(b, spec.x - dia * 0.28, y + inch(2), spec.z - dia * 0.28,
+    spec.x + dia * 0.28, y + inch(5), spec.z + dia * 0.28, M.fixtureEnamel, 0.58);
+  body(b, spec.x - dia / 2, y - inch(1), spec.z - dia / 2,
+    spec.x + dia / 2, y + inch(2), spec.z + dia / 2, M.fixtureEnamel, 0.72);
   // and the lamp under it
   glow(b, spec.x - dia * 0.34, y - inch(3), spec.z - dia * 0.34,
     spec.x + dia * 0.34, y - inch(1), spec.z + dia * 0.34, M.lampGlass);
@@ -107,8 +131,30 @@ export function strip(b, spec) {
     const z1 = alongX ? spec.z + ww : spec.z + half;
     fn(x0, y0, z0, x1, y1, z1);
   };
-  // channel
-  box(y, spec.ceil, w, (...a) => trimBox(b, ...a, M.fixtureMetal));
+  /* THE CHANNEL IS FOUR INCHES DEEP. It is not a column.
+   *
+   * This drew the channel as one box from the lamp all the way up to
+   * the plaster, which is right for the surface-mounted case it was
+   * written for -- a three-inch drop -- and absurd for a chain-hung
+   * one. The two task lights over the ticket counter hang five and a
+   * half feet below a fifteen-foot ceiling, so each of them rendered
+   * as a five-and-a-half-foot slab of dark metal hanging in the middle
+   * of the room, which is what those two black shapes over the counter
+   * were.
+   *
+   * A fitting is a fitting and the chain is a chain. */
+  const drop = spec.ceil - y;
+  box(y, y + inch(4), w, (...a) => body(b, ...a, M.fixtureMetal, 0.60));
+  if (drop > inch(6)) {
+    /* hung on a pair of chains, one near each end, like every
+       fluorescent a bus company ever put up in a tall room */
+    for (const s of [-1, 1]) {
+      const cx = alongX ? spec.x + s * (half - inch(4)) : spec.x;
+      const cz = alongX ? spec.z : spec.z + s * (half - inch(4));
+      body(b, cx - inch(0.5), y + inch(4), cz - inch(0.5),
+        cx + inch(0.5), spec.ceil, cz + inch(0.5), M.conduit, 0.45);
+    }
+  }
   // the two tubes, just under it
   const t = inch(1.4);
   for (const s of [-1, 1]) {
@@ -135,20 +181,20 @@ export function utility(b, spec) {
   const y = spec.ceil - drop;
   if (drop > inch(8)) {
     // the rose at the ceiling and the cord down from it
-    trimBox(b, spec.x - inch(2), spec.ceil - inch(1.5), spec.z - inch(2),
-      spec.x + inch(2), spec.ceil, spec.z + inch(2), M.fixtureEnamel);
+    body(b, spec.x - inch(2), spec.ceil - inch(1.5), spec.z - inch(2),
+      spec.x + inch(2), spec.ceil, spec.z + inch(2), M.fixtureEnamel, 0.42);
     trimBox(b, spec.x - inch(0.4), y + inch(4), spec.z - inch(0.4),
       spec.x + inch(0.4), spec.ceil - inch(1.5), spec.z + inch(0.4), M.conduit);
   }
-  trimBox(b, spec.x - inch(2.5), y + inch(2), spec.z - inch(2.5),
-    spec.x + inch(2.5), y + inch(4), spec.z + inch(2.5), M.fixtureEnamel);
+  body(b, spec.x - inch(2.5), y + inch(2), spec.z - inch(2.5),
+    spec.x + inch(2.5), y + inch(4), spec.z + inch(2.5), M.fixtureEnamel, 0.55);
   glow(b, spec.x - inch(1.6), y - inch(1), spec.z - inch(1.6),
     spec.x + inch(1.6), y + inch(2), spec.z + inch(1.6), M.lampGlass, 1.25);
   // the cage, as four thin bars
   for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-    trimBox(b, spec.x + dx * inch(2.2) - inch(0.4), y - inch(2), spec.z + dz * inch(2.2) - inch(0.4),
+    body(b, spec.x + dx * inch(2.2) - inch(0.4), y - inch(2), spec.z + dz * inch(2.2) - inch(0.4),
       spec.x + dx * inch(2.2) + inch(0.4), y + inch(2), spec.z + dz * inch(2.2) + inch(0.4),
-      M.conduit);
+      M.conduit, 0.5);
   }
 }
 
@@ -168,7 +214,7 @@ export function sconce(b, spec) {
     const z0 = alongX ? spec.z + Math.min(a, c) : spec.z - hw;
     const z1 = alongX ? spec.z + Math.max(a, c) : spec.z + hw;
     if (bias) glow(b, x0, y0, z0, x1, y1, z1, m, bias);
-    else trimBox(b, x0, y0, z0, x1, y1, z1, m);
+    else body(b, x0, y0, z0, x1, y1, z1, m, 0.5);
   };
   p(0, inch(2), inch(2.5), spec.y - inch(3), spec.y + inch(3), M.fixtureMetal);       // back plate
   p(inch(2), inch(6), inch(1), spec.y - inch(1), spec.y + inch(1), M.fixtureMetal);   // arm
@@ -187,7 +233,7 @@ export function lantern(b, spec) {
     const z0 = alongX ? spec.z + Math.min(a, c) : spec.z - hw;
     const z1 = alongX ? spec.z + Math.max(a, c) : spec.z + hw;
     if (bias) glow(b, x0, y0, z0, x1, y1, z1, m, bias);
-    else trimBox(b, x0, y0, z0, x1, y1, z1, m);
+    else body(b, x0, y0, z0, x1, y1, z1, m, 0.5);
   };
   p(0, inch(2), inch(3), spec.y + inch(6), spec.y + inch(11), M.fixtureMetal);        // bracket
   p(inch(2), inch(7), inch(1), spec.y + inch(8), spec.y + inch(10), M.fixtureMetal);
@@ -207,7 +253,7 @@ export function flood(b, spec) {
     const z0 = alongX ? spec.z + Math.min(a, c) : spec.z - hw;
     const z1 = alongX ? spec.z + Math.max(a, c) : spec.z + hw;
     if (bias) glow(b, x0, y0, z0, x1, y1, z1, m, bias);
-    else trimBox(b, x0, y0, z0, x1, y1, z1, m);
+    else body(b, x0, y0, z0, x1, y1, z1, m, 0.5);
   };
   p(0, inch(4), inch(4), spec.y, spec.y + inch(10), M.fixtureMetal);                  // box
   p(inch(3), inch(15), inch(8), spec.y - inch(9), spec.y + inch(2), M.fixtureMetal);  // hood
@@ -243,8 +289,8 @@ export function pole(b, spec) {
     M.fixtureMetal);
   /* and the head: a shallow aluminum box with a lens under it */
   const hx = spec.x + out * ftin(2, 2);
-  trimBox(b, hx - ftin(1, 2), spec.y - inch(5), spec.z - ftin(0, 10),
-    hx + ftin(1, 2), spec.y, spec.z + ftin(0, 10), M.fixtureMetal);
+  body(b, hx - ftin(1, 2), spec.y - inch(5), spec.z - ftin(0, 10),
+    hx + ftin(1, 2), spec.y, spec.z + ftin(0, 10), M.fixtureMetal, 0.5);
   glow(b, hx - ftin(1, 0), spec.y - inch(6), spec.z - ftin(0, 8),
     hx + ftin(1, 0), spec.y - inch(5), spec.z + ftin(0, 8), M.lampGlass, 1.35);
 }
@@ -256,8 +302,8 @@ export function pole(b, spec) {
 export function bulkhead(b, spec) {
   const M = b.M;
   const w = spec.w || ftin(1, 2);
-  trimBox(b, spec.x - w, spec.y - inch(2), spec.z - w,
-    spec.x + w, spec.y, spec.z + w, M.fixtureEnamel);
+  body(b, spec.x - w, spec.y - inch(2), spec.z - w,
+    spec.x + w, spec.y, spec.z + w, M.fixtureEnamel, 0.6);
   glow(b, spec.x - w + inch(2), spec.y - inch(6), spec.z - w + inch(2),
     spec.x + w - inch(2), spec.y - inch(2), spec.z + w - inch(2), M.lampGlass, 1.3);
 }

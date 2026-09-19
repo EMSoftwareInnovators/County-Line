@@ -79,7 +79,21 @@ export function makeLightSampler(opts) {
       if (d2 > r * r) continue;
       const d = Math.sqrt(d2) || 1e-4;
       let a = 1 - d / r;
-      a *= a;
+      /* THE SHAPE OF A POOL OF LIGHT.
+       *
+       * This was a plain square, which is nearly right for a bare bulb
+       * in a vacuum and quite wrong for a room: it puts the target on
+       * the boards directly under the fitting and then falls off so
+       * fast that a point halfway to the next pendant is down at the
+       * ambient floor. A hall with four pendants in it came out as four
+       * bright discs on a black carpet rather than a lit hall.
+       *
+       * Weighted toward the square rather than being it. The center is
+       * unchanged, the edge still reaches nothing -- so every `target`
+       * in the schedule still means what it said -- but the shoulder
+       * between two fittings is filled, which is what makes a room read
+       * as a room. */
+      a = a * a * 0.62 + a * 0.38;
       /* A shaded fitting throws down. `dy` is the light minus the
          surface, so a surface below the fitting has dy > 0, and dy/d is
          how far below it is. Weighted toward the square, because a shade

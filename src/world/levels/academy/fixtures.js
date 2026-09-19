@@ -132,27 +132,43 @@ export const ROOM_CIRCUIT = (() => {
 
    `target` is where the gloom is actually decided:
 
-       0.78 - 0.88   the lobby and the waiting rooms: a working level
-       0.60 - 0.66   halls, baggage, the break room, the restroom, the
-                     clerk's office -- all of which also collect spill
+       0.78 - 0.82   the lobby, the waiting rooms, the stair halls: a
+                     working level
+       0.62 - 0.76   halls, baggage, the break room, the clerk's office,
+                     the restroom -- all of which also collect spill
                      from whatever is next to them, so they are set
                      lower than they read
-       0.44 - 0.50   stores, closets, records
-       0.42 - 0.54   the whole upper floor
+       0.54 - 0.62   stores, closets, records
+       0.52 - 0.58   the whole upper floor
 
-   Ambient adds about 0.13 to all of it. Nothing in the building reaches
-   1.0 except the lamps themselves.
+   Ambient adds 0.30 to all of it. Nothing in the building reaches 1.0
+   except the lamps themselves.
 
-   THESE NUMBERS WENT UP ONCE, BY A QUARTER, AND THEY WERE MEASURED
-   BOTH TIMES. The first set was tuned against the sampler -- 0.72 on
-   the boards under a pendant, which is a perfectly respectable number
-   -- and the rendered lobby came back at a MEAN PIXEL OF 32 OF 255,
-   with two fifths of the frame near black. A ticket hall you have to
-   squint in is not atmosphere, it is a bug, and the brief says so in
-   as many words. So the harness in tools/lum was pointed at nine views
-   and the targets raised until the rooms people work in sat in the
-   fifties and sixties. The building is still dark. It is no longer
-   dark in the places somebody is trying to count change.
+   ------------------------------------------------------------
+   THESE NUMBERS HAVE BEEN WRONG TWICE, AND THE SECOND TIME IS WHY
+   tools/lum.mjs EXISTS.
+
+   The first set was tuned against the sampler: 0.72 on the boards under
+   a pendant, which is a perfectly respectable number, and the rendered
+   lobby came back at a mean pixel of 32 of 255.
+
+   The second set was tuned against the MEAN PIXEL of nine views, the
+   means came back in the fifties, and the building was still not
+   playable -- every room in it but the ticket hall was reported by the
+   person playing it as having "absolutely no way to see". The mean was
+   measuring the wrong thing. A frame with a lit doorway in it and
+   everything else near black has a perfectly respectable mean, and what
+   a player experiences is the part of the frame carrying no
+   information at all.
+
+   So the third set was tuned against the DARK TAIL, over every room in
+   the building rather than nine views, from places a player can
+   actually stand -- and three of the four causes turned out not to be
+   in this table at all. See tools/lum.mjs, postfx.js (the tube was
+   multiplying the shadows toward zero), lighting.js (the pools fell off
+   too fast to meet each other) and fittings.js (every lamp body in the
+   building was rendering as a black slab). This table did the rest.
+   ------------------------------------------------------------
 
    WHY THE LIGHT DOES NOT LEAK EVERYWHERE, given radii of thirty feet in
    rooms half that across and no shadowing of any kind: the half-lambert
@@ -164,9 +180,9 @@ export const ROOM_CIRCUIT = (() => {
    ============================================================ */
 const REACH = 2.2;
 
-const SCHEDULE = [
+export const SCHEDULE = [
   /* ---- public, first floor ---- */
-  { id: 'academy.central', fit: 'pendant', nx: 4, nz: 2, mount: 11.25, target: 0.72 },
+  { id: 'academy.central', fit: 'pendant', nx: 4, nz: 2, mount: 11.25, target: 0.80 },
   /* THE TASK LIGHTS. A room's grid lights the room; these light the
      work. Two four-foot strips over the ticket counter, hung lower
      than the pendants and on the same way, which is exactly what a bus
@@ -175,9 +191,9 @@ const SCHEDULE = [
     id: 'academy.central', fit: 'strip', mount: 9.5, target: 0.62, len: ftin(4, 0),
     at: [[ft(-16), ft(4.6)], [ft(-8), ft(4.6)]],
   },
-  { id: 'academy.indians', fit: 'pendant', nx: 2, nz: 3, mount: 11.5, target: 0.74 },
-  { id: 'academy.giftshop', fit: 'pendant', nx: 1, nz: 4, mount: 11.5, target: 0.76 },
-  { id: 'academy.americana.main', fit: 'pendant', nx: 1, nz: 4, mount: 11.5, target: 0.72 },
+  { id: 'academy.indians', fit: 'pendant', nx: 2, nz: 3, mount: 11.5, target: 0.82 },
+  { id: 'academy.giftshop', fit: 'pendant', nx: 1, nz: 4, mount: 11.5, target: 0.78 },
+  { id: 'academy.americana.main', fit: 'pendant', nx: 1, nz: 5, mount: 11.5, target: 0.80 },
   /* over the transfers and refunds window at the north end */
   {
     id: 'academy.americana.main', fit: 'strip', mount: 9.5, target: 0.55, len: ftin(4, 0),
@@ -192,40 +208,40 @@ const SCHEDULE = [
   /* ---- staff and service, first floor ----
      Chain-hung fluorescent, ten feet up, which is what a bus company
      screws into a fifteen-foot room it has to work in. */
-  { id: 'academy.west.docent', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.62, len: ftin(4, 0) },
-  { id: 'academy.west.store', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.46 },
-  { id: 'academy.west.offices', fit: 'strip', nx: 2, nz: 3, mount: 10, target: 0.5, len: ftin(4, 0) },
+  { id: 'academy.west.docent', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.74, len: ftin(4, 0) },
+  { id: 'academy.west.store', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.56 },
+  { id: 'academy.west.offices', fit: 'strip', nx: 2, nz: 3, mount: 10, target: 0.62, len: ftin(4, 0) },
   { id: 'academy.west.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.6, len: ftin(4, 0), axis: 'z' },
   { id: 'academy.west.restroom', fit: 'strip', nx: 1, nz: 1, mount: 9.5, target: 0.62, len: ftin(4, 0) },
-  { id: 'academy.west.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.66 },
+  { id: 'academy.west.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.78 },
   { id: 'academy.east.rearhall', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.62, len: ftin(4, 0), axis: 'z' },
-  { id: 'academy.east.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.66 },
+  { id: 'academy.east.stairhall', fit: 'pendant', nx: 1, nz: 1, mount: 10.75, target: 0.78 },
   { id: 'academy.east.entry', fit: 'strip', nx: 1, nz: 1, mount: 10, target: 0.6, len: ftin(4, 0) },
-  { id: 'academy.east.animal', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.62, len: ftin(4, 0) },
+  { id: 'academy.east.animal', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.72, len: ftin(4, 0) },
   /* over the scale and the tag desk, which is where the work is */
   {
     id: 'academy.east.animal', fit: 'strip', mount: 8.5, target: 0.5, len: ftin(4, 0),
     axis: 'z', at: [[ft(27.25), ft(29.5)]],
   },
-  { id: 'academy.east.staff', fit: 'strip', nx: 1, nz: 2, mount: 10, target: 0.6, len: ftin(4, 0) },
-  { id: 'academy.east.service', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.44 },
-  { id: 'academy.east.vestibule', fit: 'utility', nx: 1, nz: 1, mount: 9.5, target: 0.44 },
-  { id: 'academy.east.council', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.4 },
+  { id: 'academy.east.staff', fit: 'strip', nx: 2, nz: 2, mount: 10, target: 0.76, len: ftin(4, 0) },
+  { id: 'academy.east.service', fit: 'utility', nx: 1, nz: 1, mount: 10, target: 0.56 },
+  { id: 'academy.east.vestibule', fit: 'utility', nx: 1, nz: 1, mount: 9.5, target: 0.54 },
+  { id: 'academy.east.council', fit: 'utility', nx: 1, nz: 2, mount: 10, target: 0.60 },
 
   /* ---- the upper floor ----
      A bulb on a cord per room, and dimmer bulbs than downstairs. The bus
      company inherited a whole second story it never needed and lights it
      like the store room it uses it as. This is most of why upstairs
      reads as unfamiliar, and it is on purpose. */
-  { id: 'academy.upper.west.rotating', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.46 },
+  { id: 'academy.upper.west.rotating', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.54 },
   { id: 'academy.upper.west.landing', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.5 },
-  { id: 'academy.upper.west.history', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.44 },
-  { id: 'academy.upper.center.war', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.54 },
-  { id: 'academy.upper.center.mammals', fit: 'pendant', nx: 1, nz: 2, mount: 8.5, target: 0.54 },
-  { id: 'academy.upper.east.natural', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.42 },
+  { id: 'academy.upper.west.history', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.52 },
+  { id: 'academy.upper.center.war', fit: 'pendant', nx: 1, nz: 3, mount: 8.5, target: 0.58 },
+  { id: 'academy.upper.center.mammals', fit: 'pendant', nx: 1, nz: 3, mount: 8.5, target: 0.58 },
+  { id: 'academy.upper.east.natural', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.54 },
   { id: 'academy.upper.east.landing', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.5 },
-  { id: 'academy.upper.east.minerals', fit: 'utility', nx: 1, nz: 1, mount: 12, target: 0.5 },
-  { id: 'academy.upper.east.archives', fit: 'utility', nx: 1, nz: 2, mount: 12, target: 0.44 },
+  { id: 'academy.upper.east.minerals', fit: 'utility', nx: 2, nz: 1, mount: 12, target: 0.54 },
+  { id: 'academy.upper.east.archives', fit: 'utility', nx: 2, nz: 2, mount: 12, target: 0.54 },
 ];
 
 /**
@@ -240,7 +256,7 @@ const SCHEDULE = [
  * has its general light AND its task light, and they are different
  * fittings at different heights answering different questions.
  */
-function positions(r, row) {
+export function positions(r, row) {
   if (row.at) return row.at;
   const out = [];
   for (let i = 0; i < row.nx; i++) {
@@ -285,7 +301,13 @@ function powerOf(r, row) {
     const flat = Math.hypot(x - px, z - pz);
     const d = Math.hypot(flat, h);
     if (d >= reach) continue;
-    const a = (1 - d / reach) ** 2;
+    /* The same shape the sampler uses. These two have to agree: the
+       whole point of deriving intensity rather than tuning it is that
+       `target` means the illumination that actually arrives, and it
+       stops meaning that the moment this line and lighting.js disagree
+       about how a pool falls off. */
+    const k = 1 - d / reach;
+    const a = k * k * 0.62 + k * 0.38;
     const below = h / d;
     sum += a * (below * below * 0.75 + below * 0.25);
   }
@@ -401,10 +423,18 @@ export function declareLights(b) {
     const reach = reachOf(row), power = powerOf(r, row);
     for (const [x, z] of positions(r, row)) {
       b.light(wiredDown(c, x, y, z, reach, power));
-      /* A little bounce off the floor under each fitting, so the room
-         does not read as a spotlight on a black stage. Short reach, and
-         it goes out with the same breaker. */
-      b.light(wiredFill(c, x, r.y + ftin(2, 6), z, reach * 0.42, row.target * 0.3));
+      /* Bounce off the floor under each fitting, so the room does not
+         read as a spotlight on a black stage. It goes out with the same
+         breaker.
+
+         THIS IS THE TERM THAT LIGHTS UNDERSIDES. It is a `fill`, so it
+         ignores which way a surface faces, and that is exactly what a
+         soffit needs: every fitting in this building throws down, so the
+         underside of a stair run, a counter or a shelf is turned away
+         from every lamp that could reach it and the half-lambert leaves
+         it at 22%. Against dark stair wood that came out as a black
+         wedge across a third of the west stair hall. */
+      b.light(wiredFill(c, x, r.y + ftin(2, 6), z, reach * 0.52, row.target * 0.38));
     }
   }
 
@@ -420,7 +450,8 @@ export function declareLights(b) {
     /* A single fitting outdoors, so the one-lamp arithmetic is right
        here: what the falloff leaves directly under it, at REACH. */
     const reach = ft(e.mount) * REACH;
-    const power = e.target / ((1 - 1 / REACH) ** 2);
+    const k = 1 - 1 / REACH;
+    const power = e.target / (k * k * 0.62 + k * 0.38);
     b.light(wiredDown(e.c, lx, e.y, lz, reach, power));
     b.light(wiredFill(e.c, lx, e.y - ftin(4, 0), lz, reach * 0.45, e.target * 0.3));
   }

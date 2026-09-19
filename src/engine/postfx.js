@@ -20,6 +20,13 @@
    what the player is looking at. They default to off.
    ============================================================ */
 
+/* How much of the scanline and vignette a black pixel is spared. At 1
+   the tube would not touch the darks at all and the vignette would stop
+   reading on a night exterior; at 0 it eats them, which is where this
+   started. Squared in the table, so only the genuinely dark end is
+   protected and the midtones still take the effect. */
+const SHADOW_KEEP = 0.88;
+
 // 4x4 Bayer, biased to +/- half a quantization step
 const BAYER = new Int32Array([
   0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5,
@@ -97,6 +104,8 @@ export class PostFX {
 
     if (!this._vig || this._vig.length !== w * h) this._buildVignette();
     const vig = this._vig;
+    if (!this._shadow) this._buildShadowLut();
+    const shadow = this._shadow;
 
     for (let y = 0; y < h; y++) {
       let shift = 0;
@@ -128,10 +137,27 @@ export class PostFX {
           b = (b * keepK + ((pv >> 16) & 255) * ghostK) >> 8;
         }
 
-        const v = vig[i];
-        let R = (((r * gR) >> 8) * scanK >> 8) * v >> 8;
-        let G = (((g * gG) >> 8) * scanK >> 8) * v >> 8;
-        let B = (((b * gB) >> 8) * scanK >> 8) * v >> 8;
+        /* THE TUBE MUST NOT EAT THE SHADOWS.
+         *
+         * The scanline gap and the vignette were plain multiplies, and
+         * a plain multiply is a percentage: it takes 18% off a white
+         * wall, which you see and which is the effect, and it takes 18%
+         * off a pixel already sitting at 20, which you do not see and
+         * which is the last of the detail in a dark corner. Stack the
+         * two and a corner of an odd scanline kept 47% of a value that
+         * was 18 to begin with. That is how twenty-seven rooms measured
+         * a third of the frame below the floor where texture stops
+         * existing, with the lighting rig innocent.
+         *
+         * So the attenuation is scaled by how bright the pixel already
+         * is. Highlights take all of it and still carry the tube; the
+         * darks take little and keep their information. The look is
+         * unchanged anywhere you were actually looking at it. */
+        const att = (scanK * vig[i]) >> 8;
+        const soft = att + (((256 - att) * shadow[g]) >> 8);
+        let R = ((r * gR) >> 8) * soft >> 8;
+        let G = ((g * gG) >> 8) * soft >> 8;
+        let B = ((b * gB) >> 8) * soft >> 8;
 
         if (grain) {
           const n = ((Math.random() * grain) | 0) - (grain >> 1);
@@ -162,6 +188,18 @@ export class PostFX {
 
     prev.set(out);
     this.ctx.putImageData(this.img, 0, 0);
+  }
+
+  /* How much of the tube's attenuation a pixel is spared, by its own
+     brightness: none at white, nearly all at black. Green stands in for
+     luma -- it is three quarters of it and it is already in a register. */
+  _buildShadowLut() {
+    const v = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      const dark = 1 - i / 255;
+      v[i] = Math.min(255, (dark * dark * SHADOW_KEEP * 256) | 0);
+    }
+    this._shadow = v;
   }
 
   _buildVignette() {

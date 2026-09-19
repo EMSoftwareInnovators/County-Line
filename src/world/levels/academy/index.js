@@ -105,10 +105,10 @@ export const academy = {
 
        THE OUTSIDE is overcast daylight: high ambient on the vertical
        faces, a strong sky term on everything pointing up. */
-    b.lighting({ ambient: 0.2, sky: 0.09, skyDir: [0, 1, 0], max: 1.45, darkAmbient: 0.075 });
+    b.lighting({ ambient: 0.30, sky: 0.09, skyDir: [0, 1, 0], max: 1.45, darkAmbient: 0.095 });
     buildShell(b);
 
-    b.lighting({ ambient: 0.13, sky: 0, max: 1.45, darkAmbient: 0.048 });
+    b.lighting({ ambient: 0.30, sky: 0, max: 1.45, darkAmbient: 0.085 });
     /* The two floors hand back the rooms that take wainscot rather than
        laying it themselves. See trim.js: a board has to know where the
        wall is interrupted, and the porch doors are cut two modules
@@ -116,14 +116,14 @@ export const academy = {
     const trim = [...buildFirstFloor(b), ...buildSecondFloor(b)];
     buildStairs(b);
 
-    b.lighting({ ambient: 0.13, sky: 0.12, skyDir: [0, 1, 0], max: 1.5, darkAmbient: 0.06 });
+    b.lighting({ ambient: 0.26, sky: 0.12, skyDir: [0, 1, 0], max: 1.5, darkAmbient: 0.08 });
     buildPorches(b);
     buildRoof(b);
     buildGrounds(b);
 
     /* AFTER EVERYTHING THAT CUTS A HOLE IN A WALL. Nothing built below
        this line may cut one. */
-    b.lighting({ ambient: 0.13, sky: 0, max: 1.45, darkAmbient: 0.048 });
+    b.lighting({ ambient: 0.30, sky: 0, max: 1.45, darkAmbient: 0.085 });
     buildTrim(b, trim);
     buildFixtures(b);
 
