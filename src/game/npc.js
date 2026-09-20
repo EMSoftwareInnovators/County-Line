@@ -234,3 +234,96 @@ export function spawnTestActor(level, say) {
   }));
   return [npc];
 }
+
+/* ============================================================
+   KEEPING PEOPLE OUT OF EACH OTHER
+
+   Nothing did this, and it is the most visible thing wrong with a room
+   full of people: six passengers in a line at the ticket window stood
+   in the same eighteen inches of floor, walked through one another to
+   get to a bench, and shared a seat. Measured over a night, a quarter
+   of all sampled frames had at least two actors inside one another, the
+   worst by eighteen inches -- which is one body entirely inside
+   another.
+
+   WHY NOT COLLIDERS. The obvious fix is to put every actor into the
+   collision world as a solid and let CollisionWorld.move sort it out.
+   It does not work: move() pushes a body out of things that do not
+   move, and two people walking into each other are BOTH moving. The
+   first one resolved wins, the second is shoved into a wall, and a line
+   of six becomes a scrum. It is also the one case where the right
+   answer is not "stop" -- people in a line do not halt when touched,
+   they shuffle.
+
+   So this is a separation pass, run after everyone has moved: find the
+   pairs that overlap and push them apart along the line between them,
+   half each. Iterated twice because one pass leaves a body squeezed
+   between two others still slightly inside one of them, and settled
+   against the collider afterwards so that being pushed apart can never
+   push somebody through a wall.
+
+   THE PLAYER IS IMMOVABLE HERE. They get pushed by their own collision
+   and nothing else: an NPC that could shove the camera would be a
+   worse bug than the one this fixes.
+   ============================================================ */
+
+/** How hard a pair is separated per pass. 1 is all the way, at once. */
+const PUSH = 0.6;
+/** Passes per frame. Two settles a line; more is not worth the cost. */
+const PASSES = 2;
+
+/**
+ * @param actors everybody in the world this frame
+ * @param player the camera, pushed against but never pushed
+ * @param ctx    for the collider, so nobody is separated into a wall
+ */
+export function separate(actors, player, ctx) {
+  const n = actors.length;
+  if (!n) return;
+  for (let pass = 0; pass < PASSES; pass++) {
+    for (let i = 0; i < n; i++) {
+      const a = actors[i];
+      if (a.hidden) continue;
+      for (let j = i + 1; j < n; j++) {
+        const b = actors[j];
+        if (b.hidden) continue;
+        /* Only people on the same floor are in each other's way. */
+        if (Math.abs((a.y || 0) - (b.y || 0)) > 1.0) continue;
+        const need = (a.r || ACTOR_RADIUS) + (b.r || ACTOR_RADIUS);
+        let dx = b.x - a.x, dz = b.z - a.z;
+        let d = Math.hypot(dx, dz);
+        if (d >= need) continue;
+        if (d < 1e-4) {
+          /* Exactly on top of one another, which happens when two are
+             spawned at the same mark. Pick a direction rather than
+             dividing by zero. */
+          const th = (i * 2.399963 + j) % (Math.PI * 2);
+          dx = Math.cos(th); dz = Math.sin(th); d = 1;
+        }
+        const push = ((need - d) / d) * 0.5 * PUSH;
+        a.x -= dx * push; a.z -= dz * push;
+        b.x += dx * push; b.z += dz * push;
+      }
+      /* and against the player, who does not budge */
+      if (player) {
+        const need = (a.r || ACTOR_RADIUS) + (player.r || 0.2794);
+        let dx = a.x - player.x, dz = a.z - player.z;
+        let d = Math.hypot(dx, dz);
+        if (d < need && Math.abs((a.y || 0) - (player.y || 0)) <= 1.0) {
+          if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
+          const push = (need - d) / d;
+          a.x += dx * push; a.z += dz * push;
+        }
+      }
+    }
+  }
+  /* Settle everyone against the world, so a shove cannot put somebody
+     through a wall or a shut door. A zero-length move is enough: it is
+     what CollisionWorld.move does with a body that is already inside
+     something. */
+  if (ctx && ctx.collision) {
+    for (let i = 0; i < n; i++) {
+      if (!actors[i].hidden) ctx.collision.move(actors[i], 0, 0, 0);
+    }
+  }
+}

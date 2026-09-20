@@ -71,9 +71,20 @@ const rows = await page.evaluate(() => {
 
     /* The leaf's own solid must sit in the opening, not somewhere else. */
     const sol = d.solid || d.makeSolid();
-    const aligned = Math.abs(sol.y0 - d.y) < 0.01
-      && Math.abs((sol.x0 + sol.x1) / 2 - d.x) < 0.02
-      && Math.abs((sol.z0 + sol.z1) / 2 - d.z) < 0.02;
+    /* THE UNION OF THE LEAVES, not one box. A door contributes one
+       collider PER LEAF now -- a pair half open is blocked at both
+       jambs with a gap between, which no single axis-aligned box can
+       say -- so the thing that has to sit in the opening is all of
+       them together. */
+    const all = d.solids && d.solids.length ? d.solids : [sol];
+    const u = all.reduce((q, t) => ({
+      x0: Math.min(q.x0, t.x0), x1: Math.max(q.x1, t.x1),
+      z0: Math.min(q.z0, t.z0), z1: Math.max(q.z1, t.z1),
+      y0: Math.min(q.y0, t.y0),
+    }), { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity, y0: Infinity });
+    const aligned = Math.abs(u.y0 - d.y) < 0.01
+      && Math.abs((u.x0 + u.x1) / 2 - d.x) < 0.02
+      && Math.abs((u.z0 + u.z1) / 2 - d.z) < 0.02;
 
     /* Both sides can see it and are offered it. */
     const look = (fx, fz) => {
@@ -201,6 +212,21 @@ async function useDoor(id, from) {
     return { open: d.open, clear: d.clear };
   }, id);
 }
+
+/* UNBOLT THE PUBLIC DOORS FIRST. A shift starts with the front of the
+   terminal locked -- opening up is the clerk's first job -- and this
+   harness is about the door as a piece of architecture, not about the
+   night's procedure. tools/shift.mjs and tools/clerk.mjs are what check
+   the lock actually holds and the job actually clears it. */
+await page.evaluate(() => {
+  const g = window.__game;
+  /* The opening job is ON the front doors now, so while the shift still
+     wants it those doors offer "Unlock the front doors" instead of
+     opening and shutting. Clear it, then unbolt the lot. */
+  if (g.shift && g.shift.wants('doors')) g.shift.finish('doors');
+  for (const d of g.level.doors) { d.locked = false; d.target = 0; d.amount = 0; }
+  g.level.update(0.05);
+});
 
 console.log('\n-- the canonical connections, opened and walked --');
 const CANON = [

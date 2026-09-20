@@ -24,6 +24,7 @@
    does the walking. The player's part is the manifest and the coffee.
    ============================================================ */
 import { Npc } from '../npc.js';
+import { BUILDS, bodyOf } from '../actor.js';
 
 export const DSTATE = {
   OFF: 'off',
@@ -58,6 +59,12 @@ export class Driver {
       states: {},
     });
     this.npc.skin = spec.skin === undefined ? 0 : spec.skin;
+    /* Drivers wear a uniform, so the wardrobe barely varies -- but a
+       company does not hire one size of person, and the build does. */
+    const body = bodyOf(spec.build === undefined ? 2 : spec.build);
+    this.npc.build = body;
+    this.npc.r = body.r;
+    this.npc.height = body.height;
     this.npc.owner = this;
   }
 
@@ -92,6 +99,7 @@ export class Driver {
       h: this.habit, a: this.asked,
       x: this.npc.x, y: this.npc.y, z: this.npc.z, yaw: this.npc.yaw,
       k: this.npc.skin,
+      b: this.npc.build ? BUILDS.findIndex((x) => x.id === this.npc.build.id) : 2,
     };
   }
 }
@@ -128,6 +136,7 @@ export class CrewRoom {
       id: spec.id, name: spec.name, manifest: spec.manifest,
       at: { x: spec.from.x, y: spec.from.y || 0, z: spec.from.z },
       skin: Math.floor(this.r() * (this.opt.skins || 1)),
+      build: Math.floor(this.r() * BUILDS.length),
       habit: HABITS[Math.floor(this.r() * HABITS.length)],
     });
     this.drivers.push(d);
@@ -230,7 +239,7 @@ export class CrewRoom {
       const man = manifests ? manifests.get(r.m) : null;
       const drv = new Driver({
         id: r.id, name: r.name, manifest: man || null,
-        at: { x: r.x, y: r.y, z: r.z, yaw: r.yaw }, skin: r.k, habit: r.h,
+        at: { x: r.x, y: r.y, z: r.z, yaw: r.yaw }, skin: r.k, build: r.b, habit: r.h,
       });
       drv.state = r.s;
       drv.asked = r.a || null;

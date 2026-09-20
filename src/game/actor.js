@@ -21,7 +21,7 @@
    which is all Stage 1 is claiming.
    ============================================================ */
 import { MeshBuilder } from '../engine/mesh.js';
-import { mat, mul, setPosYaw, setRotX, setRotY, setRotZ, setTranslate } from '../engine/mathx.js';
+import { mat, mul, setPosYaw, setRotX, setRotY, setRotZ, setScale, setTranslate } from '../engine/mathx.js';
 import { ftin } from '../engine/units.js';
 
 /* Body metrics for a 5 ft 9 in adult, in meters. */
@@ -133,13 +133,136 @@ export function buildActorMeshes(skin) {
  * building is.
  */
 export const WARDROBE = [
-  { coat: '#4d6070', shirt: '#46586a', legs: '#3a4450', hair: '#3b3129', skin: '#9c7f6a' },
-  { coat: '#5a4a3a', shirt: '#6d6152', legs: '#33302c', hair: '#221c17', skin: '#8a6a52' },
-  { coat: '#3f4f3c', shirt: '#4a5a46', legs: '#2f3630', hair: '#4a3b2a', skin: '#b3917a' },
-  { coat: '#6a6257', shirt: '#7b7469', legs: '#41403c', hair: '#6b6258', skin: '#c2a289' },
-  { coat: '#2f3b4a', shirt: '#3a4757', legs: '#262d38', hair: '#1d1a17', skin: '#7b5c44' },
-  { coat: '#6d4a44', shirt: '#7d5a52', legs: '#3c3330', hair: '#3a2b22', skin: '#a98567' },
+  { coat: '#4d6070', shirt: '#46586a', legs: '#3a4450', hair: '#3b3129', skin: '#9c7f6a', brow: 2, beard: 0, specs: 0 },
+  { coat: '#5a4a3a', shirt: '#6d6152', legs: '#33302c', hair: '#221c17', skin: '#8a6a52', brow: 3, beard: 2, specs: 0 },
+  { coat: '#3f4f3c', shirt: '#4a5a46', legs: '#2f3630', hair: '#4a3b2a', skin: '#b3917a', brow: 1, beard: 0, specs: 1 },
+  { coat: '#6a6257', shirt: '#7b7469', legs: '#41403c', hair: '#6b6258', skin: '#c2a289', brow: 2, beard: 1, specs: 1 },
+  { coat: '#2f3b4a', shirt: '#3a4757', legs: '#262d38', hair: '#1d1a17', skin: '#7b5c44', brow: 3, beard: 0, specs: 0 },
+  { coat: '#6d4a44', shirt: '#7d5a52', legs: '#3c3330', hair: '#3a2b22', skin: '#a98567', brow: 2, beard: 3, specs: 0 },
+  { coat: '#414a54', shirt: '#8d8676', legs: '#2b2f36', hair: '#5d5347', skin: '#6f5138', brow: 2, beard: 0, specs: 1 },
+  { coat: '#7a6a4e', shirt: '#8c8163', legs: '#494234', hair: '#2b2118', skin: '#c9ab92', brow: 1, beard: 1, specs: 0 },
+  { coat: '#34424a', shirt: '#5f7078', legs: '#272e33', hair: '#6e5a3f', skin: '#8e6f55', brow: 3, beard: 2, specs: 0 },
+  { coat: '#5b4756', shirt: '#6d5a66', legs: '#37303a', hair: '#8a7b68', skin: '#b9977c', brow: 1, beard: 0, specs: 0 },
+  { coat: '#4a5240', shirt: '#7d8168', legs: '#31352b', hair: '#3f3226', skin: '#a07c5e', brow: 2, beard: 1, specs: 1 },
+  { coat: '#63504a', shirt: '#9a8d7c', legs: '#3a322e', hair: '#151312', skin: '#74573f', brow: 3, beard: 0, specs: 0 },
 ];
+
+/* ============================================================
+   BUILDS
+
+   THE SAME BODY TWELVE TIMES IS STILL ONE PERSON. Six wardrobes on one
+   mesh at one size read as a uniform, not a crowd -- and a coach
+   terminal is a crowd or it is nothing. The mesh stays shared, because
+   building a dozen of them would cost a dozen times the memory for
+   something nobody can see at this resolution; what varies is the
+   SCALE it is drawn at, non-uniformly, which is enough to tell two
+   people apart across a lobby and costs one matrix multiply.
+
+   `h` is overall height and `w` is how wide and deep through the body.
+   The ranges are real: 5'2" to 6'2" is a spread you would see in a
+   waiting room, and a stockier person is not a taller person.
+   ============================================================ */
+export const BUILDS = [
+  { id: 'slight', h: 0.94, w: 0.88 },
+  { id: 'short', h: 0.92, w: 1.05 },
+  { id: 'average', h: 1.00, w: 1.00 },
+  { id: 'lean', h: 1.05, w: 0.90 },
+  { id: 'broad', h: 1.01, w: 1.16 },
+  { id: 'tall', h: 1.08, w: 0.97 },
+  { id: 'heavy', h: 0.97, w: 1.22 },
+  { id: 'rangy', h: 1.11, w: 0.92 },
+];
+
+/** How tall and how wide somebody of this build actually is. */
+export function bodyOf(n) {
+  const b = BUILDS[((n | 0) % BUILDS.length + BUILDS.length) % BUILDS.length];
+  return { ...b, height: ACTOR_HEIGHT * b.h, r: ACTOR_RADIUS * b.w };
+}
+
+/* ============================================================
+   A FACE, AT SIXTEEN PIXELS
+
+   The old comment here said a face would be four pixels of mud at this
+   resolution and left the panel a flat patch of skin. It was half
+   right: a face DRAWN LIKE A FACE is mud. What is not mud is three or
+   four marks placed where the eye expects them -- two dark dots, a brow
+   above them, a mouth below -- because a head at forty pixels tall is
+   read by arrangement, not detail. It is the same reason the chest
+   panel has a placket down it.
+
+   So every mark here is one or two pixels and none of them is shaded.
+   What varies is where they sit: eyes close or wide, brows heavy or
+   thin, a beard, a moustache, glasses. Twelve wardrobes times the
+   spacing variations is enough that two people in a line are two
+   people.
+   ============================================================ */
+function paintFace(g, rect, w, n) {
+  const [fx, fy, fw] = rect;
+  const px = (x, y, css, ww = 1, hh = 1) => {
+    g.fillStyle = css;
+    g.fillRect(fx + x, fy + y, ww, hh);
+  };
+  const ink = '#1b1713';
+  const hair = w.hair;
+  /* the head is widest across the middle, so the features sit high:
+     eyes a little above center is what reads as a face and not a mask */
+  const wide = 1 + (n % 3);                 // 1..3 px either side of center
+  const mid = fw / 2;
+  const eyeY = 6;
+
+  /* hairline across the top of the panel, which is what makes the
+     difference between a head and an egg */
+  const drop = 2 + (n % 2);
+  px(1, 0, hair, fw - 2, drop);
+  if (n % 4 === 0) px(1, drop, hair, 3, 1);          // a widow's peak
+  if (n % 5 === 0) px(fw - 4, drop, hair, 3, 1);
+
+  /* brows */
+  const browY = eyeY - 2;
+  const bw = w.brow;                                  // 1 thin .. 3 heavy
+  px(mid - wide - 2, browY, hair, 3, bw > 2 ? 2 : 1);
+  px(mid + wide, browY, hair, 3, bw > 2 ? 2 : 1);
+
+  /* eyes */
+  px(mid - wide - 1, eyeY, ink, 2, 2);
+  px(mid + wide, eyeY, ink, 2, 2);
+
+  /* glasses, over the top of them */
+  if (w.specs) {
+    px(mid - wide - 2, eyeY - 1, ink, 4, 1);
+    px(mid + wide - 1, eyeY - 1, ink, 4, 1);
+    px(mid - wide - 2, eyeY + 2, ink, 4, 1);
+    px(mid + wide - 1, eyeY + 2, ink, 4, 1);
+    px(mid - 1, eyeY, ink, 2, 1);
+  }
+
+  /* nose: one pixel of shadow, which at this size is plenty */
+  px(mid - 1, eyeY + 3, dimOf(w.skin), 1, 2);
+
+  /* mouth, and whatever is growing around it */
+  const mouthY = eyeY + 6;
+  if (w.beard === 3) {
+    px(2, mouthY - 2, hair, fw - 4, 6);               // full beard
+    px(mid - 2, mouthY + 1, ink, 4, 1);
+  } else if (w.beard === 2) {
+    px(mid - 3, mouthY - 1, hair, 6, 2);              // moustache
+    px(mid - 2, mouthY + 2, ink, 4, 1);
+  } else if (w.beard === 1) {
+    px(mid - 2, mouthY + 2, hair, 4, 2);              // goatee
+    px(mid - 2, mouthY, ink, 4, 1);
+  } else {
+    px(mid - 2, mouthY, ink, 4, 1);
+  }
+}
+
+/** A shade down from a color, for the one pixel of nose. */
+function dimOf(css) {
+  const v = parseInt(css.slice(1), 16);
+  const r = Math.round(((v >> 16) & 255) * 0.72);
+  const g2 = Math.round(((v >> 8) & 255) * 0.72);
+  const b = Math.round((v & 255) * 0.72);
+  return `#${((r << 16) | (g2 << 8) | b).toString(16).padStart(6, '0')}`;
+}
 
 /**
  * One wardrobe as a sheet. `n` indexes WARDROBE; the driver's uniform
@@ -170,6 +293,7 @@ export function makeActorSkin(makeTex, n = 0) {
     put(atlas.shoe, '#23262a');
     put(atlas.face, w.skin);
     put(atlas.hair, w.hair);
+    paintFace(g, atlas.face, w, n);
     /* A placket down the chest panel, so which way somebody is facing
        is unmistakable from across a very large room. */
     g.fillStyle = dark(w.shirt, 0.72);
@@ -252,6 +376,14 @@ export function drawActor(rz, M, a, shade) {
   setPosYaw(_b, a.x, a.y + an.bob - drop, a.z, a.yaw);
   setRotX(_r, -an.lean * (1 - sit) + sit * 0.06);
   mul(_b, _b, _r);
+  /* BUILD. One non-uniform scale on the root, so a shared mesh comes
+     out as somebody short and wide or tall and spare. It has to be
+     applied here rather than baked, because every actor in the level
+     draws the same twelve meshes. See BUILDS. */
+  if (a.build) {
+    setScale(_r, a.build.w, a.build.h, a.build.w);
+    mul(_b, _b, _r);
+  }
   const opt = { shade };
 
   const part = (mesh, fn) => {

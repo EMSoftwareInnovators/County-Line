@@ -32,7 +32,7 @@ import { PSTATE } from './crowd.js';
 import { DSTATE } from './drivers.js';
 import { CALL } from './pa.js';
 import { ROUTE_BY_ID, clockAt } from './routes.js';
-import { OPEN_JOBS, CLOSE_JOBS, PHASE, WORKING_ZONES } from './shift.js';
+import { OPEN_JOBS, CLOSE_JOBS, PHASE, WORKING_ZONES, PUBLIC_DOORS } from './shift.js';
 
 const nothing = (st) => ({ text: st.name, sub: '', action: null, hold: 0 });
 
@@ -501,8 +501,50 @@ const HANDLERS = {
  * conveyor -- are WRAPPED rather than replaced, so power.js keeps its
  * stations and an incident on one of them still shows through.
  */
+/**
+ * The opening and closing job, put on the doors themselves.
+ *
+ * It was on the mat inside them, and the mat is a box three feet tall
+ * lying on the floor with a pair of eight-foot doors standing in it --
+ * so the doors won the reticle every time and the only prompt the
+ * player ever saw there was "Open the front door", which was refused
+ * because they were bolted. A job you cannot find is a job that does
+ * not exist, and this one was reported as exactly that.
+ *
+ * The door's own describe is WRAPPED rather than replaced, so that
+ * outside the two moments the shift wants something the doors go on
+ * being doors.
+ */
+function bindDoors(level, shift) {
+  for (const id of PUBLIC_DOORS) {
+    const d = level.doorById && level.doorById(id);
+    if (!d || !d.interactable) continue;
+    const prev = d.interactable.describe;
+    d.interactable.describe = (c) => {
+      if (shift.wants('doors')) {
+        return {
+          text: 'Unlock the front doors',
+          sub: 'and prop them, the way they stay all night',
+          action: () => shift.finish('doors'),
+          hold: 0.8,
+        };
+      }
+      if (shift.wants('lock')) {
+        return {
+          text: 'Lock the front doors',
+          sub: 'nobody else is getting on anything tonight',
+          action: () => shift.finish('lock'),
+          hold: 0.8,
+        };
+      }
+      return prev(c);
+    };
+  }
+}
+
 export function bindShift(level, shift, ctx) {
   void ctx;
+  bindDoors(level, shift);
   for (const [id, st] of level.stations) {
     const prev = st.handler;
     let mine = HANDLERS[id] || null;

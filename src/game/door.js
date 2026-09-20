@@ -28,8 +28,23 @@ import { SCALE } from '../engine/units.js';
 /** How far a leaf swings, in radians. About 100 degrees: it clears the
     opening completely and stops before it hits the wall behind it. */
 const SWING = 1.75;
-/** Below this, the doorway is still blocked. A door is shut or it is not. */
-const CLEAR_AT = 0.30;
+/**
+ * How far open before a body can actually get through the doorway.
+ *
+ * WHAT THIS MEANS CHANGED. It used to be the whole of the door's
+ * physics: below it the doorway was one solid box, above it there was
+ * nothing at all -- so at 0.30, with the leaf a third of the way
+ * through a hundred-degree swing and still covering most of the
+ * opening, the door stopped existing and everybody walked through the
+ * picture of it. That is what "NPCs phase through doors" was.
+ *
+ * The leaves are their own colliders now, so this is no longer what
+ * stops anyone. It is the QUESTION "is this doorway passable", asked
+ * by the debug overlay and by anything that wants to know without
+ * casting a ray, and the honest answer is the angle at which a body
+ * actually fits past the leaf -- about eighty degrees, measured.
+ */
+const CLEAR_AT = 0.78;
 
 export class Door {
   /**
@@ -135,29 +150,97 @@ export class Door {
   /* ---------------- collision ---------------- */
 
   /** The box that stands in the opening while the door is shut. */
+  /**
+   * The part of the opening the leaf is STILL IN THE WAY OF.
+   *
+   * ------------------------------------------------------------
+   * THE BUG THIS REPLACES. A door used to be one box across the whole
+   * opening, present while `amount <= 0.30` and gone above it -- so a
+   * leaf thirty percent through a hundred-degree swing, still covering
+   * most of the doorway, stopped colliding with anything. For the
+   * remaining seventy percent of the swing the leaf was a picture. You
+   * could walk through it, and so could everybody else, which is what
+   * "NPCs phase through doors" was: not a pathing fault and not an
+   * animation fault, a collider that left early.
+   *
+   * A swinging leaf cannot be an axis-aligned box, and this world only
+   * has axis-aligned boxes. What it CAN be is the width of the opening
+   * the leaf still spans: a leaf at angle t covers cos(t) of its own
+   * width, measured out from its hinge. That is exact in plan for the
+   * span it blocks, wrong only about the leaf's diagonal reach into the
+   * room behind it, and nobody has ever noticed a door not catching
+   * their elbow.
+   * ------------------------------------------------------------
+   */
   makeSolid() {
-    const [rx, rz] = this.right;
-    const hw = this.width / 2, t = Math.max(0.09, this.thickness * 2);
-    const x0 = this.x - Math.abs(rx) * hw - Math.abs(rz) * t / 2;
-    const x1 = this.x + Math.abs(rx) * hw + Math.abs(rz) * t / 2;
-    const z0 = this.z - Math.abs(rz) * hw - Math.abs(rx) * t / 2;
-    const z1 = this.z + Math.abs(rz) * hw + Math.abs(rx) * t / 2;
-    this.solid = {
-      x0, x1, z0, z1,
-      y0: this.y, y1: this.y + this.height,
-      tag: 'door', door: this, walkable: false,
-    };
+    this.solids = [];
+    this.fitSolid();
+    /* Kept for anything that still wants "the door's box": the first
+       leaf, which for a single door is the whole of it. */
+    this.solid = this.solids[0];
     return this.solid;
   }
 
-  /** Called once a frame by the level: shut doors block, open ones do not. */
-  contributeSolids(out) {
-    if (!this.solid) this.makeSolid();
-    if (!this.clear) out.push(this.solid);
+  /**
+   * Put a collider where each leaf actually is. Called every frame.
+   *
+   * ONE BOX PER LEAF, and that is the whole reason this is a list. A
+   * pair of doors half open is blocked at BOTH jambs with a gap in the
+   * middle -- blocked, open, blocked -- and no single axis-aligned box
+   * says that. Trying to make one say it produced a front door that
+   * was shut and walkable, which is worse than the bug it replaced.
+   */
+  fitSolid() {
+    if (!this.solids) this.solids = [];
+    const [rx, rz] = this.right;
+    const t = Math.max(0.09, this.thickness * 2);
+    const hw = this.width / 2;
+    const leafW = this.width / this.leaves;
+    /* how much of its own width a leaf still spans, swung out by SWING */
+    const span = leafW * Math.cos(SWING * this.amount);
+    const want = [];
+    for (let i = 0; i < this.leaves; i++) {
+      /* where this leaf's hinge is, and which way it closes */
+      let hinge, dir;
+      if (this.leaves === 2) {
+        hinge = i === 0 ? -hw : hw;
+        dir = i === 0 ? 1 : -1;
+      } else {
+        hinge = this.hinge === 'x1' ? hw : -hw;
+        dir = this.hinge === 'x1' ? -1 : 1;
+      }
+      const a = hinge, b = hinge + dir * span;
+      want.push([Math.min(a, b), Math.max(a, b)]);
+    }
+    this.solids.length = want.length;
+    for (let i = 0; i < want.length; i++) {
+      const [a, b] = want[i];
+      const s = this.solids[i] || (this.solids[i] = {
+        x0: 0, x1: 0, z0: 0, z1: 0, y0: 0, y1: 0,
+        tag: 'door', door: this, walkable: false,
+      });
+      const cx0 = this.x + rx * a, cx1 = this.x + rx * b;
+      const cz0 = this.z + rz * a, cz1 = this.z + rz * b;
+      s.x0 = Math.min(cx0, cx1) - Math.abs(rz) * t / 2;
+      s.x1 = Math.max(cx0, cx1) + Math.abs(rz) * t / 2;
+      s.z0 = Math.min(cz0, cz1) - Math.abs(rx) * t / 2;
+      s.z1 = Math.max(cz0, cz1) + Math.abs(rx) * t / 2;
+      s.y0 = this.y; s.y1 = this.y + this.height;
+    }
+    this.solid = this.solids[0];
   }
 
-  /** The box the interaction ray tests against. Wider than the leaf, so
-      looking at a doorway from an angle still offers the door. */
+  contributeSolids(out) {
+    if (!this.solids) this.makeSolid();
+    /* A leaf is in the way until it is out of the way, so this is
+       contributed at every amount below fully open rather than only
+       while shut. */
+    if (this.amount >= 0.995) return;
+    this.fitSolid();
+    for (let i = 0; i < this.solids.length; i++) out.push(this.solids[i]);
+  }
+
+  /** The box the reticle looks for: the opening, plus a little either side. */
   interactBox() {
     const [rx, rz] = this.right;
     const hw = this.width / 2 + 0.15;
@@ -171,8 +254,6 @@ export class Door {
       z1: this.z + Math.abs(rz) * hw + Math.abs(rx) * dep,
     };
   }
-
-  /* ---------------- rendering ---------------- */
 
   /**
    * Where each leaf is, right now.

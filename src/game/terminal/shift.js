@@ -58,6 +58,7 @@ import { PublicAddress, Telephone, CALL } from './pa.js';
 import { IncidentPool } from './incidents.js';
 import { rng, ARCHETYPES } from './people.js';
 import { conversation } from './counter.js';
+import { separate } from '../npc.js';
 
 /** Terminal minutes per real second. 300 minutes in 40 real ones. */
 export const RATE = 300 / (40 * 60);
@@ -129,6 +130,11 @@ export const CLOSE_JOBS = [
 ];
 
 /** The zones a working terminal has lit, and what the opening job wants. */
+/** The doors the public comes in by, which are bolted out of hours. */
+export const PUBLIC_DOORS = ['central-front'];
+/** The ones staff use, which are only ever propped or not. */
+export const SERVICE_DOORS = ['central-westhall', 'west-side'];
+
 export const WORKING_ZONES = [
   'lobby', 'west-front', 'east-front', 'clerk',
   'west-rear', 'east-rear', 'platform',
@@ -161,12 +167,12 @@ export class Shift {
     this.drawer = new Drawer(OPENING_FLOAT);
     this.crowd = new Crowd(this.level, {
       seed: (deps.seed || 19981020) + 7,
-      skins: 6,
+      skins: 12,
       onWindow: (p) => this._openSale(p),
       onGrumble: (p) => this._grumble(p),
     });
     this.crew = new CrewRoom(this.level, {
-      r: this.r, skins: 6,
+      r: this.r, skins: 12,
       onAsk: (drv, what) => this.d.toast(`${drv.name} is ${what}.`),
     });
     this.pa = new PublicAddress({
@@ -239,6 +245,9 @@ export class Shift {
       this.power.system.revision++;
       this.power.apply();
     }
+    /* Bolted until the clerk opens up, which is what makes the first
+       job a job. */
+    this.setDoors(false);
     this.log('Came on at eight.');
     return this;
   }
@@ -339,6 +348,13 @@ export class Shift {
 
     this.crowd.update(dt, ctx);
     this.crew.update(dt, ctx);
+    /* AFTER EVERYONE HAS MOVED, and here rather than in game.js: the
+       crowd is the shift's, and anything that drives a shift -- the
+       game loop, a harness, whatever comes later -- has to get the same
+       people out of each other. Putting it in the renderer's update
+       meant the only thing that separated a line was the one code path
+       nothing tests. See npc.js/separate. */
+    separate(this.actors(), ctx && ctx.player, ctx);
     this.pa.update(dt);
     this.phone.update(dt);
     this.incidents.tick(this.now, (this.now - was), this._busy());
@@ -594,8 +610,30 @@ export class Shift {
    * the front doors, and then six passengers standing in a lobby
    * doorway at ten to nine with a coach fifty yards away.
    */
+  /**
+   * Open the terminal up, or shut it.
+   *
+   * THE FRONT DOORS ARE ACTUALLY LOCKED, which they were not. "Unlock
+   * the front doors" used to be a job that recorded itself and changed
+   * nothing you could see: the doors were never bolted, so there was
+   * nothing to unlock, and the only place the job could be done was a
+   * floor mat whose prompt the doors themselves took off the reticle.
+   * It read, correctly, as a job with no way to do it.
+   *
+   * Now the public doors start bolted and the job is done AT THE DOOR,
+   * which is where somebody unlocking a door stands. The two service
+   * doors are only propped -- staff doors are not bolted against staff.
+   */
   setDoors(open) {
-    for (const id of ['central-front', 'central-westhall', 'west-side']) {
+    for (const id of PUBLIC_DOORS) {
+      const d = this.level.doorById && this.level.doorById(id);
+      if (!d) continue;
+      d.locked = !open;
+      d.lockedText = 'Bolted. Opening up is the first job of the night.';
+      d.target = open ? 1 : 0;
+      d.amount = d.target;
+    }
+    for (const id of SERVICE_DOORS) {
       const d = this.level.doorById && this.level.doorById(id);
       if (!d) continue;
       d.locked = false;

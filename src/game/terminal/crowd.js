@@ -27,6 +27,7 @@
    ordinary in a bus station.
    ============================================================ */
 import { Npc } from '../npc.js';
+import { BUILDS, bodyOf } from '../actor.js';
 import { rollPassenger, paymentFor, rng } from './people.js';
 
 export const PSTATE = {
@@ -82,6 +83,14 @@ export class Passenger {
       state: null,
     });
     this.npc.skin = spec.skin === undefined ? 0 : spec.skin;
+    /* NOBODY IS THE SAME SIZE. The body is a shared mesh drawn at a
+       per-person scale, and the collider follows it -- a heavy man
+       takes up more of a line than a slight one, and a line of six is
+       the place you would notice if he did not. */
+    const body = bodyOf(spec.build === undefined ? 0 : spec.build);
+    this.npc.build = body;
+    this.npc.r = body.r;
+    this.npc.height = body.height;
     this.npc.owner = this;
   }
 
@@ -122,6 +131,7 @@ export class Passenger {
       seat: this.seat, place: this.place, g: this.grumbles,
       x: this.npc.x, y: this.npc.y, z: this.npc.z, yaw: this.npc.yaw,
       k: this.npc.skin,
+      b: this.npc.build ? BUILDS.findIndex((x) => x.id === this.npc.build.id) : 2,
     };
   }
 }
@@ -183,6 +193,7 @@ export class Crowd {
     const p = new Passenger({
       id: this.nextId++, req, at,
       skin: Math.floor(this.r() * this.skins),
+      build: Math.floor(this.r() * BUILDS.length),
     });
     this.people.push(p);
     p.goTo(this.places.entrance, ctx);
@@ -318,6 +329,7 @@ export class Crowd {
       const p = new Passenger({
         id: this.nextId++, req, at: { ...at, y: at.y || 0 },
         skin: Math.floor(this.r() * this.skins),
+        build: Math.floor(this.r() * BUILDS.length),
       });
       p.setState(PSTATE.LEAVING);
       this.people.push(p);
@@ -442,7 +454,7 @@ export class Crowd {
       const p = new Passenger({
         id: r.id, req: r.req,
         at: { x: r.x, y: r.y, z: r.z, yaw: r.yaw },
-        skin: r.k,
+        skin: r.k, build: r.b,
       });
       p.state = r.s;
       p.waited = r.w || 0;
