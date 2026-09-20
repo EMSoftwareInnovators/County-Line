@@ -501,17 +501,24 @@ section('campaign');
 {
   const c = new Campaign(TEST_CAMPAIGN);
   check('a campaign starts idle', c.phase === PHASE.IDLE);
-  /* Stage 2 moved the technical shift onto the Old Academy, which is the
-     level there now is. It still carries no story: the objectives are
-     "get upstairs" and "step outside", which are tests of the
-     architecture and nothing else. */
-  check('the test campaign has one shift, on the Old Academy',
-    TEST_CAMPAIGN.length === 1 && TEST_CAMPAIGN.shift(0).level === 'academy',
-    `${TEST_CAMPAIGN.length} shift(s) on ${TEST_CAMPAIGN.shift(0).level}`);
-  check('and no story in it',
-    !JSON.stringify(TEST_CAMPAIGN).match(/bus|coach|ghost|passenger|ticket|baggage|scare/i));
+  /* THE SHAPE OF A PLAYTHROUGH. Stage 2 put the technical shift on the
+     Old Academy; Stage 3 put a training room in front of it, because a
+     building of twenty-seven rooms cannot be learned while it is
+     running. So the campaign is two shifts: the lesson, then the night. */
+  check('the campaign is the training room and then the Old Academy',
+    TEST_CAMPAIGN.length === 2
+    && TEST_CAMPAIGN.shift(0).level === 'training'
+    && TEST_CAMPAIGN.shift(1).level === 'academy',
+    `${TEST_CAMPAIGN.length} shift(s): ${TEST_CAMPAIGN.shifts.map((x) => x.level).join(', ')}`);
+  /* The campaign may now say "sell a ticket", because selling a ticket
+     is the job. What it may not say is anything from the stage after
+     this one -- see the brief, which is explicit about it. */
+  check('and none of the next stage in it',
+    !JSON.stringify(TEST_CAMPAIGN).match(/117|ghost|haunt|scare|anomal|apparition/i));
 
-  c.start(0, {});
+  /* Objectives are tested on the NIGHT shift, which is the one that has
+     the pair of architectural ones on it. */
+  c.start(1, {});
   check('starting makes it active', c.phase === PHASE.ACTIVE);
   check('and it has objectives to track', c.remainingObjectives().length === 2,
     String(c.remainingObjectives().length));
@@ -536,8 +543,13 @@ section('campaign');
   check('and refuses nonsense without throwing', c2.fromJSON(null) === false);
   const c3 = new Campaign(TEST_CAMPAIGN);
   c3.fromJSON({ index: 999, phase: 'NOPE', elapsed: 'lots', flags: 'no' });
+  /* CLAMPED INTO RANGE, not clamped to zero. A shift index of 999 in a
+     two-shift campaign is the last shift, which is what clamping means;
+     asserting 0 only passed while there was one shift to clamp to. */
   check('a garbled state is clamped rather than trusted',
-    c3.index === 0 && c3.phase === PHASE.IDLE && c3.elapsed === 0 && typeof c3.flags === 'object');
+    c3.index >= 0 && c3.index < TEST_CAMPAIGN.length
+    && c3.phase === PHASE.IDLE && c3.elapsed === 0 && typeof c3.flags === 'object',
+    `index ${c3.index}, phase ${c3.phase}, elapsed ${c3.elapsed}`);
 
   const timed = new Campaign(new CampaignDef({
     id: 't', name: 't',

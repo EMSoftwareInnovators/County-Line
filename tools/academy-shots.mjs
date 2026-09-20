@@ -10,7 +10,7 @@
    architecture-review mode with the CRT off. See the note at the loop.
    ============================================================ */
 import fs from 'node:fs';
-import { launch, openGame } from './browser.mjs';
+import { launch, openGame, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -53,7 +53,7 @@ const page = await openGame(browser, PORT);
 fs.mkdirSync(OUT, { recursive: true });
 fs.mkdirSync(`${OUT}/review`, { recursive: true });
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(700);
 await page.evaluate(() => {
   window.__game.ui.setHudVisible(false);

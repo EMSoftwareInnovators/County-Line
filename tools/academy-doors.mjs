@@ -22,7 +22,7 @@
    and then walks the canonical connections for real, through the leaf,
    turning around and closing behind.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -32,7 +32,7 @@ const page = await openGame(browser, PORT);
 const check = checker();
 const M = (m) => m / 0.3048;
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(700);
 
 /* ============================================================

@@ -18,7 +18,7 @@
    minutes, and a harness that takes forty minutes is a harness nobody
    runs. tools/play.mjs walks; this one reaches.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 /* THE WINDOW IS A CONVERSATION and this harness has no hands on the
    arrow keys, so it says the top line of the box directly rather than
@@ -33,7 +33,7 @@ if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0);
 const page = await openGame(browser, PORT);
 const check = checker();
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(900);
 
 /* ============================================================
@@ -326,6 +326,7 @@ console.log('\n-- putting it down and picking it up --');
 const round = await page.evaluate(async () => {
   const g = window.__game;
   g.newGame();
+  if (g.training) g.finishTraining();     // the night, not the lesson
   await new Promise((r) => setTimeout(r, 400));
   const sh = g.shift;
   const ctx = g.ctx();

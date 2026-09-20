@@ -153,9 +153,20 @@ export function conversation(sh, close) {
 /** How far from the window the box survives, in meters. */
 const LEAN = 2.6;
 
+/**
+ * Whoever owns the window here.
+ *
+ * A Shift on a night, the training room on the lesson. Both keep the
+ * same six things conversation() reads -- who is at the window, the
+ * sale, a log, a toast, a way to clear the window and a drawer -- which
+ * is the whole reason the box works in a room with no timetable in it.
+ */
+const hostOf = (game) => game.shift || game.training || null;
+
 /** Open the box on whoever is at the window. Called by the station. */
 export function openTalk(game) {
-  const spec = game.shift && conversation(game.shift, () => game.ui.talk.close());
+  const host = hostOf(game);
+  const spec = host && conversation(host, () => game.ui.talk.close());
   if (spec) game.ui.talk.show(spec);
 }
 
@@ -193,7 +204,8 @@ export function updateTalk(game, input) {
      at the counter is not walking off mid-sentence. */
   const t = game.level.interact.target;
   const elsewhere_ = t && t.id !== 'station:ticket-counter';
-  const spec = game.shift ? conversation(game.shift, () => talk.close()) : null;
+  const host = hostOf(game);
+  const spec = host ? conversation(host, () => talk.close()) : null;
   if (!spec || !near || elsewhere_) { talk.close(); return false; }
   talk.show(spec);
 

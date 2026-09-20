@@ -12,7 +12,7 @@
    reach the floor above, and that the overall footprint is still the
    size the measured plan says it is.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -25,7 +25,7 @@ if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0);
 const page = await openGame(browser, PORT);
 const check = checker();
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(700);
 check('the Old Academy is the level that loads',
   (await page.evaluate(() => window.__game.level.id)) === 'academy',

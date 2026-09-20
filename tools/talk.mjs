@@ -11,7 +11,7 @@
    window, press E to open it, arrow down the list, press E to say the
    line, walk to the register, and back.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -21,7 +21,7 @@ const browser = await launch(which);
 if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0); }
 const page = await openGame(browser, PORT);
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(600);
 
 /* Open the terminal and run it until somebody is at the window. */

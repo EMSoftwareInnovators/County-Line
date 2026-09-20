@@ -37,12 +37,8 @@ import { SaveGame, Profile } from './save.js';
 import { Campaign, TEST_CAMPAIGN, PHASE } from './campaign.js';
 import { Sfx } from './sfx.js';
 import { Debug } from './debug.js';
-import { Power } from './terminal/power.js';
-import { Fleet } from './terminal/fleet.js';
-import { Shift, PHASE as SHIFT } from './terminal/shift.js';
-import { bindShift } from './terminal/stations.js';
-import { TerminalSound } from './terminal/sound.js';
-import { Tutorial } from './terminal/tutorial.js';
+import { PHASE as SHIFT } from './terminal/shift.js';
+import { buildTerminalSystems } from './terminal/setup.js';
 import { openTalk, updateTalk } from './terminal/counter.js';
 
 /** Every image-degradation stage off. See the note at the call site. */
@@ -56,6 +52,7 @@ import { graphFromLevel } from './nav.js';
 import { buildMaterials } from '../world/materials.js';
 import { buildLevel } from '../world/level.js';
 import { testbed } from '../world/levels/testbed.js';
+import { training } from '../world/levels/training.js';
 import { academy } from '../world/levels/academy/index.js';
 
 export const ST = {
@@ -75,7 +72,7 @@ export const ST = {
  * better place to find an engine bug than a historic building is. It is
  * not part of the game.
  */
-const LEVELS = { testbed, academy };
+const LEVELS = { testbed, training, academy };
 
 export class Game {
   constructor(canvas) {
@@ -243,57 +240,7 @@ export class Game {
     this.level = buildLevel(def, this.materials);
     this.nav = graphFromLevel(this.level);
     this.player = createPlayer(this.level.spawn);
-    /* ---- the building's electricity ----
-       Built from the schedule the level declared, and only if it
-       declared one: the testbed has no breaker panel and does not need
-       to pretend it has. */
-    this.power = this.level.circuits.length ? new Power(this.level, {
-      onTrip: (c) => this.onCircuitTrip(c),
-      toast: (t) => this.ui.toast(t),
-    }) : null;
-    if (this.power) {
-      this.power.openForBusiness();
-      this.power.bind(this.level, this.ctx());
-      this.power.apply();
-    }
-    /* ---- the coaches ----
-       One mesh, built once, and a matrix per bus. The fleet adds itself
-       to level.movers, so a coach standing at a berth is eight and a
-       half feet of solid on the apron like anything else. */
-    this.fleet = new Fleet(this.materials, this.level);
-
-    /* ---- and the night's work ----
-       Only for a level that has a terminal in it. The testbed has a
-       crate and a test actor and does not need a timetable. */
-    this.shift = this.level.stations.has('ticket-counter')
-      ? new Shift({
-        level: this.level,
-        power: this.power,
-        fleet: this.fleet,
-        ctx: () => this.ctx(),
-        toast: (t, k) => this.ui.toast(t, k),
-        say: (line) => this.ui.toast(line, 'pa'),
-        talk: () => openTalk(this),
-        sfx: (cue, pan) => { if (this.sfx[cue]) this.sfx[cue](pan || 0); },
-        seed: 19981020,
-      })
-      : null;
-    if (this.shift) {
-      /* The chime before the clerk speaks, which is the sound a
-         terminal makes more than any other. */
-      this.shift.pa.opt.onStart = () => this.sfx.paChime(0);
-      this.shift.phone.opt.onRing = (c) => {
-        this.ui.toast(`The telephone is ringing in the office. (${c.who})`);
-        this.sfx.phoneRing(0);
-      };
-      this.terminalSound = new TerminalSound();
-    }
-    if (this.shift) bindShift(this.level, this.shift, this.ctx());
-    /* ---- the walkthrough ----
-       Built whenever there is a shift to be walked through; whether it
-       actually RUNS is decided at newGame(), because it is a thing that
-       happens on a first night and not on a reload. */
-    this.tutorial = this.shift ? new Tutorial() : null;
+    buildTerminalSystems(this);
     this.roomLights = {};
     for (const r of this.level.rooms) this.roomLights[r.id] = true;
     this.level.chunkShade = {};
@@ -305,9 +252,9 @@ export class Game {
 
   /** Everybody in the world this frame: test actors, passengers, crew. */
   allActors() {
-    const tour = this.tutorial ? this.tutorial.actors() : [];
-    if (!this.shift || !this.shift.running) return this.npcs.concat(tour);
-    return this.npcs.concat(this.shift.actors(), tour);
+    const extra = this.training ? this.training.actors() : [];
+    if (!this.shift || !this.shift.running) return this.npcs.concat(extra);
+    return this.npcs.concat(this.shift.actors(), extra);
   }
 
   spawnNpcs() {
@@ -496,14 +443,23 @@ export class Game {
     this.loadLevel(this.campaign.def.shift(0).level);
     this.campaign.start(0, this.ctx());
     this.beginPlay();
-    /* AFTER beginPlay, because the shift has to be running before the
-       walkthrough can wait on its jobs. A first night only: Continue
-       restores whatever state the tour was left in, and a player who
-       has turned it off never meets the supervisor at all. */
-    if (this.tutorial && this.settings.get('walkthrough')) {
-      this.tutorial.start(this.ctx());
-    }
-    this.ui.toast('Test shift started');
+    this.ui.toast('Training room. Ask if you are not sure.');
+  }
+
+  /**
+   * The lesson is over: on to the real thing.
+   *
+   * The training room is the campaign's first shift, so finishing it is
+   * an ordinary advance -- the same call a finished night would make.
+   * Nothing about Richmond Central is special-cased here.
+   */
+  finishTraining() {
+    this.campaign.end('done', this.ctx());
+    if (!this.campaign.advance()) { this.renderTitle(); return; }
+    this.loadLevel(this.campaign.def.shift(this.campaign.index).level);
+    this.campaign.start(this.campaign.index, this.ctx());
+    this.beginPlay();
+    this.ui.toast('Eight o\'clock. Richmond Central.', 'good');
   }
 
   /** What this build can open: anything else in a save is a refusal. */
@@ -525,9 +481,7 @@ export class Game {
     if (this.power) this.power.restore(w.power);
     if (this.fleet && this.fleet.enabled) this.fleet.restore(w.fleet);
     if (this.shift && w.shift) this.shift.restore(w.shift, this.ctx());
-    if (this.tutorial && w.tutorial) {
-      this.tutorial.restore(w.tutorial, this.ctx());
-    }
+    if (this.training && w.training) this.training.restore(w.training);
     if (this.campaign.phase !== PHASE.ACTIVE) this.campaign.phase = PHASE.ACTIVE;
     this.beginPlay();
     this.ui.toast('Shift resumed');
@@ -566,7 +520,7 @@ export class Game {
       this.shift.checkZones();
       if (this.terminalSound) this.terminalSound.update(dt, this);
     }
-    if (this.tutorial && this.tutorial.running) this.tutorial.update(dt, this.ctx());
+    if (this.training && this.training.running) this.training.update(dt, this.ctx());
 
     const ctx = this.ctx();
     updatePlayer(this.player, dt, i, ctx);
@@ -591,10 +545,12 @@ export class Game {
     this.showPrompt(talking);
 
     this.checkObjectives();
-    if (this.shift && this.shift.running) {
+    if (this.training && this.training.running) {
+      this.ui.setClock('', 'TRAINING');
+      this.ui.setObjective(this.training.objective());
+    } else if (this.shift && this.shift.running) {
       this.ui.setClock(this.shift.clock, 'NIGHT CLERK');
-      const tour = this.tutorial && this.tutorial.running ? this.tutorial.objective() : '';
-      this.ui.setObjective(tour || this.shift.objective());
+      this.ui.setObjective(this.shift.objective());
     } else {
       this.ui.setClock(this.campaign.clockString(),
         this.campaign.shift ? this.campaign.shift.name.toUpperCase() : '');
@@ -685,7 +641,7 @@ export class Game {
     if (this.power) out.power = this.power.save();
     if (this.fleet && this.fleet.enabled) out.fleet = this.fleet.save();
     if (this.shift) out.shift = this.shift.save();
-    if (this.tutorial) out.tutorial = this.tutorial.save();
+    if (this.training) out.training = this.training.save();
     return out;
   }
 

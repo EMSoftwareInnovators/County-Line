@@ -207,6 +207,25 @@ export const TEST_CAMPAIGN = new CampaignDef({
   name: 'Technical Test',
   shifts: [
     {
+      /* THE LESSON, AND IT IS A SHIFT LIKE ANY OTHER.
+         A tutorial that is a separate mode is a tutorial that has to be
+         kept working separately. This one is the first entry in the
+         campaign: its own level, its own objectives, saved and resumed
+         by the same machinery as the night that follows it. Punching
+         out at the end of it advances the campaign, which loads
+         Richmond Central. See terminal/training.js. */
+      id: 'training',
+      name: 'Training Room',
+      level: 'training',
+      durationSeconds: 0,
+      clock: { startHour: 17, endHour: 18 },
+      objectives: [
+        { id: 'learn-the-counter', text: 'Sell a ticket' },
+        { id: 'learn-the-bags', text: 'Check a bag' },
+        { id: 'punch-out', text: 'Punch out' },
+      ],
+    },
+    {
       id: 'test-shift',
       name: 'Test Shift',
       level: 'academy',

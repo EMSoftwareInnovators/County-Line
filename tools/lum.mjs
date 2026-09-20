@@ -43,7 +43,7 @@
    picks where to stand and does not pick which way they are facing
    when they get there.
    ============================================================ */
-import { launch, openGame } from './browser.mjs';
+import { launch, openGame, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -53,7 +53,7 @@ const browser = await launch(which);
 if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0); }
 const page = await openGame(browser, PORT);
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(700);
 
 /* Three passes, and the FIRST ONE IS THE ONE THAT MATTERED.

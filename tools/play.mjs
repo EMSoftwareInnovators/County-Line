@@ -5,7 +5,7 @@
    object, because a controller that only works when called directly is
    not a controller.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -32,7 +32,9 @@ const hold = async (key, ms) => {
 const state = () => page.evaluate(() => window.__game.state);
 
 /* ---- start a shift through the menu, as a player would ---- */
-await page.keyboard.press('Enter');
+/* The night shift, not the training room: these are the Old
+   Academy's rooms, objectives and ambience. */
+await startNight(page);
 await page.waitForTimeout(500);
 check('ENTER on the title starts the test shift', (await state()) === 'PLAY', await state());
 

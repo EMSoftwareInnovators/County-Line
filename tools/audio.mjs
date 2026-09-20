@@ -6,7 +6,7 @@
    reaches the graph, and that a sound placed in the world pans and fades
    with distance.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -18,7 +18,9 @@ const check = checker();
 /* An AudioContext only starts from a user gesture. Give it one. */
 await page.mouse.click(400, 300);
 await page.waitForTimeout(400);
-await page.keyboard.press('Enter');
+/* The night shift, not the training room: these are the Old
+   Academy's rooms, objectives and ambience. */
+await startNight(page);
 await page.waitForTimeout(600);
 
 const graph = await page.evaluate(() => {

@@ -23,7 +23,7 @@
    arithmetic produces when the conveyor runs on top of the coffee
    maker. Nothing in it is supernatural and nothing in it is scripted.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -34,7 +34,7 @@ if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0);
 const page = await openGame(browser, PORT);
 const check = checker();
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(700);
 
 /* ============================================================

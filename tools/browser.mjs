@@ -98,17 +98,6 @@ export async function openGame(browser, port, opts = {}) {
   if (opts.mute !== false) {
     await page.evaluate(() => { window.__game.audio.setMuted(true); });
   }
-  /* NO WALKTHROUGH UNLESS A HARNESS ASKS FOR ONE.
-   *
-   * It is on by default for players, which means every harness that
-   * calls newGame() gets a supervisor walking the building, opening
-   * doors in front of them and narrating. That is correct for a first
-   * night and ruinous for a test: the door harness lost four checks to
-   * doors the supervisor had propped open. A harness that wants the
-   * tour turns it back on before newGame, as tools/tour.mjs does. */
-  if (opts.walkthrough !== true) {
-    await page.evaluate(() => { window.__game.settings.values.walkthrough = false; });
-  }
   page.logs = logs;
   return page;
 }
@@ -122,4 +111,26 @@ export function checker() {
   };
   check.fails = () => fails;
   return check;
+}
+
+/**
+ * Start a new game and skip straight to the night shift.
+ *
+ * A new game now opens in the TRAINING ROOM, which is the campaign's
+ * first shift and the right thing for a player. It is the wrong thing
+ * for a harness about Richmond Central, which would otherwise measure
+ * the lighting, the doorways and the coach yard of a thirty-four foot
+ * company back room.
+ *
+ * This takes the honest route rather than loading the level behind the
+ * campaign's back: it finishes the lesson the way punching out does,
+ * so anything that depends on the campaign having advanced is true.
+ * tools/training.mjs is what checks the lesson itself.
+ */
+export async function startNight(page) {
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.newGame();
+    if (g.training) g.finishTraining();
+  });
 }

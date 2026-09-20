@@ -202,7 +202,6 @@ export function settingsScreen(game) {
       action('Looking...', () => game.menu.show(lookScreen(game))),
       action('Picture...', () => game.menu.show(pictureScreen(game))),
       action('Controls...', () => game.menu.show(controlsScreen(game))),
-      action('Shift walkthrough...', () => game.menu.show(helpScreen(game))),
       action('Reset all settings', () => game.menu.show(confirmScreen(game,
         'RESET ALL SETTINGS?',
         'Volumes, sensitivity, invert look, resolution and the retro filter '
@@ -249,24 +248,6 @@ export function lookScreen(game) {
       slider('Field of view', () => (v.fieldOfView - 50) / 40,
         (x) => { v.fieldOfView = Math.round(50 + x * 40); touch(); },
         { value: () => `${v.fieldOfView}\u00b0` }),
-      action('Back', () => game.menu.back()),
-    ],
-  };
-}
-
-export function helpScreen(game) {
-  const S = game.settings;
-  const v = S.values;
-  const touch = () => { S.apply(game.systems()); game.persistSettings(); };
-  return {
-    title: 'SHIFT WALKTHROUGH',
-    blurb: 'On a new shift the day supervisor walks you round the building '
-      + 'and stands over you for the five opening jobs. Turning it off does '
-      + 'not change the job: the same five are still yours to find. You can '
-      + 'also end it at any point by telling them to get on with it.',
-    rows: () => [
-      toggle('Walk me round on a new shift', () => v.walkthrough,
-        (x) => { v.walkthrough = x; touch(); }),
       action('Back', () => game.menu.back()),
     ],
   };

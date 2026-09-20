@@ -12,7 +12,7 @@
    machine this is for, so the threshold is generous and the number itself
    is what is worth reading.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -32,7 +32,9 @@ if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0);
 const page = await openGame(browser, PORT);
 const check = checker();
 
-await page.keyboard.press('Enter');
+/* The night, not the lesson: these are the Old Academy's sightlines and
+   the training room is one room with two chunks in it. */
+await startNight(page);
 await page.waitForTimeout(700);
 
 const res = await page.evaluate(() => window.__game.raster.w + 'x' + window.__game.raster.h);

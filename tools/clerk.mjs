@@ -16,7 +16,7 @@
    of the opening procedure, a whole transaction at the window, and a
    coach boarded and sent -- with the keyboard.
    ============================================================ */
-import { launch, openGame, checker } from './browser.mjs';
+import { launch, openGame, checker, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -25,7 +25,7 @@ if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0);
 const page = await openGame(browser, PORT);
 const check = checker();
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(800);
 
 /* ============================================================

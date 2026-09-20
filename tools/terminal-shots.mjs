@@ -10,7 +10,7 @@
    off -- because the whole point of the retrofit is the difference.
    ============================================================ */
 import fs from 'node:fs';
-import { launch, openGame } from './browser.mjs';
+import { launch, openGame, startNight } from './browser.mjs';
 
 const which = process.argv[2] || 'chromium';
 const PORT = process.env.PORT || 8090;
@@ -55,7 +55,7 @@ if (!browser) { console.log(`SKIP  ${which} is not installed`); process.exit(0);
 const page = await openGame(browser, PORT);
 fs.mkdirSync(OUT, { recursive: true });
 
-await page.evaluate(() => { window.__game.newGame(); });
+await startNight(page);
 await page.waitForTimeout(700);
 
 /* Four coaches in the yard, berthed, with their rolls set: a terminal
